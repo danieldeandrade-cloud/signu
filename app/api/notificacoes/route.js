@@ -118,8 +118,6 @@ function htmlGestor(totalAtrasados, porServidor) {
       <tr>
         <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600">${nome}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;text-align:center;color:${bens.atrasados>0?'#dc2626':'#22c55e'};font-weight:700">${bens.atrasados}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;text-align:center;color:#d97706;font-weight:700">${bens.prazo}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;text-align:center">${bens.total}</td>
       </tr>
     `).join('');
 
@@ -136,9 +134,7 @@ function htmlGestor(totalAtrasados, porServidor) {
           <thead>
             <tr style="background:#f3f4f6">
               <th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase">Servidor</th>
-              <th style="padding:8px 12px;text-align:center;font-size:11px;color:#dc2626;text-transform:uppercase">Atrasados</th>
-              <th style="padding:8px 12px;text-align:center;font-size:11px;color:#d97706;text-transform:uppercase">Prazo 6m</th>
-              <th style="padding:8px 12px;text-align:center;font-size:11px;color:#6b7280;text-transform:uppercase">Total Alertas</th>
+              <th style="padding:8px 12px;text-align:center;font-size:11px;color:#dc2626;text-transform:uppercase">Em atraso (+15 dias)</th>
             </tr>
           </thead>
           <tbody>${resumo}</tbody>
@@ -225,9 +221,7 @@ export async function GET(request) {
     Object.entries(SERVIDORES_EMAIL).forEach(([nome]) => {
       const bens = porResponsavel[nome] || [];
       porServidorResumo[nome] = {
-        atrasados: bens.filter(b => b.status === 'ATRASADO').length,
-        prazo:     bens.filter(b => b.status === 'PRAZO 6 MESES').length,
-        total:     bens.length,
+        atrasados: bens.length, // só bens ATRASADO +15 dias sem análise chegam aqui
       };
     });
 
