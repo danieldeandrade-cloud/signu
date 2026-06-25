@@ -411,7 +411,7 @@ function DetalhesContent() {
   // ── Loading ──
   if (!lista || !row) {
     return (
-      <div style={{ className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" } }}>
+      <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
         <Sidebar/>
         <main style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16 }}>
           <div style={{ fontSize:40 }}>📋</div>
@@ -424,7 +424,7 @@ function DetalhesContent() {
 
   if (loading) {
     return (
-      <div style={{ className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" } }}>
+      <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
         <Sidebar/>
         <main style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:16 }}>
           <Ico.Spinner color={meta.color} size={32}/>
@@ -436,7 +436,7 @@ function DetalhesContent() {
 
   if (erroLoad || !bem) {
     return (
-      <div style={{ className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" } }}>
+      <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
         <Sidebar/>
         <main style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12 }}>
           <div style={{ fontSize:40 }}>⚠️</div>
@@ -458,7 +458,7 @@ function DetalhesContent() {
         @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
       `}</style>
 
-      <div style={{ className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" } }}>
+      <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
         <Sidebar/>
 
         <main className="signu-main">

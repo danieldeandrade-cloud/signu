@@ -367,7 +367,7 @@ export default function CadastroPage() {
   const progresso = totalNormais > 0 ? Math.round((preenchidos / totalNormais) * 100) : 0;
 
   return (
-    <div style={{ className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" } }}>
+    <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
         *{box-sizing:border-box}
