@@ -7,8 +7,21 @@
 // Para acionar manualmente: GET /api/notificacoes?secret=CRON_SECRET
 
 import { NextResponse } from 'next/server';
+import nodemailer from 'nodemailer';
 import { getAllRows } from '@/lib/googleSheets';
 import { SERVIDORES_EMAIL, GESTORES_EMAIL, getNomeResponsavel } from '@/lib/servidores';
+
+// Transporter Gmail — usa App Password (não senha normal)
+// Variáveis: GMAIL_USER=signu.sistema@gmail.com  GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+function criarTransporter() {
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+}
 
 const LISTAS = [
   { nome: 'CEGOC',     sheetName: 'Bens_CEGOC',         statusField: 'STATUS_DILIGENCIA' },
@@ -31,24 +44,18 @@ function semAnaliseRecente(item) {
 }
 
 async function enviarEmail({ para, assunto, html }) {
-  // Resend exige domínio verificado para enviar a terceiros.
-  // No plano gratuito, usa o domínio compartilhado do Resend como remetente.
-  // Para enviar de @tjdft.jus.br: verificar o domínio em resend.com/domains.
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({
-      from:    'SIGNU NULEJ <onboarding@resend.dev>',
-      to:      [para],
+  const transporter = criarTransporter();
+  try {
+    await transporter.sendMail({
+      from:    `"SIGNU · NULEJ" <${process.env.GMAIL_USER}>`,
+      to:      para,
       subject: assunto,
       html,
-    }),
-  });
-  const body = await res.json().catch(() => ({}));
-  return { ok: res.ok, status: res.status, detalhe: body };
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, detalhe: e.message };
+  }
 }
 
 function tabelaHtml(bens) {
@@ -165,8 +172,8 @@ export async function GET(request) {
     return NextResponse.json({ erro: 'Não autorizado' }, { status: 401 });
   }
 
-  if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json({ erro: 'RESEND_API_KEY não configurada' }, { status: 500 });
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    return NextResponse.json({ erro: 'GMAIL_USER ou GMAIL_APP_PASSWORD não configuradas' }, { status: 500 });
   }
 
   try {
