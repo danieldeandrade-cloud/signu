@@ -1,31 +1,34 @@
 "use client";
 import Sidebar from "@/components/Sidebar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
-// ─── DADOS MOCK ───────────────────────────────────────────────────────────────
-const LISTAS = [
-  { key:"CEGOC",        label:"CEGOC",    icon:"🏛️", color:"#3b82f6", bg:"#1e3a5f", total:628, atrasados:14, em_diligencia:312, aguardando:198 },
-  { key:"PCDF_1HIGEIA", label:"PCDF 1ª", icon:"🚔", color:"#a78bfa", bg:"#3b1f5f", total:576, atrasados:8,  em_diligencia:280, aguardando:210 },
-  { key:"PCDF_2HIGEIA", label:"PCDF 2ª", icon:"🚔", color:"#c084fc", bg:"#4a1f6f", total:227, atrasados:5,  em_diligencia:110, aguardando:89  },
-  { key:"DPJ_GC99",     label:"DPJ-GC99",icon:"⚖️", color:"#fb923c", bg:"#5f2a0e", total:245, atrasados:3,  em_diligencia:98,  aguardando:120 },
-  { key:"DOACOES",      label:"Doações", icon:"🤝", color:"#34d399", bg:"#064e3b", total:17,  atrasados:0,  em_diligencia:4,   aguardando:13  },
-  { key:"CAIXA_SEI",    label:"Caixa SEI",icon:"📬",color:"#fbbf24", bg:"#451a03", total:32,  atrasados:2,  em_diligencia:0,   aguardando:32  },
+// ─── CONFIG DAS LISTAS ────────────────────────────────────────────────────────
+const LISTAS_CONFIG = [
+  { key:"CEGOC",        rota:"cegoc",             label:"CEGOC",    icon:"🏛️", color:"#3b82f6", bg:"#1e3a5f", statusField:"STATUS_DILIGENCIA" },
+  { key:"PCDF_1HIGEIA", rota:"pcdf1",             label:"PCDF 1ª", icon:"🚔", color:"#a78bfa", bg:"#3b1f5f", statusField:"STATUS_DILIGENCIA" },
+  { key:"PCDF_2HIGEIA", rota:"pcdf2",             label:"PCDF 2ª", icon:"🚔", color:"#c084fc", bg:"#4a1f6f", statusField:"STATUS_DILIGENCIA" },
+  { key:"DPJ_GC99",     rota:"dpj",               label:"DPJ-GC99",icon:"⚖️", color:"#fb923c", bg:"#5f2a0e", statusField:"STATUS_DILIGENCIA" },
+  { key:"DOACOES",      rota:"doacoes_diligencia", label:"Doações", icon:"🤝", color:"#34d399", bg:"#064e3b", statusField:"STATUS_LOCAL_PA"   },
+  { key:"CAIXA_SEI",    rota:"sei",               label:"Caixa SEI",icon:"📬",color:"#fbbf24", bg:"#451a03", statusField:"ACAO"             },
 ];
 
-// Distribuição por TIPO DE BEM em cada lista
-const TIPOS_POR_LISTA = {
-  CEGOC:        { CARRO:241, MOTO:128, CAMINHONETE:97, CAMINHÃO:89, REBOQUE:48, OUTROS:25 },
-  PCDF_1HIGEIA: { CARRO:198, MOTO:87,  CAMINHONETE:142,CAMINHÃO:103,REBOQUE:32, OUTROS:14 },
-  PCDF_2HIGEIA: { CARRO:88,  MOTO:31,  CAMINHONETE:52, CAMINHÃO:41, REBOQUE:9,  OUTROS:6  },
-  DPJ_GC99:     { CARRO:112, MOTO:44,  CAMINHONETE:38, CAMINHÃO:29, REBOQUE:14, OUTROS:8  },
-  DOACOES:      { CARRO:7,   MOTO:3,   CAMINHONETE:4,  CAMINHÃO:2,  REBOQUE:1,  OUTROS:0  },
-  CAIXA_SEI:    { CARRO:14,  MOTO:6,   CAMINHONETE:7,  CAMINHÃO:3,  REBOQUE:2,  OUTROS:0  },
+// Distribuição por TIPO DE BEM — preenchida via API
+let TIPOS_POR_LISTA = {
+  CEGOC:        {},
+  PCDF_1HIGEIA: {},
+  PCDF_2HIGEIA: {},
+  DPJ_GC99:     {},
+  DOACOES:      {},
+  CAIXA_SEI:    {},
 };
 
 const TIPOS = ["CARRO","MOTO","CAMINHONETE","CAMINHÃO","REBOQUE","OUTROS"];
 const TIPO_ICON = { CARRO:"🚗", MOTO:"🏍️", CAMINHONETE:"🛻", CAMINHÃO:"🚛", REBOQUE:"🚜", OUTROS:"📦" };
 const TIPO_COLOR = { CARRO:"#3b82f6", MOTO:"#a78bfa", CAMINHONETE:"#34d399", CAMINHÃO:"#fb923c", REBOQUE:"#fbbf24", OUTROS:"#6b7280" };
 
+// Preview da fila — mantido estático no dashboard (a tela "Minha Fila" tem os dados reais)
 const MINHA_FILA_PREVIEW = [
   { id:"CEGOC-0142", tipo:"CARRO",       lista:"CEGOC",   status:"EM DILIGÊNCIA", dias:12, color:"#3b82f6" },
   { id:"CEGOC-0087", tipo:"MOTO",        lista:"CEGOC",   status:"ATRASADO",      dias:34, color:"#3b82f6" },
@@ -75,8 +78,8 @@ function BarH({ value, max, color, height=8 }) {
 }
 
 // ─── GRÁFICO DE BARRAS AGRUPADO (SVG puro, sem lib) ──────────────────────────
-function GraficoBarras({ filtroLista }) {
-  const listas = filtroLista === "TODAS" ? Object.keys(TIPOS_POR_LISTA) : [filtroLista];
+function GraficoBarras({ filtroLista, tiposPorLista }) {
+  const listas = filtroLista === "TODAS" ? Object.keys(tiposPorLista) : [filtroLista];
   const W = 520, H = 200, PADDING = { top:16, right:16, bottom:40, left:40 };
   const chartW = W - PADDING.left - PADDING.right;
   const chartH = H - PADDING.top - PADDING.bottom;
@@ -84,7 +87,7 @@ function GraficoBarras({ filtroLista }) {
   // Agrupa por tipo
   const dados = TIPOS.map(tipo => ({
     tipo,
-    total: listas.reduce((a, l) => a + (TIPOS_POR_LISTA[l]?.[tipo] || 0), 0),
+    total: listas.reduce((a, l) => a + (tiposPorLista[l]?.[tipo] || 0), 0),
   })).filter(d => d.total > 0);
 
   const maxVal = Math.max(...dados.map(d => d.total), 1);
@@ -137,11 +140,11 @@ function GraficoBarras({ filtroLista }) {
 }
 
 // ─── GRÁFICO ROSCA (SVG puro) ─────────────────────────────────────────────────
-function GraficoRosca({ filtroLista }) {
-  const listas = filtroLista === "TODAS" ? Object.keys(TIPOS_POR_LISTA) : [filtroLista];
+function GraficoRosca({ filtroLista, tiposPorLista }) {
+  const listas = filtroLista === "TODAS" ? Object.keys(tiposPorLista) : [filtroLista];
   const dados = TIPOS.map(tipo => ({
     tipo,
-    total: listas.reduce((a, l) => a + (TIPOS_POR_LISTA[l]?.[tipo] || 0), 0),
+    total: listas.reduce((a, l) => a + (tiposPorLista[l]?.[tipo] || 0), 0),
   })).filter(d => d.total > 0);
 
   const total = dados.reduce((a, d) => a + d.total, 0);
@@ -185,10 +188,10 @@ function GraficoRosca({ filtroLista }) {
 }
 
 // ─── TABELA DE TIPOS ──────────────────────────────────────────────────────────
-function TabelaTipos({ filtroLista }) {
+function TabelaTipos({ filtroLista, tiposPorLista, LISTAS }) {
   const listas = filtroLista === "TODAS"
-    ? Object.entries(TIPOS_POR_LISTA)
-    : [[filtroLista, TIPOS_POR_LISTA[filtroLista] || {}]];
+    ? Object.entries(tiposPorLista)
+    : [[filtroLista, tiposPorLista[filtroLista] || {}]];
 
   const maxTotal = Math.max(...TIPOS.map(t => listas.reduce((a, [, d]) => a + (d[t]||0), 0)), 1);
 
@@ -257,29 +260,74 @@ function TabelaTipos({ filtroLista }) {
 
 // ─── PÁGINA PRINCIPAL ─────────────────────────────────────────────────────────
 export default function InicioPage() {
+  const router = useRouter();
+  const { data: session } = useSession();
+  const primeiroNome = session?.user?.name?.split(" ")[0] || "";
+
+  const saudacao = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Bom dia";
+    if (h < 18) return "Boa tarde";
+    return "Boa noite";
+  })();
   const [hoveredCard, setHoveredCard] = useState(null);
   const [filtroLista, setFiltroLista] = useState("TODAS");
   const [abaRelatorio, setAbaRelatorio] = useState("barras");
+  const [listas, setListas] = useState(
+    LISTAS_CONFIG.map(c => ({ ...c, total:0, atrasados:0, em_diligencia:0, aguardando:0, carregando:true }))
+  );
+  const [tiposPorLista, setTiposPorLista] = useState(TIPOS_POR_LISTA);
+
+  // Busca dados de todas as listas em paralelo
+  useEffect(() => {
+    LISTAS_CONFIG.forEach(async (cfg) => {
+      try {
+        const res = await fetch(`/api/bens/${cfg.rota}`);
+        const json = await res.json();
+        const dados = json.dados || [];
+
+        // Contagens de status
+        const total       = dados.length;
+        const atrasados   = dados.filter(r => r[cfg.statusField] === "ATRASADO").length;
+        const em_diligencia = dados.filter(r => r[cfg.statusField] === "EM DILIGÊNCIA").length;
+        const aguardando  = dados.filter(r => r[cfg.statusField] === "AGUARDANDO").length;
+
+        // Distribuição por tipo
+        const tipos = {};
+        dados.forEach(r => {
+          const tipo = r.TIPO_BEM || "OUTROS";
+          tipos[tipo] = (tipos[tipo] || 0) + 1;
+        });
+
+        setListas(prev => prev.map(l => l.key === cfg.key
+          ? { ...l, total, atrasados, em_diligencia, aguardando, carregando:false }
+          : l
+        ));
+        setTiposPorLista(prev => ({ ...prev, [cfg.key]: tipos }));
+      } catch {
+        setListas(prev => prev.map(l => l.key === cfg.key ? { ...l, carregando:false } : l));
+      }
+    });
+  }, []);
+
+  // Usa listas carregadas no lugar do array estático
+  const LISTAS = listas;
 
   const totalGeral = LISTAS.reduce((a, l) => a + l.total, 0);
   const totalAtrasados = LISTAS.reduce((a, l) => a + l.atrasados, 0);
   const totalEmDiligencia = LISTAS.reduce((a, l) => a + l.em_diligencia, 0);
-  const taxaExecucao = Math.round((totalEmDiligencia / totalGeral) * 100);
+  const taxaExecucao = totalGeral > 0 ? Math.round((totalEmDiligencia / totalGeral) * 100) : 0;
 
   return (
-    <div style={{ display:"flex", height:"100vh", background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0", overflow:"hidden" }}>
+    <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
-        *{box-sizing:border-box}
-        ::-webkit-scrollbar{width:4px}
-        ::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.2);border-radius:4px}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
       `}</style>
 
       <Sidebar />
 
       {/* MAIN */}
-      <main style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <main className="signu-main">
         {/* Top bar */}
         <header style={{ height:56,borderBottom:"1px solid rgba(201,168,76,0.1)",background:"#0a1628",display:"flex",alignItems:"center",padding:"0 28px",justifyContent:"space-between",flexShrink:0 }}>
           <div>
@@ -298,47 +346,55 @@ export default function InicioPage() {
           </div>
         </header>
 
-        <div style={{ flex:1,overflow:"auto",padding:"24px 28px 40px" }}>
+        <div className="signu-content">
 
           {/* Saudação */}
           <div style={{ marginBottom:24 }}>
-            <h1 style={{ fontSize:20,fontWeight:700,color:"#fff",margin:0,letterSpacing:"-0.02em" }}>Bom dia, Carla 👋</h1>
+            <h1 style={{ fontSize:20,fontWeight:700,color:"#fff",margin:0,letterSpacing:"-0.02em" }}>
+              {primeiroNome ? `${saudacao}, ${primeiroNome} 👋` : `${saudacao} 👋`}
+            </h1>
             <p style={{ fontSize:13,color:"rgba(255,255,255,0.35)",margin:"4px 0 0" }}>Resumo operacional do NULEJ em tempo real.</p>
           </div>
 
           {/* KPI CARDS */}
-          <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24 }}>
+          <div className="signu-grid-4" style={{ marginBottom:24 }}>
             {[
               { label:"Total de Bens",   value:totalGeral,        icon:"📦", color:"#c9a84c", sub:"em 6 listas operacionais" },
               { label:"Em Diligência",   value:totalEmDiligencia, icon:"⚡", color:"#22c55e", sub:`${taxaExecucao}% taxa de execução` },
               { label:"Bens Atrasados",  value:totalAtrasados,    icon:"⚠️", color:"#f87171", sub:"+30 dias sem atualização" },
               { label:"Minha Fila",      value:4,                 icon:"📋", color:"#60a5fa", sub:"itens atribuídos a você" },
-            ].map(({ label,value,icon,color,sub }) => (
+            ].map(({ label,value,icon,color,sub }) => {
+              const ainda = listas.some(l => l.carregando) && label !== "Minha Fila";
+              return (
               <div key={label} style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:`1px solid ${color}22`,borderRadius:12,padding:"18px 20px",position:"relative",overflow:"hidden" }}>
                 <div style={{ position:"absolute",top:0,right:0,width:60,height:60,borderRadius:"0 12px 0 60px",background:`${color}08` }}/>
                 <div style={{ fontSize:22,marginBottom:8 }}>{icon}</div>
-                <div style={{ fontSize:28,fontWeight:800,color:"#fff",lineHeight:1,marginBottom:4 }}>{value.toLocaleString("pt-BR")}</div>
+                <div style={{ fontSize:28,fontWeight:800,color:"#fff",lineHeight:1,marginBottom:4 }}>
+                  {ainda ? <span style={{ fontSize:18,color:`${color}60` }}>…</span> : value.toLocaleString("pt-BR")}
+                </div>
                 <div style={{ fontSize:12,fontWeight:600,color,marginBottom:3 }}>{label}</div>
                 <div style={{ fontSize:11,color:"rgba(255,255,255,0.25)" }}>{sub}</div>
               </div>
-            ))}
+            );})}
           </div>
 
           {/* GRID: LISTAS + LATERAL */}
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 320px",gap:20,marginBottom:24 }}>
+          <div className="signu-grid-main" style={{ marginBottom:24 }}>
             <div>
               <div style={{ fontSize:11,fontWeight:700,color:"rgba(201,168,76,0.7)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14 }}>Listas Operacionais</div>
-              <div style={{ display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12 }}>
+              <div className="signu-grid-2">
                 {LISTAS.map((lista) => {
                   const pct = Math.round((lista.em_diligencia/lista.total)*100);
                   return (
-                    <div key={lista.key} onMouseEnter={()=>setHoveredCard(lista.key)} onMouseLeave={()=>setHoveredCard(null)} style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:`1px solid ${hoveredCard===lista.key?lista.color+"55":lista.color+"18"}`,borderRadius:12,padding:"16px 18px",cursor:"pointer",transition:"all 0.18s ease",transform:hoveredCard===lista.key?"translateY(-2px)":"none" }}>
+                    <div key={lista.key} onClick={() => router.push("/gestao")} onMouseEnter={()=>setHoveredCard(lista.key)} onMouseLeave={()=>setHoveredCard(null)} style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:`1px solid ${hoveredCard===lista.key?lista.color+"55":lista.color+"18"}`,borderRadius:12,padding:"16px 18px",cursor:"pointer",transition:"all 0.18s ease",transform:hoveredCard===lista.key?"translateY(-2px)":"none" }}>
                       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
                         <div style={{ display:"flex",alignItems:"center",gap:8 }}>
                           <span style={{ fontSize:18 }}>{lista.icon}</span>
                           <span style={{ fontSize:12,fontWeight:700,color:lista.color,background:lista.bg,padding:"2px 8px",borderRadius:4 }}>{lista.label}</span>
                         </div>
-                        <span style={{ fontSize:22,fontWeight:800,color:"#fff" }}>{lista.total.toLocaleString("pt-BR")}</span>
+                        <span style={{ fontSize:22,fontWeight:800,color:"#fff" }}>
+                          {lista.carregando ? <span style={{ fontSize:14,color:`${lista.color}60` }}>…</span> : lista.total.toLocaleString("pt-BR")}
+                        </span>
                       </div>
                       <div style={{ height:4,background:"rgba(255,255,255,0.06)",borderRadius:4,marginBottom:10,overflow:"hidden" }}>
                         <div style={{ height:"100%",width:`${pct}%`,background:lista.color,borderRadius:4 }}/>
@@ -360,7 +416,7 @@ export default function InicioPage() {
               <div style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"16px 18px" }}>
                 <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14 }}>
                   <div style={{ fontSize:11,fontWeight:700,color:"rgba(201,168,76,0.7)",textTransform:"uppercase",letterSpacing:"0.1em" }}>Minha Fila</div>
-                  <button style={{ fontSize:11,color:"#c9a84c",background:"none",border:"none",cursor:"pointer",fontWeight:600 }}>Ver todos →</button>
+                  <button onClick={() => router.push("/fila")} style={{ fontSize:11,color:"#c9a84c",background:"none",border:"none",cursor:"pointer",fontWeight:600 }}>Ver todos →</button>
                 </div>
                 {MINHA_FILA_PREVIEW.map(item => (
                   <div key={item.id} style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"rgba(255,255,255,0.03)",borderRadius:8,borderLeft:`3px solid ${item.color}`,marginBottom:6 }}>
@@ -415,11 +471,11 @@ export default function InicioPage() {
             {/* Conteúdo dinâmico */}
             {abaRelatorio === "barras" && (
               <div>
-                <GraficoBarras filtroLista={filtroLista}/>
+                <GraficoBarras filtroLista={filtroLista} tiposPorLista={tiposPorLista}/>
                 <div style={{ display:"flex",gap:12,marginTop:16,flexWrap:"wrap" }}>
                   {TIPOS.map(tipo => {
-                    const listas = filtroLista==="TODAS" ? Object.keys(TIPOS_POR_LISTA) : [filtroLista];
-                    const total = listas.reduce((a,l)=>a+(TIPOS_POR_LISTA[l]?.[tipo]||0),0);
+                    const chaves = filtroLista==="TODAS" ? Object.keys(tiposPorLista) : [filtroLista];
+                    const total = chaves.reduce((a,l)=>a+(tiposPorLista[l]?.[tipo]||0),0);
                     if(!total) return null;
                     return (
                       <div key={tipo} style={{ display:"flex",alignItems:"center",gap:6,background:`${TIPO_COLOR[tipo]}12`,border:`1px solid ${TIPO_COLOR[tipo]}30`,borderRadius:8,padding:"6px 12px" }}>
@@ -435,11 +491,11 @@ export default function InicioPage() {
 
             {abaRelatorio === "rosca" && (
               <div style={{ display:"grid",gridTemplateColumns:"auto 1fr",gap:32,alignItems:"center" }}>
-                <GraficoRosca filtroLista={filtroLista}/>
+                <GraficoRosca filtroLista={filtroLista} tiposPorLista={tiposPorLista}/>
                 <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10 }}>
                   {TIPOS.map(tipo => {
-                    const listas = filtroLista==="TODAS" ? Object.keys(TIPOS_POR_LISTA) : [filtroLista];
-                    const total = listas.reduce((a,l)=>a+(TIPOS_POR_LISTA[l]?.[tipo]||0),0);
+                    const chaves = filtroLista==="TODAS" ? Object.keys(tiposPorLista) : [filtroLista];
+                    const total = chaves.reduce((a,l)=>a+(tiposPorLista[l]?.[tipo]||0),0);
                     if(!total) return null;
                     const color = TIPO_COLOR[tipo];
                     return (
@@ -455,7 +511,7 @@ export default function InicioPage() {
             )}
 
             {abaRelatorio === "tabela" && (
-              <TabelaTipos filtroLista={filtroLista}/>
+              <TabelaTipos filtroLista={filtroLista} tiposPorLista={tiposPorLista} LISTAS={LISTAS}/>
             )}
           </div>
 

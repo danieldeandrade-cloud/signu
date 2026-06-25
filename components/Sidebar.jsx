@@ -54,32 +54,26 @@ export default function Sidebar({ user }) {
     ? nomeExibir.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
     : "??";
 
+  const itensVisiveis = NAV_ITEMS.filter(item => !item.somenteGestor || isGestor);
+
   return (
-    <aside style={{
-      width: 64,
-      background: "#0a1628",
-      borderRight: "1px solid rgba(201,168,76,0.1)",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      padding: "20px 0",
-      gap: 6,
-      flexShrink: 0,
-    }}>
-      {/* Logo */}
+    <aside className="signu-sidebar">
+      {/* Logo — oculto no mobile via CSS */}
       <div
+        className="signu-sidebar-logo"
         onClick={() => router.push("/inicio")}
         style={{
           width: 36, height: 36, borderRadius: 8,
           background: "linear-gradient(135deg,#c9a84c,#8b6914)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 16, color: "#0a1628", marginBottom: 10, cursor: "pointer",
+          flexShrink: 0,
         }}
         title="SIGNU — Início"
       >⚖</div>
 
       {/* Nav items */}
-      {NAV_ITEMS.filter(item => !item.somenteGestor || isGestor).map(({ href, label, icon }) => {
+      {itensVisiveis.map(({ href, label, icon }) => {
         const active = pathname === href || pathname.startsWith(href + "/");
         return (
           <button
@@ -94,6 +88,7 @@ export default function Sidebar({ user }) {
               display: "flex", alignItems: "center", justifyContent: "center",
               transition: "all 0.15s ease",
               outline: "none",
+              flexShrink: 0,
             }}
             onMouseEnter={e => {
               if (!active) e.currentTarget.style.color = "rgba(255,255,255,0.7)";
@@ -110,27 +105,30 @@ export default function Sidebar({ user }) {
         );
       })}
 
-      <div style={{ flex: 1 }}/>
+      {/* Spacer — oculto no mobile */}
+      <div className="signu-sidebar-spacer" style={{ flex: 1 }}/>
 
-      {/* Avatar do usuário */}
-      {fotoUrl ? (
-        <img
-          src={fotoUrl}
-          alt={nomeExibir}
-          title={nomeExibir}
-          style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid rgba(201,168,76,0.3)", cursor: "default", objectFit: "cover" }}
-        />
-      ) : (
-        <div
-          title={nomeExibir || "Usuário"}
-          style={{
-            width: 32, height: 32, borderRadius: "50%",
-            background: "linear-gradient(135deg,#1e40af,#3b82f6)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 11, fontWeight: 700, color: "#fff", cursor: "default",
-          }}
-        >{initials}</div>
-      )}
+      {/* Avatar — oculto no mobile */}
+      <div className="signu-sidebar-avatar">
+        {fotoUrl ? (
+          <img
+            src={fotoUrl}
+            alt={nomeExibir}
+            title={nomeExibir}
+            style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid rgba(201,168,76,0.3)", cursor: "default", objectFit: "cover" }}
+          />
+        ) : (
+          <div
+            title={nomeExibir || "Usuário"}
+            style={{
+              width: 32, height: 32, borderRadius: "50%",
+              background: "linear-gradient(135deg,#1e40af,#3b82f6)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 11, fontWeight: 700, color: "#fff", cursor: "default",
+            }}
+          >{initials}</div>
+        )}
+      </div>
     </aside>
   );
 }

@@ -1,6 +1,16 @@
 "use client";
 import Sidebar from "@/components/Sidebar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+// Mapa: chave da lista → rota da API
+const LISTA_API_MAP = {
+  CEGOC:        "cegoc",
+  DPJ_GC99:     "dpj",
+  PCDF_1HIGEIA: "pcdf1",
+  PCDF_2HIGEIA: "pcdf2",
+  DOACOES:      "doacoes_diligencia",
+  CAIXA_SEI:    "sei",
+};
 
 // ─── CONFIG DAS LISTAS ────────────────────────────────────────────────────────
 const LISTAS_CONFIG = [
@@ -18,12 +28,64 @@ const SERVIDORES = [
 ];
 
 const TIPOS_BEM    = ["CARRO","MOTO","CAMINHÃO","CAMINHONETE","REBOQUE","OUTROS"];
-const DESTINACOES  = ["EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD","CIRCULAÇÃO","RECICLAGEM"];
-const STATUS_DI    = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO"];
+const DESTINACOES  = ["CIRCULAÇÃO","RECICLAGEM"];
+const STATUS_DI    = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO","EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD"];
 const DEPOSITOS    = ["SELAB/PCDF","CPA/PCDF","CPA","CEGOC","5ªDP","23ªDP","30ªDP","33ªDP"];
 const ACOES_SEI    = ["DILIGÊNCIA","ARQUIVAR","ENCAMINHAR","AGUARDAR RETORNO","CONCLUIR"];
 const STATUS_LOCAL = ["EM ANÁLISE","AGUARDANDO ENTIDADE","CONCLUÍDO","CANCELADO"];
-const ENTIDADES    = ["Associação Beneficente São Lucas","Lar dos Idosos Santa Maria","ONG Criança Feliz","Centro Comunitário Vila Nova","APAE-DF"];
+// Edital de Chamamento nº 2/2024 — lista extraída em 24/06/2026 do site TJDFT
+// https://www.tjdft.jus.br/.../lista-de-entidades-credenciadas-edital-de-chamamento-no-2-2024
+const ENTIDADES = [
+  "1. Associação Casa de Proteção Magnólia - CPM",
+  "2. Projeto Integral de Vida - Pró-Vida",
+  "3. ASCOM - Associação Comunitária de São Sebastião - DF",
+  "4. Associação Capoeiristas do Rei",
+  "5. Instituto de Desenvolvimento da Educação e Implementação de Ações Sociais - IDEIAS Ser Escola",
+  "6. Associação de Pais e Amigos dos Excepcionais do DF - APAE/DF",
+  "7. Associação Brasília Inclusiva e Direitos Sociais - ABIDS",
+  "8. Associação Beneficente Luz do Dia - ABLD",
+  "9. Associação Evangelística Palavra de Bênção",
+  "10. Instituto Jovens Promessas",
+  "11. Instituto Horizontes de Responsabilidade Social - IHRS",
+  "12. Creche Criança Cidadã de Planaltina",
+  "13. Movimento Popular do Arapoanga pela Cidadania - MPA",
+  "14. Centro Esportivo Cultural de Planaltina - DF",
+  "15. Instituto de Integração e Formação do Ser Social",
+  "16. Movimento de Assistência aos Carentes da Metropolitana",
+  "17. Grupo Força para Vencer",
+  "18. Associação Evangélica Missão Resgate",
+  "19. Academia Gamense de Letras - AGL",
+  "20. Organização Viva Vida - OVV",
+  "21. Instituto Abba Pai",
+  "22. Organização Assistencial Amor sem Fronteira",
+  "23. Organização Social Ambiental da Fauna e Flora do Brasil",
+  "24. Associação de Moradores dos Bairros Santa Luiza e Cidade Nova",
+  "25. Comunidade Terapêutica Elshadai",
+  "26. Associação de Moradores Aguaslindense - AMAG",
+  "27. Centro de Assistência Social e Espiritual",
+  "28. Instituto Esporte e Vida",
+  "29. Instituto Epuranios",
+  "30. Centro de Integração à Cultura, Esporte e Habitação de Planaltina",
+  "31. Aconchego - Grupo de Apoio à Convivência Familiar e Comunitária",
+  "32. Obras Sociais do Centro Espírita Fraternidade Jerônimo Candinho",
+  "33. Instituto Arkrealiza",
+  "34. Instituto Lar dos Velhinhos Maria Madalena",
+  "35. Comunidade Cristã Amada",
+  "36. Instituto Abraço Solidário",
+  "37. Instituto Magia dos Sonhos",
+  "38. VESP - Vila Esperança",
+  "39. Associação dos Idosos da Ceilândia",
+  "40. Associação das Artes dos Manualistas e dos Artesãos - ASSOCIAAMA",
+  "41. Casa de Ismael - Lar da Criança",
+  "42. Associação Comunitária Missão Shekinah - AMAS",
+  "43. Associação Lar Infantil Chico Xavier",
+  "44. Lar de São José",
+  "45. Instituto Nossa Missão",
+  "46. Associação Benéfica Cristã Promotora do Desenvolvimento Integral - ABC PRODEIN",
+  "47. Obra das Filhas do Amor de Jesus Cristo (Casa do Menino Jesus)",
+  "48. Obras Sociais do Centro Espírita Batuíra",
+  "49. Instituto Carisma",
+];
 const MOTIVOS_SAIDA= ["DETERIORADO","BAIXA","DOAÇÃO","ARREMATAÇÃO LPC","OUTROS"];
 
 // Campos por lista
@@ -81,7 +143,7 @@ const CAMPOS = {
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação..." },
   ],
   DOACOES: [
-    { id:"ENTIDADE",          label:"Entidade Credenciada *", type:"select", required:true, options:ENTIDADES },
+    { id:"ENTIDADE_NOME",     label:"Entidade Credenciada *", type:"select", required:true, options:ENTIDADES },
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0038491-22.2024.8.07.0001" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
@@ -183,10 +245,64 @@ export default function CadastroPage() {
   const [formData, setFormData] = useState({});
   const [salvando, setSalvando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState(null);
   const [erros, setErros] = useState([]);
 
   const lista = LISTAS_CONFIG.find(l => l.key === listaKey);
   const campos = listaKey ? CAMPOS[listaKey] || [] : [];
+  const [proximaEntidade, setProximaEntidade] = useState(null);
+  const [carregandoEntidade, setCarregandoEntidade] = useState(false);
+
+  // Quando DOACOES for selecionada, calcula a próxima entidade na fila efetiva.
+  //
+  // Lógica: para cada uma das 49 entidades, busca o ÚLTIMO EVENTO (doação realizada
+  // ou recusa registrada em Anotações). A entidade cujo último evento é mais antigo
+  // (ou que nunca teve evento) é a próxima na fila. Entidades que recusaram vão
+  // automaticamente para o fim, pois o timestamp da recusa fica mais recente.
+  useEffect(() => {
+    if (listaKey !== "DOACOES") { setProximaEntidade(null); return; }
+    setCarregandoEntidade(true);
+
+    Promise.allSettled([
+      fetch("/api/bens/doacoes_diligencia").then(r => r.json()),
+      fetch("/api/anotacoes").then(r => r.json()),
+    ]).then(([resDoac, resAnot]) => {
+      // Mapeia entidade → timestamp do último evento (ms)
+      const ultimoEvento = {};
+
+      // Doações realizadas (aba usa ENTIDADE_NOME)
+      const doacoes = resDoac.status === "fulfilled" ? (resDoac.value.dados || []) : [];
+      doacoes.forEach(r => {
+        const ent = (r.ENTIDADE_NOME || r.ENTIDADE || "").trim();
+        if (!ent) return;
+        const t = r.DATA_CADASTRO ? new Date(r.DATA_CADASTRO).getTime() : (r._rowNumber || 0);
+        if (!ultimoEvento[ent] || t > ultimoEvento[ent]) ultimoEvento[ent] = t;
+      });
+
+      // Anotações de recusa (aba usa ENTIDADE)
+      const anotacoes = resAnot.status === "fulfilled" ? (resAnot.value.dados || []) : [];
+      anotacoes.forEach(r => {
+        const ent = (r.ENTIDADE || "").trim();
+        if (!ent) return;
+        const t = r.DATA ? new Date(r.DATA).getTime() : (r._rowNumber || 0);
+        if (!ultimoEvento[ent] || t > ultimoEvento[ent]) ultimoEvento[ent] = t;
+      });
+
+      // Ordena as 49 entidades pelo último evento crescente
+      // (sem evento = 0, fica primeiro; com evento mais antigo vem antes)
+      const ordenadas = [...ENTIDADES].sort((a, b) => {
+        const ta = ultimoEvento[a] || 0;
+        const tb = ultimoEvento[b] || 0;
+        if (ta !== tb) return ta - tb;
+        // Desempate: posição original na lista
+        return ENTIDADES.indexOf(a) - ENTIDADES.indexOf(b);
+      });
+
+      const proxima = ordenadas[0];
+      setProximaEntidade(proxima);
+      setFormData(prev => ({ ...prev, ENTIDADE_NOME: proxima }));
+    }).finally(() => setCarregandoEntidade(false));
+  }, [listaKey]);
 
   // Calcula prazo 6 meses automaticamente para DPJ
   const handleChange = (id, val) => {
@@ -200,15 +316,43 @@ export default function CadastroPage() {
     setErros(erros.filter(e => e !== id));
   };
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
+    // Validação dos campos obrigatórios
     const novosErros = campos.filter(c => c.required && !formData[c.id]).map(c => c.id);
     if (novosErros.length > 0) { setErros(novosErros); return; }
+
     setSalvando(true);
-    setTimeout(() => {
-      setSalvando(false);
+    setErroSalvar(null);
+
+    try {
+      const rota = LISTA_API_MAP[listaKey];
+
+      // Normaliza toggles: envia "TRUE"/"FALSE" (compatível com Google Sheets)
+      const payload = {};
+      campos.forEach(c => {
+        if (c.type === "toggle") {
+          payload[c.id] = formData[c.id] ? "TRUE" : "FALSE";
+        } else if (formData[c.id] !== undefined && formData[c.id] !== "") {
+          payload[c.id] = formData[c.id];
+        }
+      });
+
+      const res = await fetch(`/api/bens/${rota}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.erro || "Erro ao salvar");
+
       setSucesso(true);
-      setTimeout(() => { setSucesso(false); setFormData({}); setListaKey(null); }, 2500);
-    }, 1200);
+      setTimeout(() => { setSucesso(false); setFormData({}); setListaKey(null); }, 3000);
+    } catch (e) {
+      setErroSalvar(e.message);
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const handleLimpar = () => { setFormData({}); setErros([]); };
@@ -223,7 +367,7 @@ export default function CadastroPage() {
   const progresso = totalNormais > 0 ? Math.round((preenchidos / totalNormais) * 100) : 0;
 
   return (
-    <div style={{ display:"flex", height:"100vh", background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0", overflow:"hidden" }}>
+    <div style={{ className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" } }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
         *{box-sizing:border-box}
@@ -237,7 +381,7 @@ export default function CadastroPage() {
       <Sidebar />
 
       {/* MAIN */}
-      <main style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+      <main className="signu-main">
 
         {/* Top bar */}
         <header style={{ height:56,borderBottom:"1px solid rgba(201,168,76,0.1)",background:"#0a1628",display:"flex",alignItems:"center",padding:"0 28px",justifyContent:"space-between",flexShrink:0 }}>
@@ -260,7 +404,7 @@ export default function CadastroPage() {
           )}
         </header>
 
-        <div style={{ flex:1,overflow:"auto",padding:"28px" }}>
+        <div className="signu-content" style={{ padding:"28px" }}>
 
           {/* ── SELEÇÃO DE LISTA ── */}
           {!listaKey ? (
@@ -310,6 +454,28 @@ export default function CadastroPage() {
 
                 {/* Coluna principal — campos normais */}
                 <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+
+                  {/* Banner: próxima entidade na fila (somente Doações) */}
+                  {listaKey === "DOACOES" && (
+                    <div style={{ background:"linear-gradient(135deg,rgba(52,211,153,0.1),rgba(52,211,153,0.04))",border:"1px solid rgba(52,211,153,0.25)",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:12 }}>
+                      <span style={{ fontSize:22,flexShrink:0 }}>🔢</span>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:11,fontWeight:700,color:"rgba(52,211,153,0.8)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3 }}>
+                          Próxima entidade na ordem
+                        </div>
+                        {carregandoEntidade ? (
+                          <div style={{ fontSize:12,color:"rgba(255,255,255,0.35)",fontStyle:"italic" }}>Calculando…</div>
+                        ) : proximaEntidade ? (
+                          <div style={{ fontSize:13,fontWeight:600,color:"#fff" }}>{proximaEntidade}</div>
+                        ) : (
+                          <div style={{ fontSize:12,color:"rgba(255,255,255,0.35)",fontStyle:"italic" }}>Iniciando pela entidade nº 1</div>
+                        )}
+                      </div>
+                      <div style={{ fontSize:10,color:"rgba(52,211,153,0.5)",textAlign:"right",flexShrink:0 }}>
+                        Edital nº 2/2024<br/>49 entidades
+                      </div>
+                    </div>
+                  )}
 
                   {/* Grid de campos 2 colunas */}
                   <div style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"20px" }}>
@@ -381,12 +547,20 @@ export default function CadastroPage() {
 
                   {/* Rota API */}
                   <div style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"16px" }}>
-                    <div style={{ fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.25)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10 }}>Rota API SIGNU</div>
+                    <div style={{ fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.25)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10 }}>Destino</div>
                     <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:11,lineHeight:1.8,color:"rgba(255,255,255,0.3)" }}>
-                      <div><span style={{ color:"#a78bfa" }}>POST</span> /api/bens</div>
-                      <div style={{ fontSize:10,marginTop:4,color:"rgba(255,255,255,0.2)" }}>→ SharePoint: {listaKey}</div>
+                      <div><span style={{ color:"#a78bfa" }}>POST</span> /api/bens/<span style={{ color:lista?.color }}>{LISTA_API_MAP[listaKey]}</span></div>
+                      <div style={{ fontSize:10,marginTop:4,color:"rgba(255,255,255,0.2)" }}>→ Google Sheets: SIGNU_DB</div>
                     </div>
                   </div>
+
+                  {/* Erro ao salvar */}
+                  {erroSalvar && (
+                    <div style={{ background:"rgba(248,113,113,0.1)",border:"1px solid rgba(248,113,113,0.3)",borderRadius:10,padding:"12px 14px",fontSize:12,color:"#f87171" }}>
+                      <div style={{ fontWeight:700,marginBottom:3 }}>⚠️ Erro ao salvar</div>
+                      <div style={{ opacity:0.8,fontSize:11 }}>{erroSalvar}</div>
+                    </div>
+                  )}
 
                   {/* Botões */}
                   <button onClick={handleSalvar} disabled={salvando}

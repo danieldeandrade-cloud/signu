@@ -1,26 +1,111 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #060f1e;
+  --foreground: #e2e8f0;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { box-sizing: border-box; }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
 }
+
+/* ── Layout principal ─────────────────────────────────────── */
+.signu-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.signu-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────── */
+.signu-sidebar {
+  width: 64px;
+  background: #0a1628;
+  border-right: 1px solid rgba(201,168,76,0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Grids responsivos ────────────────────────────────────── */
+.signu-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.signu-grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+.signu-grid-main { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+
+/* ── Conteúdo da página ───────────────────────────────────── */
+.signu-content {
+  flex: 1;
+  overflow: auto;
+  padding: 24px 28px 40px;
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* MOBILE (≤ 768px)                                           */
+/* ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  .signu-layout {
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  /* Sidebar vira bottom nav */
+  .signu-sidebar {
+    width: 100% !important;
+    height: 56px !important;
+    flex-direction: row !important;
+    padding: 0 12px !important;
+    gap: 4px !important;
+    border-right: none !important;
+    border-top: 1px solid rgba(201,168,76,0.15) !important;
+    order: 2;
+    justify-content: space-around;
+    flex-shrink: 0;
+  }
+
+  /* Logo some na bottom nav (espaço curto) */
+  .signu-sidebar-logo { display: none !important; }
+
+  /* Avatar vai para o header */
+  .signu-sidebar-avatar { display: none !important; }
+
+  /* Spacer não precisa crescer */
+  .signu-sidebar-spacer { display: none !important; }
+
+  .signu-main { order: 1; flex: 1; min-height: 0; }
+
+  .signu-content { padding: 16px 14px 20px; }
+
+  /* Grids colapsam */
+  .signu-grid-4 { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
+  .signu-grid-2 { grid-template-columns: 1fr !important; }
+  .signu-grid-main { grid-template-columns: 1fr !important; }
+
+  /* Tabelas scrolláveis */
+  .signu-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Header top bar */
+  .signu-topbar-date { display: none; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.2); border-radius: 4px; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }

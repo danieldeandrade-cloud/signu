@@ -1,27 +1,28 @@
 "use client";
 import Sidebar from "@/components/Sidebar";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-// ─── ÍNDICE COMPLETO (todas as 9 listas) ─────────────────────────────────────
-const INDICE = [
-  { id:"CEGOC-0142",  lista:"CEGOC",        ID_PASEI:"0038491-22.2024.8.07.0001", TIPO_BEM:"CARRO",       NIV:"9BWZZZ377VT004251", STATUS:"EM DILIGÊNCIA", Responsavel:"Carla Araújo",     DESTINACAO:"EM DILIGÊNCIA HIGEIA" },
-  { id:"CEGOC-0087",  lista:"CEGOC",        ID_PASEI:"0019273-55.2023.8.07.0015", TIPO_BEM:"MOTO",        NIV:"9C2JC4110LR501234", STATUS:"ATRASADO",      Responsavel:"Carla Araújo",     DESTINACAO:"LPC" },
-  { id:"CEGOC-0201",  lista:"CEGOC",        ID_PASEI:"0054321-11.2024.8.07.0002", TIPO_BEM:"CAMINHONETE", NIV:"8AFZZZ3CZGE123456", STATUS:"AGUARDANDO",    Responsavel:"Amanda Junqueira", DESTINACAO:"RENAJUD" },
-  { id:"CEGOC-0333",  lista:"CEGOC",        ID_PASEI:"0091234-44.2023.8.07.0009", TIPO_BEM:"CAMINHÃO",    NIV:"9BM379182LB755001", STATUS:"EM DILIGÊNCIA", Responsavel:"Marcelo Oliveira", DESTINACAO:"CIRCULAÇÃO" },
-  { id:"PCDF1-0331",  lista:"PCDF_1HIGEIA", ID_PASEI:"0054812-11.2022.8.07.0003", TIPO_BEM:"CAMINHONETE", NIV:"8AFZZZ3CZGE123456", STATUS:"AGUARDANDO",    Responsavel:"Carla Araújo",     DEPOSITO:"SELAB/PCDF" },
-  { id:"PCDF1-0204",  lista:"PCDF_1HIGEIA", ID_PASEI:"0032109-22.2023.8.07.0007", TIPO_BEM:"CARRO",       NIV:"9BWZZZ377VT009999", STATUS:"EM DILIGÊNCIA", Responsavel:"Carlos Caetano",   DEPOSITO:"CPA/PCDF" },
-  { id:"PCDF1-0089",  lista:"PCDF_1HIGEIA", ID_PASEI:"0011122-33.2021.8.07.0005", TIPO_BEM:"MOTO",        NIV:"9C2JC4110LR599999", STATUS:"ATRASADO",      Responsavel:"Amanda Junqueira", DEPOSITO:"5ªDP" },
-  { id:"PCDF2-0201",  lista:"PCDF_2HIGEIA", ID_PASEI:"0071009-44.2024.8.07.0007", TIPO_BEM:"CAMINHÃO",    NIV:"9BM379182LB755000", STATUS:"EM DILIGÊNCIA", Responsavel:"Carla Araújo",     DEPOSITO:"CPA/PCDF",  PA_TJDFT:"N/C" },
-  { id:"PCDF2-0099",  lista:"PCDF_2HIGEIA", ID_PASEI:"0041234-55.2023.8.07.0014", TIPO_BEM:"CARRO",       NIV:"1HGBH41JXMN100000", STATUS:"AGUARDANDO",   Responsavel:"Loara Passo",      DEPOSITO:"CPA",       PA_TJDFT:"0041234-55" },
-  { id:"DPJ-0049",    lista:"DPJ_GC99",     ID_PASEI:"0002341-88.2021.8.07.0020", TIPO_BEM:"CARRO",       NIV:"1HGBH41JXMN109186", STATUS:"PRAZO 6 MESES",Responsavel:"Cláudia Santos",   LOTE:49, PRAZO:"2026-05-28" },
-  { id:"DPJ-0031",    lista:"DPJ_GC99",     ID_PASEI:"0009871-11.2020.8.07.0003", TIPO_BEM:"MOTO",        NIV:"9C2JC4110LR500001", STATUS:"EM DILIGÊNCIA", Responsavel:"Cláudia Santos",   LOTE:31, PRAZO:"2026-06-15" },
-  { id:"DOA-0004",    lista:"DOACOES",      ID_PASEI:"0038491-22.2024.8.07.0001", TIPO_BEM:"CARRO",       NIV:"—",                 STATUS:"EM ANÁLISE",    Responsavel:"Amanda Junqueira", ENTIDADE:"Associação Beneficente São Lucas" },
-  { id:"DOA-0003",    lista:"DOACOES",      ID_PASEI:"0019273-55.2023.8.07.0015", TIPO_BEM:"MOTO",        NIV:"—",                 STATUS:"AGUARDANDO ENTIDADE", Responsavel:"Letícia Mota", ENTIDADE:"ONG Criança Feliz" },
-  { id:"DOA-RZ-0181", lista:"RETIRADOS",    ID_PASEI:"0077123-11.2023.8.07.0008", TIPO_BEM:"CAMINHONETE", NIV:"8AFZZZ3CZGE999999", STATUS:"BAIXADO",       Responsavel:"Marcelo Oliveira", OBSERVACOES:"Baixado por arrematação em leilão LPC." },
-  { id:"SEI-0032",    lista:"CAIXA_SEI",    ID_PASEI:"0071009-44.2024.8.07.0007", TIPO_BEM:"CAMINHÃO",    NIV:"9BM379182LB111111", STATUS:"DILIGÊNCIA",    Responsavel:"Marcelo Oliveira", ACAO:"DILIGÊNCIA" },
-  { id:"SEI-0031",    lista:"CAIXA_SEI",    ID_PASEI:"0054812-11.2022.8.07.0003", TIPO_BEM:"CAMINHONETE", NIV:"—",                 STATUS:"AGUARDAR RETORNO", Responsavel:"Carlos Caetano", ACAO:"AGUARDAR RETORNO" },
-  { id:"ENTI-0001",   lista:"ENTIDADES",    ID_PASEI:"—",                         TIPO_BEM:"—",           NIV:"—",                 STATUS:"ATIVA",         Responsavel:"—",                ENTIDADE:"Associação Beneficente São Lucas", CNPJ:"12.345.678/0001-90" },
+// ─── CONFIG DAS LISTAS PARA BUSCA ────────────────────────────────────────────
+const LISTAS_BUSCA = [
+  { key:"CEGOC",        rota:"cegoc",             prefixo:"CEG",  statusField:"STATUS_DILIGENCIA" },
+  { key:"PCDF_1HIGEIA", rota:"pcdf1",             prefixo:"PCDF1",statusField:"STATUS_DILIGENCIA" },
+  { key:"PCDF_2HIGEIA", rota:"pcdf2",             prefixo:"PCDF2",statusField:"STATUS_DILIGENCIA" },
+  { key:"DPJ_GC99",     rota:"dpj",               prefixo:"DPJ",  statusField:"STATUS_DILIGENCIA" },
+  { key:"DOACOES",      rota:"doacoes_diligencia", prefixo:"DOA",  statusField:"STATUS_LOCAL_PA"   },
+  { key:"CAIXA_SEI",    rota:"sei",               prefixo:"SEI",  statusField:"ACAO"              },
 ];
+
+// Normaliza um registro bruto da API para o formato de busca
+function normalizar(raw, listaKey, prefixo) {
+  const cfg = LISTAS_BUSCA.find(l => l.key === listaKey);
+  return {
+    ...raw,
+    id:     raw.ID_LEGADO || `${prefixo}-${String(raw._rowNumber).padStart(4,"0")}`,
+    lista:  listaKey,
+    STATUS: raw[cfg?.statusField] || raw.STATUS_DILIGENCIA || raw.STATUS_LOCAL_PA || raw.ACAO || "",
+  };
+}
 
 const LISTA_META = {
   CEGOC:        { label:"CEGOC",     color:"#3b82f6", bg:"#1e3a5f" },
@@ -68,15 +69,26 @@ function Highlight({ text, termo }) {
   </>;
 }
 
+// Mapa lista key → rota da API (para montar a URL de detalhes)
+const LISTA_ROTA = {
+  CEGOC:        "cegoc",
+  PCDF_1HIGEIA: "pcdf1",
+  PCDF_2HIGEIA: "pcdf2",
+  DPJ_GC99:     "dpj",
+  DOACOES:      "doacoes_diligencia",
+  CAIXA_SEI:    "sei",
+};
+
 // ─── RESULTADO CARD ───────────────────────────────────────────────────────────
-function ResultCard({ item, termo }) {
+function ResultCard({ item, termo, onOpen }) {
   const meta  = LISTA_META[item.lista] || LISTA_META.CEGOC;
   const stMeta = STATUS_META[item.STATUS] || { color:"#6b7280" };
 
   return (
-    <div style={{
+    <div onClick={onOpen} style={{
       background:"linear-gradient(145deg,#0f2040,#0a1628)",
       border:`1px solid ${meta.color}22`,
+      cursor:"pointer",
       borderLeft:`3px solid ${meta.color}`,
       borderRadius:10, padding:"14px 18px",
       cursor:"pointer", transition:"all 0.15s",
@@ -148,7 +160,7 @@ function ResultCard({ item, termo }) {
       <div style={{ textAlign:"right",flexShrink:0 }}>
         <div style={{ fontSize:10,fontWeight:700,color:stMeta.color,marginBottom:5 }}>{item.STATUS}</div>
         <div style={{ fontSize:11,color:"rgba(255,255,255,0.35)" }}>
-          <Highlight text={item.Responsavel} termo={termo}/>
+          <Highlight text={item.RESPONSAVEL || item.Responsavel || item.SERVIDOR || item.ATRIBUIDO_A || item.RESPONSAVEL_DILIGENCIA || ""} termo={termo}/>
         </div>
       </div>
     </div>
@@ -157,22 +169,49 @@ function ResultCard({ item, termo }) {
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 export default function BuscaPage() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [buscado, setBuscado] = useState("");
   const [filtroLista, setFiltroLista] = useState("TODAS");
   const [buscando, setBuscando] = useState(false);
+  const [indice, setIndice] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [listasCarregadas, setListasCarregadas] = useState(0);
   const inputRef = useRef(null);
+
+  // Carrega todas as listas em paralelo no mount
+  useEffect(() => {
+    let carregadas = 0;
+    const totalListas = LISTAS_BUSCA.length;
+
+    LISTAS_BUSCA.forEach(async (cfg) => {
+      try {
+        const res = await fetch(`/api/bens/${cfg.rota}`);
+        const json = await res.json();
+        const normalizados = (json.dados || []).map(r => normalizar(r, cfg.key, cfg.prefixo));
+        setIndice(prev => [...prev, ...normalizados]);
+      } catch (e) {
+        console.warn(`Erro ao carregar ${cfg.rota}:`, e);
+      } finally {
+        carregadas++;
+        setListasCarregadas(carregadas);
+        if (carregadas === totalListas) setCarregando(false);
+      }
+    });
+  }, []);
 
   const executarBusca = (q) => {
     const termo = (q ?? query).trim();
     if (!termo) return;
     setBuscando(true);
-    setTimeout(() => { setBuscado(termo); setBuscando(false); }, 400);
+    // Pequeno delay para feedback visual
+    setTimeout(() => { setBuscado(termo); setBuscando(false); }, 150);
   };
 
   const resultados = buscado
-    ? INDICE.filter(item => {
-        const campos = [item.id, item.ID_PASEI, item.NIV, item.Responsavel, item.DESTINACAO, item.DEPOSITO, item.ENTIDADE, item.ACAO, item.OBSERVACOES].filter(Boolean).join(" ").toLowerCase();
+    ? indice.filter(item => {
+        // Pesquisa em todos os campos string do item (cobre qualquer nome de coluna da planilha)
+        const campos = [item.id, ...Object.values(item).filter(v => typeof v === 'string')].join(" ").toLowerCase();
         const match = campos.includes(buscado.toLowerCase());
         if (!match) return false;
         if (filtroLista !== "TODAS" && item.lista !== filtroLista) return false;
@@ -190,7 +229,7 @@ export default function BuscaPage() {
   const limpar = () => { setQuery(""); setBuscado(""); setFiltroLista("TODAS"); inputRef.current?.focus(); };
 
   return (
-    <div style={{ display:"flex", height:"100vh", background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0", overflow:"hidden" }}>
+    <div style={{ className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" } }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
         *{box-sizing:border-box}
@@ -204,14 +243,18 @@ export default function BuscaPage() {
       <Sidebar />
 
       {/* MAIN */}
-      <main style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+      <main className="signu-main">
 
         {/* Top bar */}
         <header style={{ height:56,borderBottom:"1px solid rgba(201,168,76,0.1)",background:"#0a1628",display:"flex",alignItems:"center",padding:"0 28px",flexShrink:0 }}>
           <span style={{ fontSize:13,color:"rgba(255,255,255,0.4)" }}>SIGNU</span>
           <span style={{ color:"rgba(255,255,255,0.15)",margin:"0 8px" }}>/</span>
           <span style={{ fontSize:13,fontWeight:700,color:"#fff" }}>Busca Global</span>
-          <span style={{ fontSize:11,color:"rgba(255,255,255,0.25)",marginLeft:12 }}>— {INDICE.length} registros indexados em {Object.keys(LISTA_META).length} listas</span>
+          <span style={{ fontSize:11,color:"rgba(255,255,255,0.25)",marginLeft:12 }}>
+            {carregando
+              ? `— carregando… ${listasCarregadas}/${LISTAS_BUSCA.length} listas`
+              : `— ${indice.length.toLocaleString("pt-BR")} registros indexados em ${LISTAS_BUSCA.length} listas`}
+          </span>
         </header>
 
         <div style={{ flex:1,overflow:"auto" }}>
@@ -306,7 +349,7 @@ export default function BuscaPage() {
                 {resultados.length > 0 && (
                   <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
                     <button onClick={()=>setFiltroLista("TODAS")} style={{ padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:filtroLista==="TODAS"?700:400,border:`1px solid ${filtroLista==="TODAS"?"rgba(201,168,76,0.5)":"rgba(255,255,255,0.1)"}`,background:filtroLista==="TODAS"?"rgba(201,168,76,0.1)":"transparent",color:filtroLista==="TODAS"?"#c9a84c":"rgba(255,255,255,0.4)",cursor:"pointer" }}>
-                      Todas ({INDICE.filter(i=>[i.id,i.ID_PASEI,i.NIV,i.Responsavel,i.DESTINACAO,i.DEPOSITO,i.ENTIDADE,i.ACAO,i.OBSERVACOES].filter(Boolean).join(" ").toLowerCase().includes(buscado.toLowerCase())).length})
+                      Todas ({resultados.length})
                     </button>
                     {Object.entries(porLista).map(([key,items]) => {
                       const meta = LISTA_META[key];
@@ -330,7 +373,7 @@ export default function BuscaPage() {
                 </div>
               ) : filtroLista !== "TODAS" ? (
                 <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
-                  {resultados.map(item => <ResultCard key={item.id} item={item} termo={buscado}/>)}
+                  {resultados.map(item => <ResultCard key={item.id} item={item} termo={buscado} onOpen={() => router.push(`/detalhes?lista=${LISTA_ROTA[item.lista]}&row=${item._rowNumber}`)}/>)}
                 </div>
               ) : (
                 Object.entries(porLista).map(([listaKey, items]) => {
@@ -343,7 +386,7 @@ export default function BuscaPage() {
                         <div style={{ flex:1,height:1,background:"rgba(255,255,255,0.04)"}}/>
                       </div>
                       <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
-                        {items.map(item => <ResultCard key={item.id} item={item} termo={buscado}/>)}
+                        {items.map(item => <ResultCard key={item.id} item={item} termo={buscado} onOpen={() => router.push(`/detalhes?lista=${LISTA_ROTA[item.lista]}&row=${item._rowNumber}`)}/>)}
                       </div>
                     </div>
                   );
@@ -358,13 +401,19 @@ export default function BuscaPage() {
               <div style={{ fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.2)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,textAlign:"center" }}>
                 Listas disponíveis para busca
               </div>
-              <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8 }}>
-                {Object.entries(LISTA_META).map(([key,meta]) => (
-                  <div key={key} style={{ background:meta.bg,border:`1px solid ${meta.color}22`,borderRadius:8,padding:"10px 12px",textAlign:"center" }}>
-                    <div style={{ fontSize:12,fontWeight:700,color:meta.color,marginBottom:3 }}>{meta.label}</div>
-                    <div style={{ fontSize:10,color:"rgba(255,255,255,0.25)" }}>{INDICE.filter(i=>i.lista===key).length} registros</div>
-                  </div>
-                ))}
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8 }}>
+                {LISTAS_BUSCA.map(cfg => {
+                  const meta = LISTA_META[cfg.key];
+                  const total = indice.filter(i => i.lista === cfg.key).length;
+                  return (
+                    <div key={cfg.key} style={{ background:meta?.bg,border:`1px solid ${meta?.color}22`,borderRadius:8,padding:"10px 12px",textAlign:"center" }}>
+                      <div style={{ fontSize:12,fontWeight:700,color:meta?.color,marginBottom:3 }}>{meta?.label}</div>
+                      <div style={{ fontSize:10,color:"rgba(255,255,255,0.25)" }}>
+                        {carregando && total === 0 ? "carregando…" : `${total} registros`}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -1,15 +1,24 @@
 "use client";
 import Sidebar from "@/components/Sidebar";
+import { useSession } from "next-auth/react";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
-// ─── MOCK DATA (espelha estrutura real das 9 listas SharePoint) ───────────────
-const mockUser = {
-  displayName: "Carla Araújo",
-  email: "carla.araujo@tjdft.jus.br",
-  initials: "CA",
-};
+// Lista de servidores (exibida no seletor manual de fallback)
+const SERVIDORES = [
+  "Carla Araújo","Amanda Junqueira","Carlos Caetano",
+  "Cláudia Santos","Loara Passo","Letícia Mota","Marcelo Oliveira",
+];
 
+// Listas que alimentam a fila de trabalho
+const LISTAS_FILA = [
+  { key:"CEGOC",        rota:"cegoc",  prefixo:"CEG",   statusField:"STATUS_DILIGENCIA" },
+  { key:"PCDF_1HIGEIA", rota:"pcdf1",  prefixo:"PCDF1", statusField:"STATUS_DILIGENCIA" },
+  { key:"PCDF_2HIGEIA", rota:"pcdf2",  prefixo:"PCDF2", statusField:"STATUS_DILIGENCIA" },
+  { key:"DPJ_GC99",     rota:"dpj",    prefixo:"DPJ",   statusField:"STATUS_DILIGENCIA" },
+];
+
+// Placeholder para manter compatibilidade com o card (removido abaixo)
 const mockQueue = [
   {
     id: "CEGOC-0142",
@@ -347,31 +356,65 @@ export default function SIGNUMinhaFila() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  const { data: session } = useSession();
+
+  // Dados reais
+  const [fila, setFila] = useState([]);
+  const [carregando, setCarregando] = useState(false);
+  // Usa o nome da sessão Google; fallback para o primeiro da lista
+  const [usuarioAtual, setUsuarioAtual] = useState(SERVIDORES[0]);
+
+  // Quando a sessão carregar, define o usuário atual
+  useEffect(() => {
+    if (session?.user?.name) {
+      setUsuarioAtual(session.user.name);
+    }
+  }, [session]);
+
   const statusOptions = ["TODOS", "EM DILIGÊNCIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES"];
   const listaOptions = ["TODAS", "CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99"];
 
-  const filtered = mockQueue.filter(item => {
+  // Carrega itens de todas as listas atribuídos ao usuário
+  const carregarFila = useCallback(async (usuario) => {
+    setCarregando(true);
+    setFila([]);
+    const resultados = await Promise.allSettled(
+      LISTAS_FILA.map(async (cfg) => {
+        const res = await fetch(`/api/bens/${cfg.rota}?atribuidoA=${encodeURIComponent(usuario)}`);
+        const json = await res.json();
+        return (json.dados || []).map(r => ({
+          ...r,
+          id: r.ID_LEGADO || `${cfg.prefixo}-${String(r._rowNumber).padStart(4,"0")}`,
+          listaOrigem: cfg.key,
+          STATUS_DILIGENCIA: r[cfg.statusField] || r.STATUS_DILIGENCIA || "",
+          diasSemAtualizacao: 0, // campo calculado — não disponível na planilha ainda
+        }));
+      })
+    );
+    const todos = resultados.flatMap(r => r.status === "fulfilled" ? r.value : []);
+    setFila(todos);
+    setCarregando(false);
+  }, []);
+
+  useEffect(() => {
+    carregarFila(usuarioAtual);
+  }, [usuarioAtual, carregarFila]);
+
+  const filtered = fila.filter(item => {
     const matchStatus = filterStatus === "TODOS" || item.STATUS_DILIGENCIA === filterStatus;
     const matchLista = filterLista === "TODAS" || item.listaOrigem === filterLista;
     return matchStatus && matchLista;
   });
 
-  const atrasadosCount = mockQueue.filter(i => i.diasSemAtualizacao > 30).length;
+  const atrasadosCount = fila.filter(i => i.STATUS_DILIGENCIA === "ATRASADO").length;
 
   return (
-    <div style={{
-      display: "flex",
-      height: "100vh",
-      background: "#060f1e",
-      fontFamily: "'Inter', system-ui, sans-serif",
-      color: "#e2e8f0",
-      overflow: "hidden",
-    }}>
+    <div className="signu-layout" style={{ background: "#060f1e", fontFamily: "'Inter', system-ui, sans-serif", color: "#e2e8f0" }}>
       {/* ── SIDEBAR ── */}
       <Sidebar />
 
       {/* ── MAIN AREA ── */}
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <main className="signu-main">
 
         {/* Top bar */}
         <header style={{
@@ -403,35 +446,40 @@ export default function SIGNUMinhaFila() {
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Usuário logado via Google — exibe avatar + nome; seletor manual como fallback */}
+            {session?.user ? (
+              <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(201,168,76,0.08)", border:"1px solid rgba(201,168,76,0.2)", borderRadius:8, padding:"4px 10px" }}>
+                {session.user.image && (
+                  <img src={session.user.image} alt="" style={{ width:22, height:22, borderRadius:"50%", border:"1px solid rgba(201,168,76,0.3)" }}/>
+                )}
+                <span style={{ fontSize:12, fontWeight:600, color:"#c9a84c" }}>{session.user.name}</span>
+              </div>
+            ) : (
+              <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(201,168,76,0.08)", border:"1px solid rgba(201,168,76,0.2)", borderRadius:8, padding:"4px 10px" }}>
+                <span style={{ fontSize:10, color:"rgba(201,168,76,0.6)", fontWeight:700, textTransform:"uppercase" }}>Servidor:</span>
+                <select value={usuarioAtual} onChange={e => setUsuarioAtual(e.target.value)}
+                  style={{ background:"transparent", border:"none", color:"#c9a84c", fontSize:12, fontWeight:600, cursor:"pointer", outline:"none" }}>
+                  {SERVIDORES.map(s => <option key={s} value={s} style={{ background:"#0a1628" }}>{s}</option>)}
+                </select>
+              </div>
+            )}
             {/* Alerta de itens atrasados */}
             {atrasadosCount > 0 && (
               <div style={{
                 display: "flex", alignItems: "center", gap: 6,
                 background: "rgba(248,113,113,0.12)",
                 border: "1px solid rgba(248,113,113,0.3)",
-                borderRadius: 20,
-                padding: "5px 12px",
-                fontSize: 12,
-                color: "#f87171",
-                fontWeight: 600,
+                borderRadius: 20, padding: "5px 12px",
+                fontSize: 12, color: "#f87171", fontWeight: 600,
               }}>
                 <IconAlert size={12} />
-                {atrasadosCount} bem{atrasadosCount > 1 ? "ns" : ""} atrasado{atrasadosCount > 1 ? "s" : ""}
+                {atrasadosCount} atrasado{atrasadosCount > 1 ? "s" : ""}
               </div>
             )}
-            <button style={{
-              background: "none", border: "none",
-              color: "rgba(255,255,255,0.4)", cursor: "pointer",
-              position: "relative", padding: 4,
-            }}>
-              <IconBell size={18} />
-              <span style={{
-                position: "absolute", top: 2, right: 2,
-                width: 7, height: 7, borderRadius: "50%",
-                background: "#c9a84c",
-              }}/>
-            </button>
+            {carregando && (
+              <span style={{ fontSize:11, color:"rgba(255,255,255,0.3)" }}>carregando…</span>
+            )}
           </div>
         </header>
 
@@ -454,7 +502,7 @@ export default function SIGNUMinhaFila() {
               color: "rgba(255,255,255,0.4)",
               margin: "4px 0 0",
             }}>
-              Bens atribuídos a <strong style={{ color: "rgba(201,168,76,0.8)" }}>{mockUser.displayName}</strong> — {mockQueue.length} itens em {Object.keys(LISTA_META).length} listas
+              Bens atribuídos a <strong style={{ color: "rgba(201,168,76,0.8)" }}>{usuarioAtual}</strong> — {fila.length} itens em {LISTAS_FILA.length} listas
             </p>
           </div>
 
@@ -466,7 +514,7 @@ export default function SIGNUMinhaFila() {
             flexWrap: "wrap",
           }}>
             {Object.entries(LISTA_META).map(([key, meta]) => {
-              const count = mockQueue.filter(i => i.listaOrigem === key).length;
+              const count = fila.filter(i => i.listaOrigem === key).length;
               if (!count) return null;
               return (
                 <div key={key} style={{
