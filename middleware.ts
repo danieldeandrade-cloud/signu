@@ -4,8 +4,8 @@ import { getToken } from 'next-auth/jwt';
 
 // E-mails com acesso às telas restritas de Gestão e Cadastro
 const GESTORES = [
-  'daniel.andrade@tjdft.jus.br',
-  'carlos.amorim@tjdft.jus.br',
+  'danieldeandrade.pessoal@gmail.com',
+  'carlosalex1318@gmail.com',
 ];
 
 const ROTAS_GESTORES = ['/gestao', '/cadastro', '/anotacoes'];

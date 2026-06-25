@@ -2,7 +2,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-const GESTORES = ['daniel.andrade@tjdft.jus.br', 'carlos.amorim@tjdft.jus.br'];
+const GESTORES = ['danieldeandrade.pessoal@gmail.com', 'carlosalex1318@gmail.com'];
 
 const NAV_ITEMS = [
   {
