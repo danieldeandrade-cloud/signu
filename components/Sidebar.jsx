@@ -1,5 +1,8 @@
 "use client";
 import { usePathname, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+
+const GESTORES = ['daniel.andrade@tjdft.jus.br', 'carlos.amorim@tjdft.jus.br'];
 
 const NAV_ITEMS = [
   {
@@ -16,26 +19,40 @@ const NAV_ITEMS = [
     href: "/cadastro",
     label: "Cadastro",
     icon: "M12 5v14M5 12h14",
+    somenteGestor: true,
   },
   {
     href: "/gestao",
     label: "Gestão",
     icon: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
+    somenteGestor: true,
   },
   {
     href: "/busca",
     label: "Busca Global",
     icon: "M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z",
   },
+  {
+    href: "/anotacoes",
+    label: "Anotações de Doações",
+    icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
+    somenteGestor: true,
+  },
 ];
 
 export default function Sidebar({ user }) {
   const pathname = usePathname();
   const router   = useRouter();
+  const { data: session } = useSession();
 
-  const initials = user?.displayName
-    ? user.displayName.split(" ").map(w => w[0]).slice(0, 2).join("")
-    : "CA";
+  const emailUsuario = (session?.user?.email || "").toLowerCase();
+  const isGestor     = GESTORES.includes(emailUsuario);
+
+  const nomeExibir = session?.user?.name || user?.displayName || "";
+  const fotoUrl    = session?.user?.image || null;
+  const initials   = nomeExibir
+    ? nomeExibir.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
+    : "??";
 
   return (
     <aside style={{
@@ -62,7 +79,7 @@ export default function Sidebar({ user }) {
       >⚖</div>
 
       {/* Nav items */}
-      {NAV_ITEMS.map(({ href, label, icon }) => {
+      {NAV_ITEMS.filter(item => !item.somenteGestor || isGestor).map(({ href, label, icon }) => {
         const active = pathname === href || pathname.startsWith(href + "/");
         return (
           <button
@@ -96,15 +113,24 @@ export default function Sidebar({ user }) {
       <div style={{ flex: 1 }}/>
 
       {/* Avatar do usuário */}
-      <div
-        title={user?.displayName || "Carla Araújo"}
-        style={{
-          width: 32, height: 32, borderRadius: "50%",
-          background: "linear-gradient(135deg,#1e40af,#3b82f6)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 11, fontWeight: 700, color: "#fff", cursor: "default",
-        }}
-      >{initials}</div>
+      {fotoUrl ? (
+        <img
+          src={fotoUrl}
+          alt={nomeExibir}
+          title={nomeExibir}
+          style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid rgba(201,168,76,0.3)", cursor: "default", objectFit: "cover" }}
+        />
+      ) : (
+        <div
+          title={nomeExibir || "Usuário"}
+          style={{
+            width: 32, height: 32, borderRadius: "50%",
+            background: "linear-gradient(135deg,#1e40af,#3b82f6)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 11, fontWeight: 700, color: "#fff", cursor: "default",
+          }}
+        >{initials}</div>
+      )}
     </aside>
   );
 }
