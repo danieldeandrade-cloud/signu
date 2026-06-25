@@ -31,6 +31,9 @@ function semAnaliseRecente(item) {
 }
 
 async function enviarEmail({ para, assunto, html }) {
+  // Resend exige domínio verificado para enviar a terceiros.
+  // No plano gratuito, usa o domínio compartilhado do Resend como remetente.
+  // Para enviar de @tjdft.jus.br: verificar o domínio em resend.com/domains.
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -38,13 +41,14 @@ async function enviarEmail({ para, assunto, html }) {
       'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from:    'SIGNU NULEJ <notificacoes@signu-seven.vercel.app>',
+      from:    'SIGNU NULEJ <onboarding@resend.dev>',
       to:      [para],
       subject: assunto,
       html,
     }),
   });
-  return res.ok;
+  const body = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, detalhe: body };
 }
 
 function tabelaHtml(bens) {
@@ -201,12 +205,12 @@ export async function GET(request) {
       const bensServidor = porResponsavel[nomeServidor] || [];
       if (bensServidor.length === 0) continue; // não envia se não tiver alertas
 
-      const ok = await enviarEmail({
+      const resultado = await enviarEmail({
         para:    email,
         assunto: `⚠️ SIGNU — ${bensServidor.length} bem(ns) com atenção — ${new Date().toLocaleDateString('pt-BR')}`,
         html:    htmlServidor(nomeServidor, bensServidor),
       });
-      enviados.push({ para: email, bens: bensServidor.length, ok });
+      enviados.push({ para: email, bens: bensServidor.length, ...resultado });
     }
 
     // Resumo geral para os gestores
@@ -221,12 +225,12 @@ export async function GET(request) {
     });
 
     for (const email of GESTORES_EMAIL) {
-      const ok = await enviarEmail({
+      const resultado = await enviarEmail({
         para:    email,
         assunto: `📊 SIGNU — Resumo diário NULEJ — ${new Date().toLocaleDateString('pt-BR')}`,
         html:    htmlGestor(todosEmAlerta.length, porServidorResumo),
       });
-      enviados.push({ para: email, tipo: 'gestor', ok });
+      enviados.push({ para: email, tipo: 'gestor', ...resultado });
     }
 
     return NextResponse.json({ ok: true, totalAlertas: todosEmAlerta.length, enviados });
