@@ -351,8 +351,29 @@ function Info({ label, value, mono, alert, positive }) {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function SIGNUMinhaFila() {
   const [activeNav, setActiveNav] = useState("fila");
-  const [filterStatus, setFilterStatus] = useState("TODOS");
-  const [filterLista, setFilterLista] = useState("TODAS");
+  // Filtros multi-seleção — conjunto vazio = "todos"
+  const [filtroStatus, setFiltroStatus] = useState(new Set());
+  const [filtroLista,  setFiltroLista]  = useState(new Set());
+  const [filtroTipo,   setFiltroTipo]   = useState(new Set());
+  const [busca,        setBusca]        = useState("");
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+
+  const toggleSet = (setter, val) =>
+    setter(prev => {
+      const next = new Set(prev);
+      next.has(val) ? next.delete(val) : next.add(val);
+      return next;
+    });
+
+  const limparFiltros = () => {
+    setFiltroStatus(new Set());
+    setFiltroLista(new Set());
+    setFiltroTipo(new Set());
+    setBusca("");
+  };
+
+  const totalFiltrosAtivos =
+    filtroStatus.size + filtroLista.size + filtroTipo.size + (busca.trim() ? 1 : 0);
   const [selectedItem, setSelectedItem] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -371,8 +392,8 @@ export default function SIGNUMinhaFila() {
     }
   }, [session]);
 
-  const statusOptions = ["TODOS", "EM DILIGÊNCIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES"];
-  const listaOptions = ["TODAS", "CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99"];
+  const statusOptions = ["EM DILIGÊNCIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "BAIXADO"];
+  const listaOptions  = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99"];
 
   // Carrega itens de todas as listas atribuídos ao usuário
   const carregarFila = useCallback(async (usuario) => {
@@ -401,9 +422,15 @@ export default function SIGNUMinhaFila() {
   }, [usuarioAtual, carregarFila]);
 
   const filtered = fila.filter(item => {
-    const matchStatus = filterStatus === "TODOS" || item.STATUS_DILIGENCIA === filterStatus;
-    const matchLista = filterLista === "TODAS" || item.listaOrigem === filterLista;
-    return matchStatus && matchLista;
+    if (filtroStatus.size > 0 && !filtroStatus.has(item.STATUS_DILIGENCIA)) return false;
+    if (filtroLista.size  > 0 && !filtroLista.has(item.listaOrigem))        return false;
+    if (filtroTipo.size   > 0 && !filtroTipo.has(item.TIPO_BEM))            return false;
+    if (busca.trim()) {
+      const q = busca.trim().toUpperCase();
+      const campos = [item.id, item.ID_PASEI, item.NIV, item.TIPO_BEM, item.STATUS_DILIGENCIA, item.DESTINACAO, item.OBSERVACOES].join(" ").toUpperCase();
+      if (!campos.includes(q)) return false;
+    }
+    return true;
   });
 
   const atrasadosCount = fila.filter(i => i.STATUS_DILIGENCIA === "ATRASADO").length;
@@ -539,67 +566,136 @@ export default function SIGNUMinhaFila() {
             })}
           </div>
 
-          {/* Filters */}
-          <div style={{
-            display: "flex",
-            gap: 12,
-            marginBottom: 24,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
-              <IconFilter size={14} /> Filtrar:
+          {/* ── Painel de filtros ── */}
+          <div style={{ marginBottom:24 }}>
+            {/* Barra de controle */}
+            <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom: filtrosAbertos ? 12 : 0 }}>
+              {/* Busca por texto */}
+              <div style={{ position:"relative", flex:1, minWidth:180 }}>
+                <svg style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", opacity:.4 }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                  value={busca}
+                  onChange={e => setBusca(e.target.value)}
+                  placeholder="Buscar por ID, NIV, tipo…"
+                  style={{ width:"100%", padding:"7px 10px 7px 30px", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"#fff", fontSize:12, outline:"none", boxSizing:"border-box" }}
+                />
+              </div>
+
+              {/* Botão expandir filtros */}
+              <button
+                onClick={() => setFiltrosAbertos(o => !o)}
+                style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", background: filtrosAbertos || totalFiltrosAtivos > 0 ? "rgba(201,168,76,0.12)" : "rgba(255,255,255,0.04)", border:`1px solid ${filtrosAbertos || totalFiltrosAtivos > 0 ? "rgba(201,168,76,0.4)" : "rgba(255,255,255,0.1)"}`, borderRadius:8, color: filtrosAbertos || totalFiltrosAtivos > 0 ? "#c9a84c" : "rgba(255,255,255,0.5)", fontSize:12, fontWeight:600, cursor:"pointer" }}
+              >
+                <IconFilter size={13}/>
+                Filtros
+                {totalFiltrosAtivos > 0 && (
+                  <span style={{ background:"#c9a84c", color:"#0a1628", borderRadius:10, padding:"0 6px", fontSize:10, fontWeight:800, marginLeft:2 }}>{totalFiltrosAtivos}</span>
+                )}
+              </button>
+
+              {/* Resultado + limpar */}
+              <span style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>
+                {filtered.length} de {fila.length} item{fila.length !== 1 ? "s" : ""}
+              </span>
+              {totalFiltrosAtivos > 0 && (
+                <button onClick={limparFiltros} style={{ fontSize:11, color:"rgba(255,255,255,0.4)", background:"none", border:"none", cursor:"pointer", textDecoration:"underline" }}>
+                  Limpar filtros
+                </button>
+              )}
             </div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {statusOptions.map(s => (
-                <button
-                  key={s}
-                  onClick={() => setFilterStatus(s)}
-                  style={{
-                    padding: "5px 12px",
-                    borderRadius: 20,
-                    fontSize: 12,
-                    fontWeight: filterStatus === s ? 600 : 400,
-                    cursor: "pointer",
-                    border: filterStatus === s
-                      ? "1px solid #c9a84c"
-                      : "1px solid rgba(255,255,255,0.1)",
-                    background: filterStatus === s
-                      ? "rgba(201,168,76,0.12)"
-                      : "transparent",
-                    color: filterStatus === s ? "#c9a84c" : "rgba(255,255,255,0.45)",
-                    transition: "all 0.15s ease",
-                  }}
-                >{s}</button>
-              ))}
-            </div>
-            <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)" }}/>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {listaOptions.map(l => {
-                const meta = LISTA_META[l];
-                return (
-                  <button
-                    key={l}
-                    onClick={() => setFilterLista(l)}
-                    style={{
-                      padding: "5px 12px",
-                      borderRadius: 20,
-                      fontSize: 12,
-                      fontWeight: filterLista === l ? 600 : 400,
-                      cursor: "pointer",
-                      border: filterLista === l
-                        ? `1px solid ${meta?.color || "#c9a84c"}`
-                        : "1px solid rgba(255,255,255,0.1)",
-                      background: filterLista === l
-                        ? `${meta?.bg || "rgba(201,168,76,0.12)"}`
-                        : "transparent",
-                      color: filterLista === l ? (meta?.color || "#c9a84c") : "rgba(255,255,255,0.45)",
-                      transition: "all 0.15s ease",
-                    }}
-                  >{meta?.label || l}</button>
-                );
-              })}
-            </div>
+
+            {/* Painel expansível */}
+            {filtrosAbertos && (
+              <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"16px 18px", display:"flex", flexDirection:"column", gap:14 }}>
+
+                {/* Status */}
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Status</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {statusOptions.map(s => {
+                      const ativo = filtroStatus.has(s);
+                      const cor = s === "ATRASADO" ? "#f87171" : s === "PRAZO 6 MESES" ? "#fbbf24" : s === "EM DILIGÊNCIA" ? "#22c55e" : s === "AGUARDANDO" ? "#60a5fa" : "rgba(255,255,255,0.5)";
+                      return (
+                        <button key={s} onClick={() => toggleSet(setFiltroStatus, s)}
+                          style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight: ativo ? 700 : 400, cursor:"pointer", border:`1px solid ${ativo ? cor : "rgba(255,255,255,0.1)"}`, background: ativo ? `${cor}18` : "transparent", color: ativo ? cor : "rgba(255,255,255,0.45)", transition:"all 0.15s" }}>
+                          {ativo && "✓ "}{s}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Lista */}
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Lista</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {listaOptions.map(l => {
+                      const meta = LISTA_META[l];
+                      const ativo = filtroLista.has(l);
+                      return (
+                        <button key={l} onClick={() => toggleSet(setFiltroLista, l)}
+                          style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight: ativo ? 700 : 400, cursor:"pointer", border:`1px solid ${ativo ? meta?.color : "rgba(255,255,255,0.1)"}`, background: ativo ? meta?.bg : "transparent", color: ativo ? meta?.color : "rgba(255,255,255,0.45)", transition:"all 0.15s" }}>
+                          {ativo && "✓ "}{meta?.label || l}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Tipo de Bem */}
+                {fila.length > 0 && (() => {
+                  const tipos = [...new Set(fila.map(i => i.TIPO_BEM).filter(Boolean))].sort();
+                  if (!tipos.length) return null;
+                  const icones = { CARRO:"🚗", MOTO:"🏍️", CAMINHONETE:"🛻", CAMINHÃO:"🚛", REBOQUE:"🚜", OUTROS:"📦" };
+                  return (
+                    <div>
+                      <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Tipo de Bem</div>
+                      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                        {tipos.map(t => {
+                          const ativo = filtroTipo.has(t);
+                          const count = fila.filter(i => i.TIPO_BEM === t).length;
+                          return (
+                            <button key={t} onClick={() => toggleSet(setFiltroTipo, t)}
+                              style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight: ativo ? 700 : 400, cursor:"pointer", border:`1px solid ${ativo ? "#c9a84c" : "rgba(255,255,255,0.1)"}`, background: ativo ? "rgba(201,168,76,0.12)" : "transparent", color: ativo ? "#c9a84c" : "rgba(255,255,255,0.45)", transition:"all 0.15s", display:"flex", alignItems:"center", gap:5 }}>
+                              <span>{icones[t] || "📦"}</span>
+                              {ativo && "✓ "}{t}
+                              <span style={{ fontSize:10, opacity:.6 }}>({count})</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Chips de filtros ativos (sempre visíveis fora do painel) */}
+            {!filtrosAbertos && totalFiltrosAtivos > 0 && (
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:8 }}>
+                {[...filtroStatus].map(s => (
+                  <span key={s} onClick={() => toggleSet(setFiltroStatus, s)}
+                    style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", background:"rgba(201,168,76,0.1)", border:"1px solid rgba(201,168,76,0.3)", borderRadius:20, fontSize:11, color:"#c9a84c", cursor:"pointer" }}>
+                    {s} ✕
+                  </span>
+                ))}
+                {[...filtroLista].map(l => {
+                  const meta = LISTA_META[l];
+                  return (
+                    <span key={l} onClick={() => toggleSet(setFiltroLista, l)}
+                      style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", background: meta?.bg || "rgba(255,255,255,0.05)", border:`1px solid ${meta?.color || "rgba(255,255,255,0.2)"}`, borderRadius:20, fontSize:11, color: meta?.color || "#fff", cursor:"pointer" }}>
+                      {meta?.label || l} ✕
+                    </span>
+                  );
+                })}
+                {[...filtroTipo].map(t => (
+                  <span key={t} onClick={() => toggleSet(setFiltroTipo, t)}
+                    style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:20, fontSize:11, color:"rgba(255,255,255,0.6)", cursor:"pointer" }}>
+                    {t} ✕
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Cards grid */}
