@@ -557,7 +557,9 @@ function DetalhesContent() {
                       {editMode
                         ? <FieldEdit label="Status" value={editData?.STATUS_DILIGENCIA} onChange={v=>upd("STATUS_DILIGENCIA",v)} options={STATUS_OPTIONS}/>
                         : <FieldView label="Status" value={current?.STATUS_DILIGENCIA}/>}
-                      <FieldView label="NIV / Chassi" value={current?.NIV} mono/>
+                      {editMode
+                        ? <FieldEdit label="NIV / Chassi" value={editData?.NIV} onChange={v=>upd("NIV",v)} mono/>
+                        : <FieldView label="NIV / Chassi" value={current?.NIV} mono/>}
                       {editMode
                         ? <FieldEdit label="Destinação" value={editData?.DESTINACAO} onChange={v=>upd("DESTINACAO",v)} options={DESTINACOES}/>
                         : <FieldView label="Destinação" value={current?.DESTINACAO}/>}
