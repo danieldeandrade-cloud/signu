@@ -1,6 +1,16 @@
 "use client";
 import Sidebar from "@/components/Sidebar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+
+// Listas onde buscar duplicatas (todas)
+const TODAS_LISTAS_ROTA = [
+  { rota:"cegoc",              label:"CEGOC",        color:"#3b82f6" },
+  { rota:"dpj",                label:"DPJ-GC99",     color:"#fb923c" },
+  { rota:"pcdf1",              label:"PCDF 1ª",      color:"#a78bfa" },
+  { rota:"pcdf2",              label:"PCDF 2ª",      color:"#c084fc" },
+  { rota:"doacoes_diligencia", label:"Doações",      color:"#34d399" },
+  { rota:"sei",                label:"Caixa SEI",    color:"#fbbf24" },
+];
 
 // Mapa: chave da lista → rota da API
 const LISTA_API_MAP = {
@@ -253,6 +263,43 @@ export default function CadastroPage() {
   const [proximaEntidade, setProximaEntidade] = useState(null);
   const [carregandoEntidade, setCarregandoEntidade] = useState(false);
 
+  // ── Detecção de duplicata ──────────────────────────────────────────────────
+  const [duplicata, setDuplicata] = useState(null);   // { campo, valor, encontrados: [{lista, item}] }
+  const [buscandoDup, setBuscandoDup] = useState(false);
+  const debounceRef = useRef(null);
+
+  const buscarDuplicata = (campo, valor) => {
+    clearTimeout(debounceRef.current);
+    setDuplicata(null);
+    const v = (valor || "").trim().toUpperCase();
+    if (v.length < 6) return; // mínimo de caracteres para buscar
+
+    debounceRef.current = setTimeout(async () => {
+      setBuscandoDup(true);
+      const encontrados = [];
+      await Promise.allSettled(
+        TODAS_LISTAS_ROTA.map(async ({ rota, label, color }) => {
+          try {
+            const res = await fetch(`/api/bens/${rota}`);
+            const json = await res.json();
+            const itens = json.dados || [];
+            itens.forEach(item => {
+              const niv    = (item.NIV      || "").toUpperCase();
+              const pasei  = (item.ID_PASEI || item.PA_PJE || "").toUpperCase().replace(/\s/g,"");
+              const alvo   = v.replace(/\s/g,"");
+              if ((campo === "NIV"      && niv   && niv   === alvo) ||
+                  (campo === "ID_PASEI" && pasei && pasei === alvo)) {
+                encontrados.push({ lista: label, color, item });
+              }
+            });
+          } catch { /* ignora erros de rede */ }
+        })
+      );
+      setBuscandoDup(false);
+      if (encontrados.length > 0) setDuplicata({ campo, valor: v, encontrados });
+    }, 600);
+  };
+
   // Quando DOACOES for selecionada, calcula a próxima entidade na fila efetiva.
   //
   // Lógica: para cada uma das 49 entidades, busca o ÚLTIMO EVENTO (doação realizada
@@ -314,6 +361,11 @@ export default function CadastroPage() {
     }
     setFormData(next);
     setErros(erros.filter(e => e !== id));
+    // Dispara verificação de duplicata nos campos críticos
+    if (id === "NIV" || id === "ID_PASEI" || id === "PA_PJE") {
+      const campo = id === "PA_PJE" ? "ID_PASEI" : id;
+      buscarDuplicata(campo, val);
+    }
   };
 
   const handleSalvar = async () => {
@@ -413,7 +465,7 @@ export default function CadastroPage() {
               <p style={{ fontSize:13,color:"rgba(255,255,255,0.35)",margin:"0 0 28px" }}>Selecione a lista de destino para o bem.</p>
               <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,maxWidth:800 }}>
                 {LISTAS_CONFIG.map(l => (
-                  <button key={l.key} onClick={() => { setListaKey(l.key); setFormData({}); setErros([]); }}
+                  <button key={l.key} onClick={() => { setListaKey(l.key); setFormData({}); setErros([]); setDuplicata(null); }}
                     style={{
                       background:`linear-gradient(145deg,${l.bg},rgba(6,15,30,0.9))`,
                       border:`1px solid ${l.color}30`,
@@ -498,6 +550,50 @@ export default function CadastroPage() {
                       ))}
                     </div>
                   </div>
+
+                  {/* ── Alerta de duplicata ── */}
+                  {(buscandoDup || duplicata) && (
+                    <div style={{ borderRadius:10, overflow:"hidden", border:`1px solid ${duplicata ? "rgba(248,113,113,0.4)" : "rgba(201,168,76,0.2)"}` }}>
+                      {buscandoDup && !duplicata && (
+                        <div style={{ padding:"10px 14px", background:"rgba(255,255,255,0.03)", fontSize:12, color:"rgba(255,255,255,0.4)", display:"flex", alignItems:"center", gap:8 }}>
+                          <span style={{ animation:"spin 1s linear infinite", display:"inline-block" }}>⟳</span>
+                          Verificando duplicidade...
+                        </div>
+                      )}
+                      {duplicata && (
+                        <div>
+                          <div style={{ padding:"10px 14px", background:"rgba(248,113,113,0.1)", display:"flex", alignItems:"center", gap:8 }}>
+                            <span style={{ fontSize:16 }}>⚠️</span>
+                            <span style={{ fontSize:12, fontWeight:700, color:"#f87171" }}>
+                              {duplicata.campo === "NIV" ? "NIV" : "Processo"} já cadastrado em {duplicata.encontrados.length} lista(s)
+                            </span>
+                          </div>
+                          <div style={{ padding:"8px 14px 12px", background:"rgba(248,113,113,0.05)" }}>
+                            {duplicata.encontrados.map((enc, i) => (
+                              <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", background:"rgba(255,255,255,0.03)", borderRadius:8, borderLeft:`3px solid ${enc.color}`, marginTop:6 }}>
+                                <div style={{ flex:1, minWidth:0 }}>
+                                  <div style={{ fontSize:11, fontWeight:700, color:enc.color, marginBottom:2 }}>{enc.lista}</div>
+                                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.6)" }}>
+                                    {enc.item.ID_PASEI || enc.item.PA_PJE || "—"}
+                                    {enc.item.TIPO_BEM ? ` · ${enc.item.TIPO_BEM}` : ""}
+                                    {enc.item.STATUS_DILIGENCIA ? ` · ${enc.item.STATUS_DILIGENCIA}` : ""}
+                                  </div>
+                                  {enc.item.RESPONSAVEL && (
+                                    <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:2 }}>
+                                      Responsável: {enc.item.RESPONSAVEL}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            <div style={{ fontSize:11, color:"rgba(248,113,113,0.7)", marginTop:10, fontStyle:"italic" }}>
+                              Verifique se é realmente um novo item antes de salvar.
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Toggles (se houver) */}
                   {camposToggle.length > 0 && (
