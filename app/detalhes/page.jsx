@@ -3,6 +3,7 @@
 import Sidebar from "@/components/Sidebar";
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 // Mapa rota API → chave interna de lista
 const ROTA_TO_KEY = {
@@ -234,6 +235,112 @@ function Toast({ msg, type }) {
       border:`1px solid ${ok?"rgba(34,197,94,0.4)":"rgba(248,113,113,0.4)"}`,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",
       fontSize:14,fontWeight:600,color:"#fff",animation:"slideUp 0.3s ease" }}>
       {ok?"✅":"❌"} {msg}
+    </div>
+  );
+}
+
+// ─── TIMELINE DE OBSERVAÇÕES ─────────────────────────────────────────────────
+function parseNotas(obsStr) {
+  const raw = (obsStr || "").trim();
+  if (!raw) return [];
+  const regex = /\[([^\]]+)\]([\s\S]*?)(?=\[[^\]]+\]|$)/g;
+  const entries = [];
+  let m;
+  while ((m = regex.exec(raw)) !== null) {
+    const texto = m[2].trim();
+    if (!texto) continue;
+    // Formato esperado: "26/06/2026 14:30 | Daniel" ou timestamp livre
+    const partes = m[1].split("|");
+    entries.push({
+      ts:    partes[0]?.trim() || m[1].trim(),
+      autor: partes[1]?.trim() || "",
+      texto,
+    });
+  }
+  // Fallback: texto sem marcação → entrada única sem metadados
+  if (entries.length === 0 && raw) {
+    entries.push({ ts: "", autor: "", texto: raw });
+  }
+  return entries.reverse(); // mais recente primeiro
+}
+
+function formatarNovaEntrada(texto, nomeUsuario) {
+  const agora = new Date();
+  const data  = agora.toLocaleDateString("pt-BR");
+  const hora  = agora.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
+  const autor = (nomeUsuario || "").split(" ")[0] || "Sistema";
+  return `[${data} ${hora} | ${autor}] ${texto.trim()}`;
+}
+
+function TimelineObservacoes({ obsStr, onSalvar, salvando }) {
+  const [novaNota, setNovaNota] = useState("");
+  const [salvandoNota, setSalvandoNota] = useState(false);
+  const { data: session } = useSession();
+  const nomeUsuario = session?.user?.name || "";
+  const notas = parseNotas(obsStr);
+
+  const handleSalvarNota = async () => {
+    if (!novaNota.trim()) return;
+    setSalvandoNota(true);
+    const entrada = formatarNovaEntrada(novaNota, nomeUsuario);
+    // Prepend: nova nota fica no topo do campo
+    const novoObs = obsStr?.trim()
+      ? `${entrada}\n${obsStr.trim()}`
+      : entrada;
+    await onSalvar(novoObs);
+    setNovaNota("");
+    setSalvandoNota(false);
+  };
+
+  return (
+    <div>
+      {/* Input de nova nota */}
+      <div style={{ marginBottom:16, display:"flex", gap:8 }}>
+        <textarea
+          value={novaNota}
+          onChange={e => setNovaNota(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSalvarNota(); }}
+          placeholder="Nova anotação… (Ctrl+Enter para salvar)"
+          rows={2}
+          style={{ flex:1, padding:"9px 12px", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(201,168,76,0.3)", borderRadius:8, color:"#fff", fontSize:13, lineHeight:1.5, resize:"vertical", outline:"none", fontFamily:"inherit" }}
+        />
+        <button
+          onClick={handleSalvarNota}
+          disabled={!novaNota.trim() || salvandoNota}
+          style={{ padding:"0 16px", background: novaNota.trim() ? "rgba(201,168,76,0.15)" : "rgba(255,255,255,0.04)", border:`1px solid ${novaNota.trim() ? "rgba(201,168,76,0.4)" : "rgba(255,255,255,0.08)"}`, borderRadius:8, color: novaNota.trim() ? "#c9a84c" : "rgba(255,255,255,0.2)", fontSize:12, fontWeight:700, cursor: novaNota.trim() ? "pointer" : "default", transition:"all 0.15s", whiteSpace:"nowrap", alignSelf:"flex-start", height:38 }}
+        >
+          {salvandoNota ? "…" : "＋ Salvar"}
+        </button>
+      </div>
+
+      {/* Timeline */}
+      {notas.length === 0 ? (
+        <p style={{ fontSize:13, color:"rgba(255,255,255,0.2)", fontStyle:"italic", margin:0 }}>Nenhuma anotação ainda.</p>
+      ) : (
+        <div style={{ position:"relative", paddingLeft:20 }}>
+          {/* Linha vertical */}
+          <div style={{ position:"absolute", left:7, top:8, bottom:8, width:2, background:"rgba(201,168,76,0.15)", borderRadius:2 }}/>
+          {notas.map((nota, i) => (
+            <div key={i} style={{ position:"relative", marginBottom: i < notas.length-1 ? 18 : 0 }}>
+              {/* Bolinha */}
+              <div style={{ position:"absolute", left:-20, top:6, width:10, height:10, borderRadius:"50%", background: i===0 ? "#c9a84c" : "rgba(201,168,76,0.3)", border:"2px solid #060f1e", boxSizing:"border-box" }}/>
+              <div style={{ background:"rgba(255,255,255,0.03)", border:`1px solid ${i===0?"rgba(201,168,76,0.2)":"rgba(255,255,255,0.05)"}`, borderRadius:8, padding:"10px 14px" }}>
+                {(nota.ts || nota.autor) && (
+                  <div style={{ display:"flex", gap:8, marginBottom:5, alignItems:"center" }}>
+                    {nota.autor && (
+                      <span style={{ fontSize:11, fontWeight:700, color:"#c9a84c" }}>{nota.autor}</span>
+                    )}
+                    {nota.ts && (
+                      <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>{nota.ts}</span>
+                    )}
+                  </div>
+                )}
+                <p style={{ fontSize:13, color:"rgba(255,255,255,0.75)", lineHeight:1.6, margin:0 }}>{nota.texto}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -624,14 +731,30 @@ function DetalhesContent() {
                     </Section>
                   )}
 
-                  {/* Observações */}
+                  {/* Observações — linha do tempo */}
                   <Section title="Observações">
-                    {editMode ? (
-                      <textarea value={editData?.OBSERVACOES||""} onChange={e=>upd("OBSERVACOES",e.target.value)}
-                        style={{ width:"100%",minHeight:100,padding:"10px 12px",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(201,168,76,0.25)",borderRadius:8,color:"rgba(255,255,255,0.8)",fontSize:13,lineHeight:1.6,resize:"vertical",outline:"none" }}/>
-                    ) : (
-                      <p style={{ fontSize:13,color:"rgba(255,255,255,0.65)",lineHeight:1.7,margin:0 }}>{current?.OBSERVACOES || <span style={{ fontStyle:"italic",color:"rgba(255,255,255,0.2)" }}>Sem observações.</span>}</p>
-                    )}
+                    <TimelineObservacoes
+                      obsStr={bem?.OBSERVACOES || ""}
+                      salvando={salvando}
+                      onSalvar={async (novoObs) => {
+                        setSalvando(true);
+                        try {
+                          const res = await fetch(`/api/bens/${lista}/${row}`, {
+                            method:"PATCH",
+                            headers:{"Content-Type":"application/json"},
+                            body: JSON.stringify({ OBSERVACOES: novoObs }),
+                          });
+                          const json = await res.json();
+                          if (!res.ok) throw new Error(json.erro || "Erro ao salvar");
+                          setBem(json.item);
+                          showToast("Anotação salva!");
+                        } catch(e) {
+                          showToast(e.message, "error");
+                        } finally {
+                          setSalvando(false);
+                        }
+                      }}
+                    />
                   </Section>
                 </div>
 
