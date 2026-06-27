@@ -28,7 +28,8 @@ export const authOptions = {
       if (email.endsWith('@tjdft.jus.br')) return true;
       // Contas pessoais autorizadas (testes / acesso externo)
       const PERMITIDOS = [
-        'carcae@gmail.com',         // Carlos Caetano — teste servidor
+        'carcae@gmail.com',              // Carlos Caetano — teste servidor
+        'amandalobojunqueira@gmail.com', // Amanda Junqueira — teste servidor
         'danieldeandrade@icloud.com', // Daniel — gestor
       ];
       return PERMITIDOS.includes(email);
