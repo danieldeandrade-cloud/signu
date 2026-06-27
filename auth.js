@@ -22,11 +22,16 @@ export const authOptions = {
   },
 
   callbacks: {
-    // Restringe acesso ao domínio TJDFT
     async signIn({ profile }) {
-      // Para restringir apenas a @tjdft.jus.br, descomente a linha abaixo:
-      // return profile?.email?.endsWith('@tjdft.jus.br') ?? false;
-      return true; // Permite qualquer conta Google por enquanto
+      const email = profile?.email?.toLowerCase() ?? '';
+      // Contas institucionais
+      if (email.endsWith('@tjdft.jus.br')) return true;
+      // Contas pessoais autorizadas (testes / acesso externo)
+      const PERMITIDOS = [
+        'carcae@gmail.com',         // Carlos Caetano — teste servidor
+        'danieldeandrade@icloud.com', // Daniel — gestor
+      ];
+      return PERMITIDOS.includes(email);
     },
 
     async session({ session, token }) {
