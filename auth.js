@@ -28,10 +28,13 @@ export const authOptions = {
       if (email.endsWith('@tjdft.jus.br')) return true;
       // Contas pessoais autorizadas (testes / acesso externo)
       const PERMITIDOS = [
-        'carcae@gmail.com',              // Carlos Caetano — teste servidor
-        'amandalobojunqueira@gmail.com', // Amanda Junqueira — teste servidor
-        'bsboqfazer@gmail.com',          // Letícia Mota — teste servidor
-        'danieldeandrade@icloud.com', // Daniel — gestor
+        'carcae@gmail.com',                   // Carlos Caetano — teste servidor
+        'amandalobojunqueira@gmail.com',      // Amanda Junqueira — teste servidor
+        'bsboqfazer@gmail.com',               // Letícia Mota — teste servidor
+        'carlaearaujo2@gmail.com',            // Carla Araújo — teste servidor
+        'marcelodefreitasoliveira@gmail.com', // Marcelo Oliveira — teste servidor
+        'danieldeandrade@icloud.com',         // Daniel — gestor
+        'carlosalex1318@gmail.com',           // Carlos Amorim — gestor
       ];
       return PERMITIDOS.includes(email);
     },

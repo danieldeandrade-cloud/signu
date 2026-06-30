@@ -10,6 +10,34 @@ const SERVIDORES = [
   "Cláudia Santos","Loara Passo","Letícia Mota","Marcelo Oliveira",
 ];
 
+// Mapeamento Gmail pessoal → nome exato no sistema (campo RESPONSAVEL)
+// Adicione aqui o e-mail pessoal de cada servidor ao onboarding
+const MAPA_EMAIL_NOME = {
+  "danieldeandrade@icloud.com":        null,   // gestor — usa select
+  "carlosalex1318@gmail.com":          null,   // gestor — usa select
+  // Servidores com Gmail pessoal de teste:
+  "carcae@gmail.com":                  "Carlos Caetano",
+  "amandalobojunqueira@gmail.com":     "Amanda Junqueira",
+  "bsboqfazer@gmail.com":              "Letícia Mota",
+  "carlaearaujo2@gmail.com":           "Carla Araújo",
+  "marcelodefreitasoliveira@gmail.com":"Marcelo Oliveira",
+};
+
+const GESTORES_GMAIL = ["danieldeandrade@icloud.com","carlosalex1318@gmail.com"];
+
+// Resolve qual nome do sistema corresponde ao usuário logado.
+// Prioridade: 1) mapa de e-mail  2) nome Google bate exatamente com SERVIDORES
+function resolverNomeServidor(email, nomeGoogle) {
+  if (!email && !nomeGoogle) return null;
+  // 1. Mapa explícito de e-mail
+  if (email && MAPA_EMAIL_NOME[email] !== undefined) return MAPA_EMAIL_NOME[email]; // null = gestor
+  // 2. Nome Google bate exatamente (caso o display name já seja o nome do sistema)
+  const match = SERVIDORES.find(s => s.toLowerCase() === (nomeGoogle || "").toLowerCase());
+  if (match) return match;
+  // 3. Não identificado — retorna null para mostrar seletor
+  return null;
+}
+
 // Listas que alimentam a fila de trabalho
 const LISTAS_FILA = [
   { key:"CEGOC",        rota:"cegoc",  prefixo:"CEG",   statusField:"STATUS_DILIGENCIA" },
@@ -382,17 +410,26 @@ export default function SIGNUMinhaFila() {
   // Dados reais
   const [fila, setFila] = useState([]);
   const [carregando, setCarregando] = useState(false);
-  // Usa o nome da sessão Google; fallback para o primeiro da lista
-  const [usuarioAtual, setUsuarioAtual] = useState(SERVIDORES[0]);
+  const [usuarioAtual, setUsuarioAtual] = useState(null); // null = ainda resolvendo
+  const [isGestor, setIsGestor] = useState(false);
 
-  // Quando a sessão carregar, define o usuário atual
+  // Resolve identidade quando a sessão carregar
   useEffect(() => {
-    if (session?.user?.name) {
-      setUsuarioAtual(session.user.name);
+    if (!session?.user) return;
+    const email      = session.user.email || "";
+    const nomeGoogle = session.user.name  || "";
+    const gestor     = GESTORES_GMAIL.includes(email);
+    setIsGestor(gestor);
+    if (gestor) {
+      // Gestor vê o seletor — inicia no primeiro servidor
+      setUsuarioAtual(prev => prev || SERVIDORES[0]);
+    } else {
+      const nome = resolverNomeServidor(email, nomeGoogle);
+      setUsuarioAtual(nome || SERVIDORES[0]); // fallback: primeiro da lista
     }
   }, [session]);
 
-  const statusOptions = ["EM DILIGÊNCIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "BAIXADO"];
+  const statusOptions = ["EM DILIGÊNCIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "RENAJUD", "LPC", "CATÁLOGO", "BAIXADO"];
   const listaOptions  = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99"];
 
   // Carrega itens de todas as listas atribuídos ao usuário
@@ -474,23 +511,24 @@ export default function SIGNUMinhaFila() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {/* Usuário logado via Google — exibe avatar + nome; seletor manual como fallback */}
-            {session?.user ? (
-              <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(201,168,76,0.08)", border:"1px solid rgba(201,168,76,0.2)", borderRadius:8, padding:"4px 10px" }}>
-                {session.user.image && (
-                  <img src={session.user.image} alt="" style={{ width:22, height:22, borderRadius:"50%", border:"1px solid rgba(201,168,76,0.3)" }}/>
-                )}
-                <span style={{ fontSize:12, fontWeight:600, color:"#c9a84c" }}>{session.user.name}</span>
-              </div>
-            ) : (
+            {/* Gestores veem seletor; servidores veem apenas o próprio nome */}
+            {isGestor ? (
               <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(201,168,76,0.08)", border:"1px solid rgba(201,168,76,0.2)", borderRadius:8, padding:"4px 10px" }}>
-                <span style={{ fontSize:10, color:"rgba(201,168,76,0.6)", fontWeight:700, textTransform:"uppercase" }}>Servidor:</span>
-                <select value={usuarioAtual} onChange={e => setUsuarioAtual(e.target.value)}
+                <span style={{ fontSize:10, color:"rgba(201,168,76,0.6)", fontWeight:700, textTransform:"uppercase" }}>Ver fila de:</span>
+                <select value={usuarioAtual || ""} onChange={e => setUsuarioAtual(e.target.value)}
                   style={{ background:"transparent", border:"none", color:"#c9a84c", fontSize:12, fontWeight:600, cursor:"pointer", outline:"none" }}>
                   {SERVIDORES.map(s => <option key={s} value={s} style={{ background:"#0a1628" }}>{s}</option>)}
                 </select>
               </div>
-            )}
+            ) : session?.user ? (
+              /* Servidor: nome resolvido + foto, sem seletor */
+              <div style={{ display:"flex", alignItems:"center", gap:7, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"4px 10px" }}>
+                {session.user.image && (
+                  <img src={session.user.image} alt="" style={{ width:20, height:20, borderRadius:"50%", border:"1px solid rgba(201,168,76,0.3)" }}/>
+                )}
+                <span style={{ fontSize:12, fontWeight:600, color:"#c9a84c" }}>{usuarioAtual || session.user.name}</span>
+              </div>
+            ) : null}
             {/* Alerta de itens atrasados */}
             {atrasadosCount > 0 && (
               <div style={{
