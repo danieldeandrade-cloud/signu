@@ -21,6 +21,8 @@ const MAPA_EMAIL_NOME = {
   "bsboqfazer@gmail.com":              "Letícia Mota",
   "carlaearaujo2@gmail.com":           "Carla Araújo",
   "marcelodefreitasoliveira@gmail.com":"Marcelo Oliveira",
+  "joloara@gmail.com":                 "Loara Passo",
+  "cacausantos@gmail.com":             "Cláudia Santos",
 };
 
 const GESTORES_GMAIL = ["danieldeandrade@icloud.com","carlosalex1318@gmail.com"];
@@ -227,8 +229,8 @@ function BemCard({ item, onClick }) {
     <div
       onClick={() => onClick(item)}
       style={{
-        background: "linear-gradient(145deg, #0f2040 0%, #0a1628 100%)",
-        border: `1px solid ${atrasado ? "rgba(248,113,113,0.35)" : "rgba(201,168,76,0.12)"}`,
+        background: "#fff",
+        border: `1px solid ${atrasado ? "rgba(248,113,113,0.35)" : "rgba(37,99,235,0.1)"}`,
         borderRadius: 12,
         padding: "18px 20px",
         cursor: "pointer",
@@ -237,12 +239,12 @@ function BemCard({ item, onClick }) {
         overflow: "hidden",
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.borderColor = atrasado ? "rgba(248,113,113,0.6)" : "rgba(201,168,76,0.4)";
+        e.currentTarget.style.borderColor = atrasado ? "rgba(248,113,113,0.6)" : "rgba(37,99,235,0.4)";
         e.currentTarget.style.transform = "translateY(-2px)";
         e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.4)";
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.borderColor = atrasado ? "rgba(248,113,113,0.35)" : "rgba(201,168,76,0.12)";
+        e.currentTarget.style.borderColor = atrasado ? "rgba(248,113,113,0.35)" : "rgba(37,99,235,0.1)";
         e.currentTarget.style.transform = "translateY(0)";
         e.currentTarget.style.boxShadow = "none";
       }}
@@ -272,13 +274,13 @@ function BemCard({ item, onClick }) {
               <span style={{
                 fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: 11,
-                color: "rgba(255,255,255,0.45)",
+                color: "#374151",
               }}>{item.id}</span>
             </div>
             <div style={{
               fontFamily: "'IBM Plex Mono', monospace",
               fontSize: 12,
-              color: "#c9a84c",
+              color: "#2563eb",
               marginTop: 4,
               letterSpacing: "0.03em",
             }}>{item.ID_PASEI}</div>
@@ -316,9 +318,9 @@ function BemCard({ item, onClick }) {
       {/* Observação */}
       <div style={{
         fontSize: 12,
-        color: "rgba(255,255,255,0.45)",
+        color: "#374151",
         fontStyle: "italic",
-        borderTop: "1px solid rgba(255,255,255,0.06)",
+        borderTop: "1px solid #e5e7eb",
         paddingTop: 10,
         lineHeight: 1.5,
         display: "-webkit-box",
@@ -334,7 +336,7 @@ function BemCard({ item, onClick }) {
         justifyContent: "space-between",
         marginTop: 12,
         paddingTop: 10,
-        borderTop: "1px solid rgba(255,255,255,0.06)",
+        borderTop: "1px solid #e5e7eb",
       }}>
         {atrasado ? (
           <div style={{
@@ -345,13 +347,13 @@ function BemCard({ item, onClick }) {
             {item.diasSemAtualizacao} dias sem atualização
           </div>
         ) : (
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
+          <div style={{ fontSize: 12, color: "#6b7280" }}>
             Atualizado há {item.diasSemAtualizacao} dias
           </div>
         )}
         <div style={{
           display: "flex", alignItems: "center", gap: 4,
-          color: "#c9a84c", fontSize: 12, fontWeight: 500,
+          color: "#2563eb", fontSize: 12, fontWeight: 500,
         }}>
           Ver detalhes <IconChevron size={14} />
         </div>
@@ -363,13 +365,13 @@ function BemCard({ item, onClick }) {
 function Info({ label, value, mono, alert, positive }) {
   return (
     <div>
-      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>
+      <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>
         {label}
       </div>
       <div style={{
         fontSize: 12,
         fontFamily: mono ? "'IBM Plex Mono', monospace" : "inherit",
-        color: alert ? "#fbbf24" : positive ? "#22c55e" : "rgba(255,255,255,0.8)",
+        color: alert ? "#fbbf24" : positive ? "#22c55e" : "#0f172a",
         fontWeight: 500,
       }}>{value}</div>
     </div>
@@ -383,8 +385,19 @@ export default function SIGNUMinhaFila() {
   const [filtroStatus, setFiltroStatus] = useState(new Set());
   const [filtroLista,  setFiltroLista]  = useState(new Set());
   const [filtroTipo,   setFiltroTipo]   = useState(new Set());
+  const [filtroFlags,  setFiltroFlags]  = useState(new Set()); // FIB | CEB_TEP_TIV | OFICIO_BAIXA | HIGEIA
   const [busca,        setBusca]        = useState("");
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [sortOrder, setSortOrder] = useState("recentes"); // "recentes" | "antigos"
+
+  // Cabeçalho de ordenação da tabela
+  const [sortCol,  setSortCol]  = useState("ULTIMA_ANALISE");
+  const [sortDir,  setSortDir]  = useState("desc"); // desc = mais recentes primeiro
+
+  const toggleSort = (col) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
 
   const toggleSet = (setter, val) =>
     setter(prev => {
@@ -397,12 +410,82 @@ export default function SIGNUMinhaFila() {
     setFiltroStatus(new Set());
     setFiltroLista(new Set());
     setFiltroTipo(new Set());
+    setFiltroFlags(new Set());
     setBusca("");
   };
 
+  const flagAtiva = (item, flag) => {
+    if (flag === "FIB")         return item.FIB === "TRUE" || item.FIB === true;
+    if (flag === "CEB_TEP_TIV") return item.CEB_TEP_TIV === "TRUE" || item.CEB_TEP_TIV === true;
+    if (flag === "OFICIO_BAIXA")return item.OFICIO_BAIXA === "TRUE" || item.OFICIO_BAIXA === true;
+    if (flag === "HIGEIA")      return item.STATUS_DILIGENCIA === "EM DILIGÊNCIA HIGEIA";
+    return false;
+  };
+
   const totalFiltrosAtivos =
-    filtroStatus.size + filtroLista.size + filtroTipo.size + (busca.trim() ? 1 : 0);
-  const [selectedItem, setSelectedItem] = useState(null);
+    filtroStatus.size + filtroLista.size + filtroTipo.size + filtroFlags.size + (busca.trim() ? 1 : 0);
+  const [selectedItem,   setSelectedItem]   = useState(null);
+  const [drawerEditMode, setDrawerEditMode] = useState(false);
+  const [drawerEditData, setDrawerEditData] = useState(null);
+  const [drawerSalvando, setDrawerSalvando] = useState(false);
+  const [drawerToast,    setDrawerToast]    = useState(null);
+
+  const ROTA_MAP = { CEGOC:"cegoc", PCDF_1HIGEIA:"pcdf1", PCDF_2HIGEIA:"pcdf2", DPJ_GC99:"dpj" };
+  const DESTINACOES_OPT = ["CIRCULAÇÃO","RECICLAGEM"];
+
+  const abrirDrawer = (item) => {
+    setSelectedItem(item);
+    setDrawerEditMode(false);
+    setDrawerEditData(null);
+    setDrawerToast(null);
+  };
+
+  const iniciarEdicao = () => {
+    setDrawerEditData({ ...selectedItem });
+    setDrawerEditMode(true);
+  };
+
+  const cancelarEdicao = () => {
+    setDrawerEditMode(false);
+    setDrawerEditData(null);
+  };
+
+  const updDrawer = (field, val) => setDrawerEditData(prev => ({ ...prev, [field]: val }));
+
+  const boolStr = (v) => (v === true || v === "TRUE") ? "TRUE" : "FALSE";
+
+  const salvarDrawer = async () => {
+    if (!drawerEditData) return;
+    setDrawerSalvando(true);
+    try {
+      const rota = ROTA_MAP[selectedItem.listaOrigem];
+      const row  = selectedItem._rowNumber;
+      const payload = { ...drawerEditData };
+      // Não sobrescrever OBSERVACOES — gerenciado separadamente
+      delete payload.OBSERVACOES;
+      // Serializa booleanos
+      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","INUTILIZADO","RESTRICAO_ROUBO"].forEach(k => {
+        if (k in payload) payload[k] = boolStr(payload[k]);
+      });
+      const res  = await fetch(`/api/bens/${rota}/${row}`, {
+        method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.erro || "Erro ao salvar");
+      // Atualiza o item na tabela sem recarregar tudo
+      const atualizado = { ...json.item, id: selectedItem.id, listaOrigem: selectedItem.listaOrigem, STATUS_DILIGENCIA: json.item.STATUS_DILIGENCIA || json.item[LISTAS_FILA.find(l=>l.key===selectedItem.listaOrigem)?.statusField] || selectedItem.STATUS_DILIGENCIA };
+      setFila(prev => prev.map(i => i._rowNumber === row && i.listaOrigem === selectedItem.listaOrigem ? { ...atualizado } : i));
+      setSelectedItem(atualizado);
+      setDrawerEditMode(false);
+      setDrawerEditData(null);
+      setDrawerToast({ tipo:"ok", msg:"Salvo com sucesso!" });
+      setTimeout(() => setDrawerToast(null), 3000);
+    } catch(e) {
+      setDrawerToast({ tipo:"erro", msg: e.message });
+    } finally {
+      setDrawerSalvando(false);
+    }
+  };
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const { data: session } = useSession();
@@ -429,7 +512,7 @@ export default function SIGNUMinhaFila() {
     }
   }, [session]);
 
-  const statusOptions = ["EM DILIGÊNCIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "RENAJUD", "LPC", "CATÁLOGO", "BAIXADO"];
+  const statusOptions = ["EM DILIGÊNCIA", "EM DILIGÊNCIA HIGEIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "RENAJUD", "LPC", "CATÁLOGO", "BAIXADO"];
   const listaOptions  = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99"];
 
   // Carrega itens de todas as listas atribuídos ao usuário
@@ -462,6 +545,7 @@ export default function SIGNUMinhaFila() {
     if (filtroStatus.size > 0 && !filtroStatus.has(item.STATUS_DILIGENCIA)) return false;
     if (filtroLista.size  > 0 && !filtroLista.has(item.listaOrigem))        return false;
     if (filtroTipo.size   > 0 && !filtroTipo.has(item.TIPO_BEM))            return false;
+    if (filtroFlags.size  > 0 && ![...filtroFlags].some(f => flagAtiva(item, f))) return false;
     if (busca.trim()) {
       const q = busca.trim().toUpperCase();
       const campos = [item.id, item.ID_PASEI, item.NIV, item.TIPO_BEM, item.STATUS_DILIGENCIA, item.DESTINACAO, item.OBSERVACOES].join(" ").toUpperCase();
@@ -470,10 +554,23 @@ export default function SIGNUMinhaFila() {
     return true;
   });
 
+  const sorted = [...filtered].sort((a, b) => {
+    const mul = sortDir === "asc" ? 1 : -1;
+    if (sortCol === "ULTIMA_ANALISE") {
+      const da = a.ULTIMA_ANALISE ? new Date(a.ULTIMA_ANALISE).getTime() : 0;
+      const db = b.ULTIMA_ANALISE ? new Date(b.ULTIMA_ANALISE).getTime() : 0;
+      return (da - db) * mul;
+    }
+    if (sortCol === "TIPO_BEM")         return (a.TIPO_BEM||"").localeCompare(b.TIPO_BEM||"") * mul;
+    if (sortCol === "STATUS_DILIGENCIA")return (a.STATUS_DILIGENCIA||"").localeCompare(b.STATUS_DILIGENCIA||"") * mul;
+    if (sortCol === "listaOrigem")      return (a.listaOrigem||"").localeCompare(b.listaOrigem||"") * mul;
+    return 0;
+  });
+
   const atrasadosCount = fila.filter(i => i.STATUS_DILIGENCIA === "ATRASADO").length;
 
   return (
-    <div className="signu-layout" style={{ background: "#060f1e", fontFamily: "'Inter', system-ui, sans-serif", color: "#e2e8f0" }}>
+    <div className="signu-layout" style={{ background: "#dde1e7", fontFamily: "'Inter', system-ui, sans-serif", color: "#111827" }}>
       {/* ── SIDEBAR ── */}
       <Sidebar />
 
@@ -487,15 +584,15 @@ export default function SIGNUMinhaFila() {
           justifyContent: "space-between",
           padding: "0 28px",
           height: 60,
-          background: "#0a1628",
-          borderBottom: "1px solid rgba(201,168,76,0.1)",
+          background: "#1e2d3d",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
           flexShrink: 0,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <button
               onClick={() => setSidebarOpen(o => !o)}
               style={{
-                background: "none", border: "none", color: "rgba(255,255,255,0.4)",
+                background: "none", border: "none", color: "#4b5563",
                 cursor: "pointer", padding: 4, display: "flex",
               }}
             >
@@ -504,8 +601,8 @@ export default function SIGNUMinhaFila() {
               </svg>
             </button>
             <div>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>SIGNU</span>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.2)", margin: "0 6px" }}>/</span>
+              <span style={{ fontSize: 13, color: "#6b7280" }}>SIGNU</span>
+              <span style={{ fontSize: 13, color: "#9ca3af", margin: "0 6px" }}>/</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>Minha Fila</span>
             </div>
           </div>
@@ -513,20 +610,20 @@ export default function SIGNUMinhaFila() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {/* Gestores veem seletor; servidores veem apenas o próprio nome */}
             {isGestor ? (
-              <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(201,168,76,0.08)", border:"1px solid rgba(201,168,76,0.2)", borderRadius:8, padding:"4px 10px" }}>
-                <span style={{ fontSize:10, color:"rgba(201,168,76,0.6)", fontWeight:700, textTransform:"uppercase" }}>Ver fila de:</span>
+              <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(37,99,235,0.07)", border:"1.5px solid #b0b8c4", borderRadius:8, padding:"4px 10px" }}>
+                <span style={{ fontSize:10, color:"#2563eb", fontWeight:700, textTransform:"uppercase" }}>Ver fila de:</span>
                 <select value={usuarioAtual || ""} onChange={e => setUsuarioAtual(e.target.value)}
-                  style={{ background:"transparent", border:"none", color:"#c9a84c", fontSize:12, fontWeight:600, cursor:"pointer", outline:"none" }}>
-                  {SERVIDORES.map(s => <option key={s} value={s} style={{ background:"#0a1628" }}>{s}</option>)}
+                  style={{ background:"transparent", border:"none", color:"#2563eb", fontSize:12, fontWeight:600, cursor:"pointer", outline:"none" }}>
+                  {SERVIDORES.map(s => <option key={s} value={s} style={{ background:"#1e2d3d" }}>{s}</option>)}
                 </select>
               </div>
             ) : session?.user ? (
               /* Servidor: nome resolvido + foto, sem seletor */
-              <div style={{ display:"flex", alignItems:"center", gap:7, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"4px 10px" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:7, background:"#f3f4f6", border:"1.5px solid #b0b8c4", borderRadius:8, padding:"4px 10px" }}>
                 {session.user.image && (
-                  <img src={session.user.image} alt="" style={{ width:20, height:20, borderRadius:"50%", border:"1px solid rgba(201,168,76,0.3)" }}/>
+                  <img src={session.user.image} alt="" style={{ width:20, height:20, borderRadius:"50%", border:"1.5px solid #b0b8c4" }}/>
                 )}
-                <span style={{ fontSize:12, fontWeight:600, color:"#c9a84c" }}>{usuarioAtual || session.user.name}</span>
+                <span style={{ fontSize:12, fontWeight:600, color:"#2563eb" }}>{usuarioAtual || session.user.name}</span>
               </div>
             ) : null}
             {/* Alerta de itens atrasados */}
@@ -543,7 +640,7 @@ export default function SIGNUMinhaFila() {
               </div>
             )}
             {carregando && (
-              <span style={{ fontSize:11, color:"rgba(255,255,255,0.3)" }}>carregando…</span>
+              <span style={{ fontSize:11, color:"#6b7280" }}>carregando…</span>
             )}
           </div>
         </header>
@@ -564,10 +661,10 @@ export default function SIGNUMinhaFila() {
             </h1>
             <p style={{
               fontSize: 13,
-              color: "rgba(255,255,255,0.4)",
+              color: "#4b5563",
               margin: "4px 0 0",
             }}>
-              Bens atribuídos a <strong style={{ color: "rgba(201,168,76,0.8)" }}>{usuarioAtual}</strong> — {fila.length} itens em {LISTAS_FILA.length} listas
+              Bens atribuídos a <strong style={{ color: "#1e40af" }}>{usuarioAtual}</strong> — {fila.length} itens em {LISTAS_FILA.length} listas
             </p>
           </div>
 
@@ -596,7 +693,7 @@ export default function SIGNUMinhaFila() {
                   <span style={{ fontSize: 12, color: meta.color, fontWeight: 600 }}>{meta.label}</span>
                   <span style={{
                     fontSize: 14, fontWeight: 700, color: "#fff",
-                    background: "rgba(255,255,255,0.08)",
+                    background: "#e5e7eb",
                     padding: "1px 7px", borderRadius: 12,
                   }}>{count}</span>
                 </div>
@@ -605,156 +702,173 @@ export default function SIGNUMinhaFila() {
           </div>
 
           {/* ── Painel de filtros ── */}
-          <div style={{ marginBottom:24 }}>
-            {/* Barra de controle */}
-            <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom: filtrosAbertos ? 12 : 0 }}>
-              {/* Busca por texto */}
+          <div style={{ marginBottom:16 }}>
+            <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom: filtrosAbertos ? 10 : 0 }}>
               <div style={{ position:"relative", flex:1, minWidth:180 }}>
                 <svg style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", opacity:.4 }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input
-                  value={busca}
-                  onChange={e => setBusca(e.target.value)}
-                  placeholder="Buscar por ID, NIV, tipo…"
-                  style={{ width:"100%", padding:"7px 10px 7px 30px", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"#fff", fontSize:12, outline:"none", boxSizing:"border-box" }}
-                />
+                <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por ID, NIV, tipo…"
+                  style={{ width:"100%", padding:"7px 10px 7px 30px", background:"#f3f4f6", border:"1.5px solid #c4c9d0", borderRadius:8, color:"#0f172a", fontSize:12, outline:"none", boxSizing:"border-box" }}/>
               </div>
-
-              {/* Botão expandir filtros */}
-              <button
-                onClick={() => setFiltrosAbertos(o => !o)}
-                style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", background: filtrosAbertos || totalFiltrosAtivos > 0 ? "rgba(201,168,76,0.12)" : "rgba(255,255,255,0.04)", border:`1px solid ${filtrosAbertos || totalFiltrosAtivos > 0 ? "rgba(201,168,76,0.4)" : "rgba(255,255,255,0.1)"}`, borderRadius:8, color: filtrosAbertos || totalFiltrosAtivos > 0 ? "#c9a84c" : "rgba(255,255,255,0.5)", fontSize:12, fontWeight:600, cursor:"pointer" }}
-              >
-                <IconFilter size={13}/>
-                Filtros
-                {totalFiltrosAtivos > 0 && (
-                  <span style={{ background:"#c9a84c", color:"#0a1628", borderRadius:10, padding:"0 6px", fontSize:10, fontWeight:800, marginLeft:2 }}>{totalFiltrosAtivos}</span>
-                )}
+              <button onClick={() => setFiltrosAbertos(o => !o)}
+                style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", background: filtrosAbertos||totalFiltrosAtivos>0?"rgba(37,99,235,0.1)":"#f3f4f6", border:`1px solid ${filtrosAbertos||totalFiltrosAtivos>0?"rgba(37,99,235,0.4)":"#d1d5db"}`, borderRadius:8, color:filtrosAbertos||totalFiltrosAtivos>0?"#2563eb":"#374151", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                <IconFilter size={13}/> Filtros
+                {totalFiltrosAtivos > 0 && <span style={{ background:"#2563eb", color:"#fff", borderRadius:10, padding:"0 6px", fontSize:10, fontWeight:800 }}>{totalFiltrosAtivos}</span>}
               </button>
-
-              {/* Resultado + limpar */}
-              <span style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>
-                {filtered.length} de {fila.length} item{fila.length !== 1 ? "s" : ""}
-              </span>
-              {totalFiltrosAtivos > 0 && (
-                <button onClick={limparFiltros} style={{ fontSize:11, color:"rgba(255,255,255,0.4)", background:"none", border:"none", cursor:"pointer", textDecoration:"underline" }}>
-                  Limpar filtros
-                </button>
-              )}
+              {/* Ordenação */}
+              <button onClick={() => { setSortCol("ULTIMA_ANALISE"); setSortDir(d => d==="desc"?"asc":"desc"); }}
+                style={{ display:"flex", alignItems:"center", gap:5, padding:"7px 12px", background:"#f3f4f6", border:"1.5px solid #c4c9d0", borderRadius:8, color:"#374151", fontSize:12, cursor:"pointer" }}>
+                {sortDir==="desc"?"↓":"↑"} {sortDir==="desc"?"Mais recentes":"Mais antigos"}
+              </button>
+              <span style={{ fontSize:11, color:"#6b7280" }}>{sorted.length} de {fila.length}</span>
+              {totalFiltrosAtivos > 0 && <button onClick={limparFiltros} style={{ fontSize:11, color:"#4b5563", background:"none", border:"none", cursor:"pointer", textDecoration:"underline" }}>Limpar</button>}
             </div>
 
-            {/* Painel expansível */}
             {filtrosAbertos && (
-              <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"16px 18px", display:"flex", flexDirection:"column", gap:14 }}>
-
+              <div style={{ background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:10, padding:"14px 16px", display:"flex", flexDirection:"column", gap:12 }}>
                 {/* Status */}
                 <div>
-                  <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Status</div>
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:7 }}>Status</div>
+                  <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                     {statusOptions.map(s => {
                       const ativo = filtroStatus.has(s);
-                      const cor = s === "ATRASADO" ? "#f87171" : s === "PRAZO 6 MESES" ? "#fbbf24" : s === "EM DILIGÊNCIA" ? "#22c55e" : s === "AGUARDANDO" ? "#60a5fa" : "rgba(255,255,255,0.5)";
-                      return (
-                        <button key={s} onClick={() => toggleSet(setFiltroStatus, s)}
-                          style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight: ativo ? 700 : 400, cursor:"pointer", border:`1px solid ${ativo ? cor : "rgba(255,255,255,0.1)"}`, background: ativo ? `${cor}18` : "transparent", color: ativo ? cor : "rgba(255,255,255,0.45)", transition:"all 0.15s" }}>
-                          {ativo && "✓ "}{s}
-                        </button>
-                      );
+                      const cor = s==="ATRASADO"?"#f87171":s==="PRAZO 6 MESES"?"#fbbf24":s==="EM DILIGÊNCIA"?"#22c55e":s==="AGUARDANDO"?"#60a5fa":s==="RENAJUD"?"#f472b6":s==="EM DILIGÊNCIA HIGEIA"?"#a78bfa":"#374151";
+                      return <button key={s} onClick={() => toggleSet(setFiltroStatus,s)}
+                        style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:ativo?700:400, cursor:"pointer", border:`1px solid ${ativo?cor:"#d1d5db"}`, background:ativo?`${cor}18`:"transparent", color:ativo?cor:"#374151" }}>
+                        {ativo&&"✓ "}{s}
+                      </button>;
                     })}
                   </div>
                 </div>
-
                 {/* Lista */}
                 <div>
-                  <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Lista</div>
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:7 }}>Lista</div>
+                  <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                     {listaOptions.map(l => {
-                      const meta = LISTA_META[l];
-                      const ativo = filtroLista.has(l);
-                      return (
-                        <button key={l} onClick={() => toggleSet(setFiltroLista, l)}
-                          style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight: ativo ? 700 : 400, cursor:"pointer", border:`1px solid ${ativo ? meta?.color : "rgba(255,255,255,0.1)"}`, background: ativo ? meta?.bg : "transparent", color: ativo ? meta?.color : "rgba(255,255,255,0.45)", transition:"all 0.15s" }}>
-                          {ativo && "✓ "}{meta?.label || l}
-                        </button>
-                      );
+                      const meta = LISTA_META[l]; const ativo = filtroLista.has(l);
+                      return <button key={l} onClick={() => toggleSet(setFiltroLista,l)}
+                        style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:ativo?700:400, cursor:"pointer", border:`1px solid ${ativo?meta?.color:"#d1d5db"}`, background:ativo?meta?.bg:"transparent", color:ativo?meta?.color:"#374151" }}>
+                        {ativo&&"✓ "}{meta?.label||l}
+                      </button>;
                     })}
                   </div>
                 </div>
-
-                {/* Tipo de Bem */}
-                {fila.length > 0 && (() => {
-                  const tipos = [...new Set(fila.map(i => i.TIPO_BEM).filter(Boolean))].sort();
+                {/* Tipo */}
+                {(() => {
+                  const tipos = [...new Set(fila.map(i=>i.TIPO_BEM).filter(Boolean))].sort();
+                  const icones = {CARRO:"🚗",MOTO:"🏍️",CAMINHONETE:"🛻",CAMINHÃO:"🚛",REBOQUE:"🚜",OUTROS:"📦"};
                   if (!tipos.length) return null;
-                  const icones = { CARRO:"🚗", MOTO:"🏍️", CAMINHONETE:"🛻", CAMINHÃO:"🚛", REBOQUE:"🚜", OUTROS:"📦" };
-                  return (
-                    <div>
-                      <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Tipo de Bem</div>
-                      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                        {tipos.map(t => {
-                          const ativo = filtroTipo.has(t);
-                          const count = fila.filter(i => i.TIPO_BEM === t).length;
-                          return (
-                            <button key={t} onClick={() => toggleSet(setFiltroTipo, t)}
-                              style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight: ativo ? 700 : 400, cursor:"pointer", border:`1px solid ${ativo ? "#c9a84c" : "rgba(255,255,255,0.1)"}`, background: ativo ? "rgba(201,168,76,0.12)" : "transparent", color: ativo ? "#c9a84c" : "rgba(255,255,255,0.45)", transition:"all 0.15s", display:"flex", alignItems:"center", gap:5 }}>
-                              <span>{icones[t] || "📦"}</span>
-                              {ativo && "✓ "}{t}
-                              <span style={{ fontSize:10, opacity:.6 }}>({count})</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                  return <div>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:7 }}>Tipo</div>
+                    <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                      {tipos.map(t => { const ativo=filtroTipo.has(t); return <button key={t} onClick={() => toggleSet(setFiltroTipo,t)}
+                        style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:ativo?700:400, cursor:"pointer", border:`1px solid ${ativo?"#2563eb":"#d1d5db"}`, background:ativo?"rgba(37,99,235,0.1)":"transparent", color:ativo?"#2563eb":"#374151" }}>
+                        {icones[t]||"📦"} {ativo&&"✓ "}{t}
+                      </button>; })}
                     </div>
-                  );
+                  </div>;
                 })()}
+                {/* Flags */}
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:7 }}>🏷 Flags e situações especiais</div>
+                  <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                    {[
+                      { key:"FIB",          label:"FIB Expedida",          cor:"#22c55e" },
+                      { key:"CEB_TEP_TIV",  label:"CEB/TEP/TIV",           cor:"#60a5fa" },
+                      { key:"OFICIO_BAIXA", label:"Ofício de Baixa DETRAN", cor:"#f472b6" },
+                      { key:"HIGEIA",       label:"Em Diligência HIGEIA",   cor:"#a78bfa" },
+                    ].map(({key,label,cor}) => {
+                      const ativo = filtroFlags.has(key);
+                      const count = fila.filter(i=>flagAtiva(i,key)).length;
+                      return <button key={key} onClick={() => toggleSet(setFiltroFlags,key)}
+                        style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:ativo?700:400, cursor:"pointer", border:`1px solid ${ativo?cor:"#d1d5db"}`, background:ativo?`${cor}18`:"transparent", color:ativo?cor:"#374151", display:"flex", alignItems:"center", gap:5 }}>
+                        {ativo&&"✓ "}{label} <span style={{ opacity:.6, fontSize:10 }}>({count})</span>
+                      </button>;
+                    })}
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* Chips de filtros ativos (sempre visíveis fora do painel) */}
+            {/* Chips ativos condensados */}
             {!filtrosAbertos && totalFiltrosAtivos > 0 && (
-              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:8 }}>
-                {[...filtroStatus].map(s => (
-                  <span key={s} onClick={() => toggleSet(setFiltroStatus, s)}
-                    style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", background:"rgba(201,168,76,0.1)", border:"1px solid rgba(201,168,76,0.3)", borderRadius:20, fontSize:11, color:"#c9a84c", cursor:"pointer" }}>
-                    {s} ✕
-                  </span>
-                ))}
-                {[...filtroLista].map(l => {
-                  const meta = LISTA_META[l];
-                  return (
-                    <span key={l} onClick={() => toggleSet(setFiltroLista, l)}
-                      style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", background: meta?.bg || "rgba(255,255,255,0.05)", border:`1px solid ${meta?.color || "rgba(255,255,255,0.2)"}`, borderRadius:20, fontSize:11, color: meta?.color || "#fff", cursor:"pointer" }}>
-                      {meta?.label || l} ✕
-                    </span>
-                  );
-                })}
-                {[...filtroTipo].map(t => (
-                  <span key={t} onClick={() => toggleSet(setFiltroTipo, t)}
-                    style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:20, fontSize:11, color:"rgba(255,255,255,0.6)", cursor:"pointer" }}>
-                    {t} ✕
-                  </span>
-                ))}
+              <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginTop:8 }}>
+                {[...filtroStatus].map(s=><span key={s} onClick={()=>toggleSet(setFiltroStatus,s)} style={{ padding:"3px 9px", background:"rgba(37,99,235,0.08)", border:"1.5px solid #b0b8c4", borderRadius:20, fontSize:11, color:"#2563eb", cursor:"pointer" }}>{s} ✕</span>)}
+                {[...filtroLista].map(l=>{const m=LISTA_META[l];return <span key={l} onClick={()=>toggleSet(setFiltroLista,l)} style={{ padding:"3px 9px", background:m?.bg||"#f3f4f6", border:`1px solid ${m?.color||"#9ca3af"}`, borderRadius:20, fontSize:11, color:m?.color||"#fff", cursor:"pointer" }}>{m?.label||l} ✕</span>;})}
+                {[...filtroTipo].map(t=><span key={t} onClick={()=>toggleSet(setFiltroTipo,t)} style={{ padding:"3px 9px", background:"#f3f4f6", border:"1px solid #d1d5db", borderRadius:20, fontSize:11, color:"#1f2937", cursor:"pointer" }}>{t} ✕</span>)}
+                {[...filtroFlags].map(f=>{const labels={FIB:"FIB",CEB_TEP_TIV:"CEB/TEP/TIV",OFICIO_BAIXA:"Ofício Baixa",HIGEIA:"HIGEIA"};return <span key={f} onClick={()=>toggleSet(setFiltroFlags,f)} style={{ padding:"3px 9px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:20, fontSize:11, color:"#a78bfa", cursor:"pointer" }}>{labels[f]||f} ✕</span>;})}
               </div>
             )}
           </div>
 
-          {/* Cards grid */}
-          {filtered.length === 0 ? (
-            <div style={{
-              textAlign: "center",
-              padding: "60px 20px",
-              color: "rgba(255,255,255,0.25)",
-            }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
-              <div style={{ fontSize: 14 }}>Nenhum bem encontrado com estes filtros.</div>
+          {/* ── Tabela ── */}
+          {sorted.length === 0 ? (
+            <div style={{ textAlign:"center", padding:"60px 20px", color:"#6b7280" }}>
+              <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
+              <div style={{ fontSize:14 }}>Nenhum bem encontrado com estes filtros.</div>
             </div>
           ) : (
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
-              gap: 16,
-            }}>
-              {filtered.map(item => (
-                <BemCard key={item.id} item={item} onClick={setSelectedItem} />
-              ))}
+            <div style={{ background:"#f9fafb", border:"1.5px solid #b0b8c4", borderRadius:10, overflow:"hidden" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                <thead>
+                  <tr style={{ background:"#f3f4f6", borderBottom:"1px solid #e5e7eb" }}>
+                    {[
+                      { col:"id",               label:"ID",           w:120 },
+                      { col:"ID_PASEI",          label:"Processo",     w:200 },
+                      { col:"TIPO_BEM",          label:"Tipo",         w:100 },
+                      { col:"STATUS_DILIGENCIA", label:"Status",       w:160 },
+                      { col:"listaOrigem",       label:"Lista",        w:90  },
+                      { col:"NIV",               label:"NIV / Chassi", w:160 },
+                      { col:"ULTIMA_ANALISE",    label:"Última atualiz.", w:130 },
+                      { col:"flags",             label:"Flags",        w:110 },
+                    ].map(({col,label,w}) => (
+                      <th key={col} onClick={col!=="flags"?()=>toggleSort(col):undefined}
+                        style={{ padding:"9px 12px", textAlign:"left", fontSize:10, fontWeight:700, color: sortCol===col?"#2563eb":"#4b5563", textTransform:"uppercase", letterSpacing:".07em", cursor:col!=="flags"?"pointer":"default", userSelect:"none", width:w, whiteSpace:"nowrap" }}>
+                        {label}{sortCol===col ? (sortDir==="asc"?" ↑":" ↓") : ""}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((item, idx) => {
+                    const meta   = LISTA_META[item.listaOrigem] || {};
+                    const sMeta  = STATUS_META[item.STATUS_DILIGENCIA] || { color:"#4b5563", bg:"transparent" };
+                    const ultimaStr = item.ULTIMA_ANALISE
+                      ? (() => { const d=new Date(item.ULTIMA_ANALISE); return isNaN(d)?item.ULTIMA_ANALISE:d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"})+"\n"+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); })()
+                      : "—";
+                    const flags = [];
+                    if (item.FIB==="TRUE"||item.FIB===true)              flags.push({t:"FIB",c:"#22c55e"});
+                    if (item.CEB_TEP_TIV==="TRUE"||item.CEB_TEP_TIV===true) flags.push({t:"CEB",c:"#60a5fa"});
+                    if (item.OFICIO_BAIXA==="TRUE"||item.OFICIO_BAIXA===true) flags.push({t:"OF.BX",c:"#f472b6"});
+                    return (
+                      <tr key={item.id} onClick={() => abrirDrawer(item)}
+                        style={{ borderBottom:"1px solid #f3f4f6", cursor:"pointer", background: idx%2===0?"transparent":"#fafafa", transition:"background 0.1s" }}
+                        onMouseEnter={e=>e.currentTarget.style.background="rgba(37,99,235,0.05)"}
+                        onMouseLeave={e=>e.currentTarget.style.background=idx%2===0?"transparent":"#fafafa"}>
+                        <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#2563eb", fontWeight:700, whiteSpace:"nowrap" }}>{item.id}</td>
+                        <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#1f2937" }}>{item.ID_PASEI||"—"}</td>
+                        <td style={{ padding:"9px 12px", fontSize:12 }}>{(TIPO_ICON[item.TIPO_BEM]||"")+" "+(item.TIPO_BEM||"—")}</td>
+                        <td style={{ padding:"9px 12px" }}>
+                          <span style={{ padding:"2px 8px", borderRadius:12, fontSize:11, fontWeight:700, background:sMeta.bg, color:sMeta.color, whiteSpace:"nowrap" }}>
+                            {item.STATUS_DILIGENCIA||"—"}
+                          </span>
+                        </td>
+                        <td style={{ padding:"9px 12px" }}>
+                          <span style={{ padding:"2px 7px", borderRadius:4, fontSize:10, fontWeight:700, background:meta.bg, color:meta.color, whiteSpace:"nowrap" }}>{meta.label||item.listaOrigem}</span>
+                        </td>
+                        <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#374151" }}>{item.NIV||"—"}</td>
+                        <td style={{ padding:"9px 12px", fontSize:11, color:"#4b5563", whiteSpace:"pre-line", lineHeight:1.3 }}>{ultimaStr}</td>
+                        <td style={{ padding:"9px 12px" }}>
+                          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+                            {flags.map(f=>(
+                              <span key={f.t} style={{ padding:"1px 6px", borderRadius:10, fontSize:10, fontWeight:700, background:`${f.c}18`, color:f.c, border:`1px solid ${f.c}44` }}>{f.t}</span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -762,152 +876,173 @@ export default function SIGNUMinhaFila() {
 
       {/* ── DETAIL DRAWER ── */}
       {selectedItem && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 50,
-          display: "flex",
-        }}>
-          <div
-            onClick={() => setSelectedItem(null)}
-            style={{
-              position: "absolute", inset: 0,
-              background: "rgba(0,0,0,0.6)",
-              backdropFilter: "blur(4px)",
-            }}
-          />
-          <div style={{
-            position: "absolute", right: 0, top: 0, bottom: 0,
-            width: 440,
-            background: "#0a1628",
-            borderLeft: "1px solid rgba(201,168,76,0.2)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}>
-            {/* Drawer header */}
-            <div style={{
-              padding: "20px 24px",
-              borderBottom: "1px solid rgba(255,255,255,0.06)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}>
+        <div style={{ position:"fixed", inset:0, zIndex:50, display:"flex" }}>
+          <div onClick={() => { setSelectedItem(null); setDrawerEditMode(false); }}
+            style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)" }}/>
+          <div style={{ position:"absolute", right:0, top:0, bottom:0, width:460, background:"#fff", borderLeft:"1.5px solid #b0b8c4", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+            {/* Header */}
+            <div style={{ padding:"18px 22px", borderBottom:"1px solid #e5e7eb", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
               <div>
-                <div style={{ fontSize: 11, color: "rgba(201,168,76,0.7)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
+                <div style={{ fontSize:10, color:"#374151", letterSpacing:".08em", textTransform:"uppercase", marginBottom:3 }}>
                   {LISTA_META[selectedItem.listaOrigem]?.label} · {selectedItem.id}
+                  {drawerEditMode && <span style={{ marginLeft:8, color:"#2563eb", background:"rgba(37,99,235,0.1)", border:"1.5px solid #b0b8c4", borderRadius:4, padding:"1px 7px", fontSize:9 }}>EDITANDO</span>}
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>
-                  {TIPO_ICON[selectedItem.TIPO_BEM]} {selectedItem.TIPO_BEM}
-                </div>
+                <div style={{ fontSize:15, fontWeight:700, color:"#0f172a" }}>{TIPO_ICON[selectedItem.TIPO_BEM]} {selectedItem.TIPO_BEM}</div>
               </div>
-              <button
-                onClick={() => setSelectedItem(null)}
-                style={{
-                  background: "rgba(255,255,255,0.06)", border: "none",
-                  borderRadius: 8, width: 32, height: 32,
-                  color: "rgba(255,255,255,0.5)", cursor: "pointer",
-                  fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center",
-                }}
-              >×</button>
+              <button onClick={() => { setSelectedItem(null); setDrawerEditMode(false); }}
+                style={{ background:"#e5e7eb", border:"none", borderRadius:8, width:30, height:30, color:"#374151", cursor:"pointer", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
             </div>
 
-            {/* Drawer body */}
-            <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
-                {[
-                  ["ID_PASEI", selectedItem.ID_PASEI, true],
-                  ["Status", selectedItem.STATUS_DILIGENCIA],
-                  ["Tipo de Bem", selectedItem.TIPO_BEM],
-                  ["Destinação", selectedItem.DESTINACAO],
-                  selectedItem.NIV && ["NIV / Chassi", selectedItem.NIV, true],
-                  selectedItem.LOTE && ["Lote DPJ", `#${selectedItem.LOTE}`],
-                ].filter(Boolean).map(([label, val, mono]) => (
-                  <div key={label}>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{label}</div>
-                    <div style={{ fontSize: 13, fontFamily: mono ? "'IBM Plex Mono', monospace" : "inherit", color: "#fff", fontWeight: 500 }}>{val}</div>
-                  </div>
-                ))}
+            {/* Toast */}
+            {drawerToast && (
+              <div style={{ padding:"10px 22px", background: drawerToast.tipo==="ok"?"rgba(34,197,94,0.12)":"rgba(248,113,113,0.12)", borderBottom:`1px solid ${drawerToast.tipo==="ok"?"rgba(34,197,94,0.3)":"rgba(248,113,113,0.3)"}`, fontSize:12, color: drawerToast.tipo==="ok"?"#22c55e":"#f87171", fontWeight:600 }}>
+                {drawerToast.tipo==="ok"?"✓":"⚠"} {drawerToast.msg}
               </div>
+            )}
 
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Observações</div>
-                <div style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  borderRadius: 8,
-                  padding: "12px 14px",
-                  fontSize: 13,
-                  color: "rgba(255,255,255,0.7)",
-                  lineHeight: 1.6,
-                }}>{selectedItem.OBSERVACOES}</div>
-              </div>
+            {/* Body */}
+            <div style={{ flex:1, overflow:"auto", padding:"20px 22px" }}>
 
-              {/* Transição buttons (CEGOC only) */}
-              {selectedItem.listaOrigem === "CEGOC" && (
-                <div>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>Ações de Transição</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {selectedItem.DESTINACAO === "EM DILIGÊNCIA HIGEIA" && (
-                      <button style={{
-                        padding: "12px 16px",
-                        background: "linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))",
-                        border: "1px solid rgba(59,130,246,0.4)",
-                        borderRadius: 10,
-                        color: "#60a5fa",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}>
-                        🏛️ Mover → PCDF 2ª HIGEIA
-                        <div style={{ fontSize: 11, fontWeight: 400, color: "rgba(96,165,250,0.6)", marginTop: 2 }}>
-                          POST /api/bens/{selectedItem.id}/transicao
+              {/* ── MODO VISUALIZAÇÃO ── */}
+              {!drawerEditMode && (() => {
+                const sMeta = STATUS_META[selectedItem.STATUS_DILIGENCIA] || { color:"#374151", bg:"transparent" };
+                return (
+                  <>
+                    {/* Campos principais */}
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 }}>
+                      {[
+                        ["Processo (ID_PASEI)", selectedItem.ID_PASEI, true],
+                        ["Status",             selectedItem.STATUS_DILIGENCIA],
+                        ["Tipo de Bem",        selectedItem.TIPO_BEM],
+                        ["Destinação",         selectedItem.DESTINACAO],
+                        selectedItem.NIV  && ["NIV / Chassi", selectedItem.NIV, true],
+                        selectedItem.LOTE && ["Lote DPJ", `#${selectedItem.LOTE}`],
+                        selectedItem.ULTIMA_ANALISE && ["Última atualização", (() => { const d=new Date(selectedItem.ULTIMA_ANALISE); return isNaN(d)?"—":d.toLocaleString("pt-BR"); })()],
+                      ].filter(Boolean).map(([label, val, mono]) => (
+                        <div key={label}>
+                          <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:4 }}>{label}</div>
+                          <div style={{ fontSize:12, fontFamily:mono?"monospace":"inherit", color:"#0f172a", fontWeight:500 }}>{val||"—"}</div>
                         </div>
-                      </button>
+                      ))}
+                    </div>
+
+                    {/* Flags */}
+                    <div style={{ marginBottom:20 }}>
+                      <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:8 }}>🏷 Flags</div>
+                      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                        {[
+                          { field:"FIB",          label:"FIB Expedida",     cor:"#22c55e" },
+                          { field:"CEB_TEP_TIV",  label:"CEB/TEP/TIV",      cor:"#60a5fa" },
+                          { field:"OFICIO_BAIXA",  label:"Ofício de Baixa",  cor:"#f472b6" },
+                          { field:"INUTILIZADO",   label:"Inutilizado",       cor:"#f87171" },
+                          { field:"RESTRICAO_ROUBO",label:"Restrição Roubo", cor:"#fbbf24" },
+                        ].map(({field,label,cor}) => {
+                          const on = selectedItem[field]==="TRUE"||selectedItem[field]===true;
+                          return (
+                            <span key={field} style={{ padding:"3px 10px", borderRadius:16, fontSize:11, fontWeight:700, background:on?`${cor}18`:"#f3f4f6", border:`1px solid ${on?cor:"#d1d5db"}`, color:on?cor:"#6b7280" }}>
+                              {on?"✓ ":""}{label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Observações */}
+                    {selectedItem.OBSERVACOES && (
+                      <div style={{ marginBottom:20 }}>
+                        <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:8 }}>Observações</div>
+                        <div style={{ background:"#f9fafb", border:"1.5px solid #b0b8c4", borderRadius:8, padding:"10px 12px", fontSize:12, color:"#1f2937", lineHeight:1.7, maxHeight:140, overflow:"auto", whiteSpace:"pre-wrap" }}>
+                          {selectedItem.OBSERVACOES}
+                        </div>
+                      </div>
                     )}
-                    {selectedItem.DESTINACAO === "LPC" && (
-                      <button style={{
-                        padding: "12px 16px",
-                        background: "linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.05))",
-                        border: "1px solid rgba(34,197,94,0.4)",
-                        borderRadius: 10,
-                        color: "#22c55e",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}>
-                        📋 LPC → CATÁLOGO
-                        <div style={{ fontSize: 11, fontWeight: 400, color: "rgba(34,197,94,0.6)", marginTop: 2 }}>
-                          POST /api/bens/{selectedItem.id}/transicao
-                        </div>
-                      </button>
+
+                    {/* Link para detalhes completos */}
+                    <button onClick={() => { const cfg=LISTAS_FILA.find(l=>l.key===selectedItem.listaOrigem); if(cfg) window.location.href=`/detalhes?lista=${cfg.rota}&row=${selectedItem._rowNumber}`; }}
+                      style={{ width:"100%", padding:"9px", background:"#f9fafb", border:"1.5px solid #b0b8c4", borderRadius:8, color:"#4b5563", fontSize:12, cursor:"pointer" }}>
+                      🔗 Abrir detalhes completos →
+                    </button>
+                  </>
+                );
+              })()}
+
+              {/* ── MODO EDIÇÃO ── */}
+              {drawerEditMode && drawerEditData && (() => {
+                const inp = (label, field, opts) => (
+                  <div key={field}>
+                    <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:5 }}>{label}</div>
+                    {opts ? (
+                      <select value={drawerEditData[field]||""} onChange={e=>updDrawer(field,e.target.value)}
+                        style={{ width:"100%", padding:"7px 10px", background:"#fff", border:"1px solid #d1d5db", borderRadius:7, color:"#0f172a", fontSize:12, outline:"none" }}>
+                        <option value="">— Selecione —</option>
+                        {opts.map(o=><option key={o} value={o} style={{background:"#1e2d3d"}}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input value={drawerEditData[field]||""} onChange={e=>updDrawer(field,e.target.value)}
+                        style={{ width:"100%", padding:"7px 10px", background:"#fff", border:"1px solid #d1d5db", borderRadius:7, color:"#0f172a", fontSize:12, outline:"none", boxSizing:"border-box" }}/>
                     )}
                   </div>
-                </div>
+                );
+
+                const tog = (label, field, cor="#22c55e") => {
+                  const on = drawerEditData[field]==="TRUE"||drawerEditData[field]===true;
+                  return (
+                    <div key={field} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 12px", background:"#f9fafb", border:`1px solid ${on?cor+"44":"#e5e7eb"}`, borderRadius:8, cursor:"pointer" }}
+                      onClick={()=>updDrawer(field, on?"FALSE":"TRUE")}>
+                      <span style={{ fontSize:13, color:on?cor:"#374151", fontWeight:on?600:400 }}>{on?"✓ ":""}{label}</span>
+                      <div style={{ width:36, height:20, borderRadius:10, background:on?cor:"#d1d5db", position:"relative", transition:"background .2s" }}>
+                        <div style={{ position:"absolute", top:2, left:on?18:2, width:16, height:16, borderRadius:"50%", background:"#fff", transition:"left .2s" }}/>
+                      </div>
+                    </div>
+                  );
+                };
+
+                return (
+                  <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                    {inp("Status", "STATUS_DILIGENCIA", statusOptions)}
+                    {inp("Destinação", "DESTINACAO", DESTINACOES_OPT)}
+                    {inp("NIV / Chassi", "NIV")}
+                    {selectedItem.listaOrigem==="PCDF_2HIGEIA" && inp("Nº SEI do TEP","TEP_SEI")}
+                    {selectedItem.listaOrigem==="PCDF_2HIGEIA" && inp("Valor TEP (R$)","TEP_VALOR")}
+                    <div style={{ borderTop:"1px solid #e5e7eb", paddingTop:8, display:"flex", flexDirection:"column", gap:8 }}>
+                      <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:2 }}>Flags</div>
+                      {tog("FIB Expedida",       "FIB",           "#22c55e")}
+                      {tog("CEB/TEP/TIV Emitido","CEB_TEP_TIV",   "#60a5fa")}
+                      {tog("Ofício de Baixa DETRAN","OFICIO_BAIXA","#f472b6")}
+                      {tog("Inutilizado",         "INUTILIZADO",   "#f87171")}
+                      {tog("Restrição Roubo/Furto","RESTRICAO_ROUBO","#fbbf24")}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding:"14px 22px", borderTop:"1px solid #e5e7eb", display:"flex", gap:8, flexShrink:0 }}>
+              {!drawerEditMode ? (
+                <>
+                  <button onClick={iniciarEdicao}
+                    style={{ flex:1, padding:"10px", background:"rgba(37,99,235,0.1)", border:"1px solid rgba(37,99,235,0.3)", borderRadius:8, color:"#2563eb", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                    ✏️ Editar campos
+                  </button>
+                  <button onClick={() => { setSelectedItem(null); }}
+                    style={{ padding:"10px 14px", background:"#f3f4f6", border:"1.5px solid #b0b8c4", borderRadius:8, color:"#4b5563", fontSize:13, cursor:"pointer" }}>
+                    Fechar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={salvarDrawer} disabled={drawerSalvando}
+                    style={{ flex:1, padding:"10px", background:"rgba(34,197,94,0.12)", border:"1px solid rgba(34,197,94,0.4)", borderRadius:8, color:"#22c55e", fontSize:13, fontWeight:700, cursor:"pointer", opacity:drawerSalvando?.5:1 }}>
+                    {drawerSalvando ? "Salvando…" : "✓ Salvar alterações"}
+                  </button>
+                  <button onClick={cancelarEdicao} disabled={drawerSalvando}
+                    style={{ padding:"10px 14px", background:"#f3f4f6", border:"1.5px solid #b0b8c4", borderRadius:8, color:"#4b5563", fontSize:13, cursor:"pointer" }}>
+                    Cancelar
+                  </button>
+                </>
               )}
-            </div>
-
-            {/* Drawer footer */}
-            <div style={{
-              padding: "16px 24px",
-              borderTop: "1px solid rgba(255,255,255,0.06)",
-              display: "flex",
-              gap: 10,
-            }}>
-              <button style={{
-                flex: 1, padding: "10px",
-                background: "rgba(201,168,76,0.1)",
-                border: "1px solid rgba(201,168,76,0.3)",
-                borderRadius: 8, color: "#c9a84c",
-                fontSize: 13, fontWeight: 600, cursor: "pointer",
-              }}>✏️ Editar Campos</button>
-              <button style={{
-                flex: 1, padding: "10px",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 8, color: "rgba(255,255,255,0.5)",
-                fontSize: 13, cursor: "pointer",
-              }}>📎 Anexos</button>
             </div>
           </div>
         </div>

@@ -33,6 +33,8 @@ export const authOptions = {
         'bsboqfazer@gmail.com',               // Letícia Mota — teste servidor
         'carlaearaujo2@gmail.com',            // Carla Araújo — teste servidor
         'marcelodefreitasoliveira@gmail.com', // Marcelo Oliveira — teste servidor
+        'joloara@gmail.com',                  // Loara Passo — teste servidor
+        'cacausantos@gmail.com',              // Cláudia Santos — teste servidor
         'danieldeandrade@icloud.com',         // Daniel — gestor
         'carlosalex1318@gmail.com',           // Carlos Amorim — gestor
       ];
