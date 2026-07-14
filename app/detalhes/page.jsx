@@ -867,7 +867,7 @@ function DetalhesContent() {
                             if (e.target.value === "__AUTO__") calcularDistribuicao();
                             else setAutoResp(null);
                           }}
-                          style={{ width:"100%",padding:"8px 10px",background:"#f3f4f6",border:"1.5px solid #c4c9d0",borderRadius:8,color: (editData?.RESPONSAVEL==="__AUTO__")?"#2563eb":"#fff",fontSize:12,outline:"none",fontWeight:(editData?.RESPONSAVEL==="__AUTO__")?700:400 }}>
+                          style={{ width:"100%",padding:"8px 10px",background:"#f3f4f6",border:"1.5px solid #c4c9d0",borderRadius:8,color: (editData?.RESPONSAVEL==="__AUTO__")?"#2563eb":"#111827",fontSize:12,outline:"none",fontWeight:(editData?.RESPONSAVEL==="__AUTO__")?700:400 }}>
                           <option value="" style={{background:"#1e2d3d"}}>— Selecione —</option>
                           <option value="__AUTO__" style={{background:"#1e2d3d",color:"#2563eb",fontWeight:700}}>⚡ Distribuição automática</option>
                           {SERVIDORES.map(s => <option key={s} value={s} style={{background:"#1e2d3d"}}>{s}</option>)}
