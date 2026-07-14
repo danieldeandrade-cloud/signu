@@ -15,11 +15,22 @@ const ROTA_TO_KEY = {
   sei:                "CAIXA_SEI",
 };
 
+const SERVIDORES = [
+  "Carla Araújo","Amanda Junqueira","Carlos Caetano",
+  "Cláudia Santos","Loara Passo","Letícia Mota","Marcelo Oliveira",
+];
+
+const TODAS_LISTAS_ROTA = [
+  { rota:"cegoc" }, { rota:"pcdf1" }, { rota:"pcdf2" },
+  { rota:"dpj" },   { rota:"doacoes_diligencia" }, { rota:"sei" },
+];
+
 const TIPOS_BEM   = ["CARRO","MOTO","CAMINHÃO","CAMINHONETE","REBOQUE","OUTROS"];
 const DESTINACOES = ["CIRCULAÇÃO","RECICLAGEM"];
 const DEPOSITOS   = ["SELAB/PCDF","CPA/PCDF","CPA","CEGOC","5ªDP","23ªDP","30ªDP","33ªDP"];
 
 const STATUS_OPTIONS = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO","EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD"];
+const STATUS_2HIGEIA = ["EM PROCESSAMENTO","TEP REGISTRADO","ENVIAR OFÍCIO DETRAN","AGUARDAR RESPOSTA DETRAN","GERAR TAP","FINALIZADO"];
 
 const LISTA_META = {
   CEGOC:        { label: "CEGOC",     color: "#3b82f6", bg: "#1e3a5f" },
@@ -120,17 +131,17 @@ const Ico = {
   Upload:  () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
   Alert:   () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2zm0 3.5L20.5 19h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>,
   Arrow:   () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
-  Spinner: ({ color="#c9a84c", size=20 }) => <div style={{ width:size,height:size,border:`2px solid ${color}30`,borderTop:`2px solid ${color}`,borderRadius:"50%",animation:"spin 0.8s linear infinite",flexShrink:0 }}/>,
+  Spinner: ({ color="#2563eb", size=20 }) => <div style={{ width:size,height:size,border:`2px solid ${color}30`,borderTop:`2px solid ${color}`,borderRadius:"50%",animation:"spin 0.8s linear infinite",flexShrink:0 }}/>,
 };
 
 // ─── FIELD COMPONENTS ─────────────────────────────────────────────────────────
 function FieldView({ label, value, mono, highlight, children }) {
   return (
     <div>
-      <div style={{ fontSize:10,color:"rgba(255,255,255,0.3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:5 }}>{label}</div>
+      <div style={{ fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:5 }}>{label}</div>
       {children || (
-        <div style={{ fontSize:13,fontFamily:mono?"'IBM Plex Mono',monospace":"inherit",color:highlight||"rgba(255,255,255,0.85)",fontWeight:500,lineHeight:1.4 }}>
-          {value || <span style={{ color:"rgba(255,255,255,0.2)",fontStyle:"italic" }}>—</span>}
+        <div style={{ fontSize:13,fontFamily:mono?"'IBM Plex Mono',monospace":"inherit",color:highlight||"#0f172a",fontWeight:500,lineHeight:1.4 }}>
+          {value || <span style={{ color:"#9ca3af",fontStyle:"italic" }}>—</span>}
         </div>
       )}
     </div>
@@ -138,13 +149,13 @@ function FieldView({ label, value, mono, highlight, children }) {
 }
 
 function FieldEdit({ label, value, onChange, type="text", options }) {
-  const st = { width:"100%",padding:"8px 10px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(201,168,76,0.3)",borderRadius:6,color:"#fff",fontSize:13,outline:"none",boxSizing:"border-box" };
+  const st = { width:"100%",padding:"8px 10px",background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:6,color:"#0f172a",fontSize:13,outline:"none",boxSizing:"border-box" };
   return (
     <div>
-      <div style={{ fontSize:10,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:5 }}>{label}</div>
+      <div style={{ fontSize:10,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:5 }}>{label}</div>
       {options ? (
         <select value={value||""} onChange={e=>onChange(e.target.value)} style={{ ...st,cursor:"pointer" }}>
-          {options.map(o=><option key={o} value={o} style={{ background:"#0a1628" }}>{o}</option>)}
+          {options.map(o=><option key={o} value={o} style={{ background:"#1e2d3d" }}>{o}</option>)}
         </select>
       ) : (
         <input type={type} value={value||""} onChange={e=>onChange(e.target.value)} style={st}/>
@@ -156,14 +167,14 @@ function FieldEdit({ label, value, onChange, type="text", options }) {
 function Toggle({ label, value, onChange, editMode }) {
   const isOn = boolVal(value);
   return (
-    <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
-      <span style={{ fontSize:13,color:"rgba(255,255,255,0.7)" }}>{label}</span>
+    <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid #f3f4f6" }}>
+      <span style={{ fontSize:13,color:"#111827" }}>{label}</span>
       {editMode ? (
-        <button onClick={()=>onChange(!isOn)} style={{ width:44,height:24,borderRadius:12,border:"none",cursor:"pointer",background:isOn?"#22c55e":"rgba(255,255,255,0.1)",position:"relative",transition:"background 0.2s" }}>
+        <button onClick={()=>onChange(!isOn)} style={{ width:44,height:24,borderRadius:12,border:"none",cursor:"pointer",background:isOn?"#22c55e":"#d1d5db",position:"relative",transition:"background 0.2s" }}>
           <span style={{ position:"absolute",top:3,left:isOn?23:3,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left 0.2s" }}/>
         </button>
       ) : (
-        <span style={{ fontSize:12,fontWeight:600,padding:"3px 10px",borderRadius:12,color:isOn?"#22c55e":"rgba(255,255,255,0.3)",background:isOn?"rgba(34,197,94,0.1)":"rgba(255,255,255,0.04)" }}>
+        <span style={{ fontSize:12,fontWeight:600,padding:"3px 10px",borderRadius:12,color:isOn?"#22c55e":"#6b7280",background:isOn?"rgba(34,197,94,0.1)":"#f3f4f6" }}>
           {isOn?"✓ Sim":"Não"}
         </span>
       )}
@@ -173,8 +184,8 @@ function Toggle({ label, value, onChange, editMode }) {
 
 function Section({ title, children }) {
   return (
-    <div style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"18px 20px" }}>
-      <div style={{ fontSize:11,fontWeight:700,color:"rgba(201,168,76,0.7)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>{title}</div>
+    <div style={{ background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"18px 20px" }}>
+      <div style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>{title}</div>
       {children}
     </div>
   );
@@ -188,35 +199,35 @@ function TransicaoModal({ tipo, bem, onClose, onConfirm, salvando }) {
   return (
     <div style={{ position:"fixed",inset:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"center" }}>
       <div onClick={onClose} style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(6px)" }}/>
-      <div style={{ position:"relative",width:460,background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(201,168,76,0.25)",borderRadius:16,padding:28,zIndex:1 }}>
-        <div style={{ fontSize:11,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8 }}>Confirmar Transição</div>
-        <h2 style={{ fontSize:18,fontWeight:700,color:"#fff",margin:"0 0 4px" }}>
+      <div style={{ position:"relative",width:460,background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:16,padding:28,zIndex:1 }}>
+        <div style={{ fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8 }}>Confirmar Transição</div>
+        <h2 style={{ fontSize:18,fontWeight:700,color:"#0f172a",margin:"0 0 4px" }}>
           {isHigeia?"🏛️ Mover para PCDF 2ª HIGEIA":"📋 Concluir LPC → CATÁLOGO"}
         </h2>
-        <p style={{ fontSize:13,color:"rgba(255,255,255,0.45)",margin:"0 0 20px",lineHeight:1.5 }}>
+        <p style={{ fontSize:13,color:"#374151",margin:"0 0 20px",lineHeight:1.5 }}>
           {isHigeia
             ? `O bem será criado em Bens_PCDF_2HIGEIA e removido de Bens_CEGOC.`
             : `O campo DESTINACAO será alterado para CATÁLOGO. O item permanece em Bens_CEGOC.`}
         </p>
-        <div style={{ background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10,padding:"12px 14px",marginBottom:20,display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 16px" }}>
+        <div style={{ background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:10,padding:"12px 14px",marginBottom:20,display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 16px" }}>
           {[["ID_PASEI",bem?.ID_PASEI],["Tipo",bem?.TIPO_BEM],["NIV",bem?.NIV],["Destino atual",bem?.DESTINACAO]].map(([l,v])=>(
             <div key={l}>
-              <div style={{ fontSize:10,color:"rgba(255,255,255,0.3)",letterSpacing:"0.08em",marginBottom:2 }}>{l}</div>
-              <div style={{ fontSize:12,color:"rgba(255,255,255,0.8)",fontFamily:"'IBM Plex Mono',monospace" }}>{v||"—"}</div>
+              <div style={{ fontSize:10,color:"#6b7280",letterSpacing:"0.08em",marginBottom:2 }}>{l}</div>
+              <div style={{ fontSize:12,color:"#0f172a",fontFamily:"'IBM Plex Mono',monospace" }}>{v||"—"}</div>
             </div>
           ))}
         </div>
         <div style={{ marginBottom:20 }}>
-          <div style={{ fontSize:11,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6 }}>Observação *</div>
+          <div style={{ fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6 }}>Observação *</div>
           <textarea value={obs} onChange={e=>setObs(e.target.value)} placeholder="Descreva o motivo da transição..."
-            style={{ width:"100%",minHeight:80,padding:"10px 12px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(201,168,76,0.3)",borderRadius:8,color:"#fff",fontSize:13,resize:"vertical",outline:"none",lineHeight:1.5,boxSizing:"border-box" }}/>
+            style={{ width:"100%",minHeight:80,padding:"10px 12px",background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:8,color:"#0f172a",fontSize:13,resize:"vertical",outline:"none",lineHeight:1.5,boxSizing:"border-box" }}/>
         </div>
         <div style={{ display:"flex",gap:10 }}>
-          <button onClick={onClose} disabled={salvando} style={{ flex:1,padding:"11px",borderRadius:8,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",fontSize:13,cursor:"pointer" }}>Cancelar</button>
+          <button onClick={onClose} disabled={salvando} style={{ flex:1,padding:"11px",borderRadius:8,border:"1.5px solid #c4c9d0",background:"transparent",color:"#374151",fontSize:13,cursor:"pointer" }}>Cancelar</button>
           <button onClick={()=>obs.trim()&&!salvando&&onConfirm(obs)} disabled={!obs.trim()||salvando}
             style={{ flex:2,padding:"11px",borderRadius:8,border:"none",cursor:obs.trim()&&!salvando?"pointer":"not-allowed",
-              background:obs.trim()&&!salvando?(isHigeia?"linear-gradient(135deg,#8b6914,#3b82f6)":"linear-gradient(135deg,#15803d,#22c55e)"):"rgba(255,255,255,0.06)",
-              color:obs.trim()&&!salvando?"#fff":"rgba(255,255,255,0.3)",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>
+              background:obs.trim()&&!salvando?(isHigeia?"linear-gradient(135deg,#1d4ed8,#3b82f6)":"linear-gradient(135deg,#15803d,#22c55e)"):"#e5e7eb",
+              color:obs.trim()&&!salvando?"#fff":"#6b7280",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>
             {salvando ? <><Ico.Spinner size={14}/> Aguarde…</> : (isHigeia?"✓ Confirmar Migração":"✓ Confirmar Transição")}
           </button>
         </div>
@@ -233,7 +244,7 @@ function Toast({ msg, type }) {
     <div style={{ position:"fixed",bottom:28,right:28,zIndex:200,display:"flex",alignItems:"center",gap:10,padding:"14px 20px",borderRadius:12,
       background:ok?"linear-gradient(135deg,#15803d,#166534)":"linear-gradient(135deg,#991b1b,#7f1d1d)",
       border:`1px solid ${ok?"rgba(34,197,94,0.4)":"rgba(248,113,113,0.4)"}`,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",
-      fontSize:14,fontWeight:600,color:"#fff",animation:"slideUp 0.3s ease" }}>
+      fontSize:14,fontWeight:600,color:"#0f172a",animation:"slideUp 0.3s ease" }}>
       {ok?"✅":"❌"} {msg}
     </div>
   );
@@ -272,6 +283,105 @@ function formatarNovaEntrada(texto, nomeUsuario) {
   return `[${data} ${hora} | ${autor}] ${texto.trim()}`;
 }
 
+// ── Checklist de RENAJUD ──────────────────────────────────────────────────────
+function RenajudChecklist({ renajudsStr, onSalvar, salvando }) {
+  const parseRenajuds = (str) => {
+    try { return JSON.parse(str || "[]"); } catch { return []; }
+  };
+
+  const [itens, setItens] = useState(() => parseRenajuds(renajudsStr));
+  const [nova, setNova]   = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Sincroniza quando prop muda (ex: após reload)
+  useEffect(() => { setItens(parseRenajuds(renajudsStr)); }, [renajudsStr]);
+
+  const salvar = async (novosItens) => {
+    setSaving(true);
+    await onSalvar(JSON.stringify(novosItens));
+    setSaving(false);
+  };
+
+  const adicionarRenajud = () => {
+    const desc = nova.trim();
+    if (!desc) return;
+    const novosItens = [...itens, { id: Date.now(), descricao: desc, baixado: false, dataBaixa: null }];
+    setItens(novosItens);
+    setNova("");
+    salvar(novosItens);
+  };
+
+  const toggleBaixado = (id) => {
+    const novosItens = itens.map(r =>
+      r.id === id ? { ...r, baixado: !r.baixado, dataBaixa: !r.baixado ? new Date().toLocaleDateString("pt-BR") : null } : r
+    );
+    setItens(novosItens);
+    salvar(novosItens);
+  };
+
+  const remover = (id) => {
+    const novosItens = itens.filter(r => r.id !== id);
+    setItens(novosItens);
+    salvar(novosItens);
+  };
+
+  const pendentes  = itens.filter(r => !r.baixado).length;
+  const baixados   = itens.filter(r => r.baixado).length;
+
+  return (
+    <div>
+      {/* Resumo */}
+      {itens.length > 0 && (
+        <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
+          <span style={{ padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:"rgba(248,113,113,0.12)", border:"1px solid rgba(248,113,113,0.3)", color:"#f87171" }}>
+            {pendentes} pendente{pendentes!==1?"s":""}
+          </span>
+          <span style={{ padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:"rgba(34,197,94,0.1)", border:"1px solid rgba(34,197,94,0.3)", color:"#22c55e" }}>
+            {baixados} baixada{baixados!==1?"s":""}
+          </span>
+        </div>
+      )}
+
+      {/* Lista */}
+      {itens.length === 0 && (
+        <p style={{ fontSize:12, color:"#6b7280", marginBottom:14 }}>Nenhuma restrição RENAJUD registrada.</p>
+      )}
+      <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
+        {itens.map(r => (
+          <div key={r.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:8, background: r.baixado ? "rgba(34,197,94,0.05)" : "rgba(248,113,113,0.06)", border:`1px solid ${r.baixado ? "rgba(34,197,94,0.2)" : "rgba(248,113,113,0.2)"}` }}>
+            <button onClick={() => toggleBaixado(r.id)} style={{ width:20, height:20, borderRadius:4, border:`2px solid ${r.baixado?"#22c55e":"#9ca3af"}`, background: r.baixado?"#22c55e":"transparent", cursor:"pointer", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", color:"#0f172a", fontSize:12, fontWeight:700 }}>
+              {r.baixado ? "✓" : ""}
+            </button>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, color: r.baixado ? "#4b5563" : "#111827", textDecoration: r.baixado ? "line-through" : "none" }}>{r.descricao}</div>
+              {r.baixado && r.dataBaixa && (
+                <div style={{ fontSize:10, color:"rgba(34,197,94,0.7)", marginTop:2 }}>✓ Baixada em {r.dataBaixa}</div>
+              )}
+            </div>
+            <button onClick={() => remover(r.id)} style={{ background:"none", border:"none", color:"#9ca3af", fontSize:14, cursor:"pointer", padding:"0 4px", lineHeight:1 }} title="Remover">✕</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Adicionar */}
+      <div style={{ display:"flex", gap:8 }}>
+        <input
+          value={nova}
+          onChange={e => setNova(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && adicionarRenajud()}
+          placeholder="Ex: 0012345/2024 — bloqueio judicial…"
+          style={{ flex:1, padding:"8px 12px", background:"#f3f4f6", border:"1.5px solid #c4c9d0", borderRadius:8, color:"#0f172a", fontSize:12, outline:"none" }}
+        />
+        <button onClick={adicionarRenajud} disabled={!nova.trim() || saving}
+          style={{ padding:"8px 14px", borderRadius:8, background:"rgba(37,99,235,0.1)", border:"1.5px solid #b0b8c4", color:"#2563eb", fontSize:12, fontWeight:700, cursor:"pointer", opacity: !nova.trim()||saving ? 0.4 : 1 }}>
+          ＋ Adicionar
+        </button>
+      </div>
+      {saving && <div style={{ fontSize:11, color:"#6b7280", marginTop:6 }}>Salvando…</div>}
+    </div>
+  );
+}
+
 function TimelineObservacoes({ obsStr, onSalvar, salvando }) {
   const [novaNota, setNovaNota] = useState("");
   const [salvandoNota, setSalvandoNota] = useState(false);
@@ -302,12 +412,12 @@ function TimelineObservacoes({ obsStr, onSalvar, salvando }) {
           onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSalvarNota(); }}
           placeholder="Nova anotação… (Ctrl+Enter para salvar)"
           rows={2}
-          style={{ flex:1, padding:"9px 12px", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(201,168,76,0.3)", borderRadius:8, color:"#fff", fontSize:13, lineHeight:1.5, resize:"vertical", outline:"none", fontFamily:"inherit" }}
+          style={{ flex:1, padding:"9px 12px", background:"#f3f4f6", border:"1.5px solid #b0b8c4", borderRadius:8, color:"#0f172a", fontSize:13, lineHeight:1.5, resize:"vertical", outline:"none", fontFamily:"inherit" }}
         />
         <button
           onClick={handleSalvarNota}
           disabled={!novaNota.trim() || salvandoNota}
-          style={{ padding:"0 16px", background: novaNota.trim() ? "rgba(201,168,76,0.15)" : "rgba(255,255,255,0.04)", border:`1px solid ${novaNota.trim() ? "rgba(201,168,76,0.4)" : "rgba(255,255,255,0.08)"}`, borderRadius:8, color: novaNota.trim() ? "#c9a84c" : "rgba(255,255,255,0.2)", fontSize:12, fontWeight:700, cursor: novaNota.trim() ? "pointer" : "default", transition:"all 0.15s", whiteSpace:"nowrap", alignSelf:"flex-start", height:38 }}
+          style={{ padding:"0 16px", background: novaNota.trim() ? "rgba(37,99,235,0.12)" : "#f3f4f6", border:`1px solid ${novaNota.trim() ? "rgba(37,99,235,0.4)" : "#e5e7eb"}`, borderRadius:8, color: novaNota.trim() ? "#2563eb" : "#9ca3af", fontSize:12, fontWeight:700, cursor: novaNota.trim() ? "pointer" : "default", transition:"all 0.15s", whiteSpace:"nowrap", alignSelf:"flex-start", height:38 }}
         >
           {salvandoNota ? "…" : "＋ Salvar"}
         </button>
@@ -315,27 +425,27 @@ function TimelineObservacoes({ obsStr, onSalvar, salvando }) {
 
       {/* Timeline */}
       {notas.length === 0 ? (
-        <p style={{ fontSize:13, color:"rgba(255,255,255,0.2)", fontStyle:"italic", margin:0 }}>Nenhuma anotação ainda.</p>
+        <p style={{ fontSize:13, color:"#9ca3af", fontStyle:"italic", margin:0 }}>Nenhuma anotação ainda.</p>
       ) : (
         <div style={{ position:"relative", paddingLeft:20 }}>
           {/* Linha vertical */}
-          <div style={{ position:"absolute", left:7, top:8, bottom:8, width:2, background:"rgba(201,168,76,0.15)", borderRadius:2 }}/>
+          <div style={{ position:"absolute", left:7, top:8, bottom:8, width:2, background:"rgba(37,99,235,0.12)", borderRadius:2 }}/>
           {notas.map((nota, i) => (
             <div key={i} style={{ position:"relative", marginBottom: i < notas.length-1 ? 18 : 0 }}>
               {/* Bolinha */}
-              <div style={{ position:"absolute", left:-20, top:6, width:10, height:10, borderRadius:"50%", background: i===0 ? "#c9a84c" : "rgba(201,168,76,0.3)", border:"2px solid #060f1e", boxSizing:"border-box" }}/>
-              <div style={{ background:"rgba(255,255,255,0.03)", border:`1px solid ${i===0?"rgba(201,168,76,0.2)":"rgba(255,255,255,0.05)"}`, borderRadius:8, padding:"10px 14px" }}>
+              <div style={{ position:"absolute", left:-20, top:6, width:10, height:10, borderRadius:"50%", background: i===0 ? "#2563eb" : "rgba(37,99,235,0.3)", border:"2px solid #fff", boxSizing:"border-box" }}/>
+              <div style={{ background:"#f9fafb", border:`1px solid ${i===0?"rgba(37,99,235,0.2)":"#f3f4f6"}`, borderRadius:8, padding:"10px 14px" }}>
                 {(nota.ts || nota.autor) && (
                   <div style={{ display:"flex", gap:8, marginBottom:5, alignItems:"center" }}>
                     {nota.autor && (
-                      <span style={{ fontSize:11, fontWeight:700, color:"#c9a84c" }}>{nota.autor}</span>
+                      <span style={{ fontSize:11, fontWeight:700, color:"#2563eb" }}>{nota.autor}</span>
                     )}
                     {nota.ts && (
-                      <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>{nota.ts}</span>
+                      <span style={{ fontSize:10, color:"#6b7280" }}>{nota.ts}</span>
                     )}
                   </div>
                 )}
-                <p style={{ fontSize:13, color:"rgba(255,255,255,0.75)", lineHeight:1.6, margin:0 }}>{nota.texto}</p>
+                <p style={{ fontSize:13, color:"#111827", lineHeight:1.6, margin:0 }}>{nota.texto}</p>
               </div>
             </div>
           ))}
@@ -462,6 +572,16 @@ function DetalhesContent() {
     try {
       // Serializa booleanos para string "TRUE"/"FALSE"
       const payload = { ...editData };
+      // Resolve distribuição automática
+      if (payload.RESPONSAVEL === "__AUTO__") {
+        if (!autoResp?.servidor) { showToast("Aguarde o cálculo de distribuição.", "error"); setSalvando(false); return; }
+        payload.RESPONSAVEL = autoResp.servidor;
+      }
+      // OBSERVACOES é gerenciado exclusivamente pela TimelineObservacoes (PATCH separado).
+      // Não incluir aqui para não sobrescrever notas adicionadas durante a edição.
+      delete payload.OBSERVACOES;
+      // RENAJUDS também é gerenciado pelo checklist separado
+      delete payload.RENAJUDS;
       ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","INUTILIZADO","RESTRICAO_ROUBO"].forEach(k => {
         if (k in payload) payload[k] = boolStr(payload[k]);
       });
@@ -508,6 +628,53 @@ function DetalhesContent() {
     }
   };
 
+  // ── Distribuição automática de responsável ────────────────────────────────
+  const [autoResp,    setAutoResp]    = useState(null);   // { servidor, contagens }
+  const [autoLoading, setAutoLoading] = useState(false);
+
+  const calcularDistribuicao = async () => {
+    setAutoLoading(true);
+    setAutoResp(null);
+    try {
+      const contagens = Object.fromEntries(SERVIDORES.map(s => [s, 0]));
+      await Promise.allSettled(
+        TODAS_LISTAS_ROTA.map(async ({ rota }) => {
+          try {
+            const res  = await fetch(`/api/bens/${rota}`);
+            const json = await res.json();
+            (json.dados || []).forEach(item => {
+              const resp = item.RESPONSAVEL || item.Responsavel || "";
+              if (contagens[resp] !== undefined) contagens[resp]++;
+            });
+          } catch {}
+        })
+      );
+      const servidor = SERVIDORES.reduce((a, b) => contagens[a] <= contagens[b] ? a : b);
+      setAutoResp({ servidor, contagens });
+    } catch {}
+    setAutoLoading(false);
+  };
+
+  // Avança o fluxo PCDF 2ª HIGEIA para o próximo status
+  const avancarFluxo2Higeia = async (novoStatus, camposExtras = {}) => {
+    setSalvando(true);
+    try {
+      const res = await fetch(`/api/bens/${lista}/${row}`, {
+        method:"PATCH",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ STATUS_2HIGEIA: novoStatus, ...camposExtras }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.erro || "Erro ao atualizar");
+      setBem(json.item);
+      showToast(`Status atualizado: ${novoStatus}`);
+    } catch(e) {
+      showToast(e.message, "error");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const upd = (field, val) => setEditData(prev=>({ ...prev, [field]:val }));
   const current = editMode ? editData : bem;
 
@@ -518,12 +685,12 @@ function DetalhesContent() {
   // ── Loading ──
   if (!lista || !row) {
     return (
-      <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
+      <div className="signu-layout" style={{ background:"#dde1e7", fontFamily:"'Inter',system-ui,sans-serif", color:"#111827" }}>
         <Sidebar/>
         <main style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16 }}>
           <div style={{ fontSize:40 }}>📋</div>
-          <div style={{ fontSize:16,color:"rgba(255,255,255,0.5)" }}>Nenhum bem selecionado.</div>
-          <button onClick={()=>router.push("/gestao")} style={{ padding:"8px 20px",background:"rgba(201,168,76,0.1)",border:"1px solid rgba(201,168,76,0.3)",borderRadius:8,color:"#c9a84c",fontSize:13,cursor:"pointer",fontWeight:600 }}>← Ir para Gestão</button>
+          <div style={{ fontSize:16,color:"#374151" }}>Nenhum bem selecionado.</div>
+          <button onClick={()=>router.push("/gestao")} style={{ padding:"8px 20px",background:"rgba(37,99,235,0.08)",border:"1.5px solid #b0b8c4",borderRadius:8,color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600 }}>← Ir para Gestão</button>
         </main>
       </div>
     );
@@ -531,11 +698,11 @@ function DetalhesContent() {
 
   if (loading) {
     return (
-      <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
+      <div className="signu-layout" style={{ background:"#dde1e7", fontFamily:"'Inter',system-ui,sans-serif", color:"#111827" }}>
         <Sidebar/>
         <main style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:16 }}>
           <Ico.Spinner color={meta.color} size={32}/>
-          <span style={{ color:"rgba(255,255,255,0.4)" }}>Carregando bem…</span>
+          <span style={{ color:"#4b5563" }}>Carregando bem…</span>
         </main>
       </div>
     );
@@ -543,12 +710,12 @@ function DetalhesContent() {
 
   if (erroLoad || !bem) {
     return (
-      <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
+      <div className="signu-layout" style={{ background:"#dde1e7", fontFamily:"'Inter',system-ui,sans-serif", color:"#111827" }}>
         <Sidebar/>
         <main style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12 }}>
           <div style={{ fontSize:40 }}>⚠️</div>
           <div style={{ fontSize:14,color:"#f87171" }}>{erroLoad || "Item não encontrado"}</div>
-          <button onClick={()=>router.push("/gestao")} style={{ padding:"8px 20px",background:"rgba(201,168,76,0.1)",border:"1px solid rgba(201,168,76,0.3)",borderRadius:8,color:"#c9a84c",fontSize:13,cursor:"pointer",fontWeight:600 }}>← Voltar para Gestão</button>
+          <button onClick={()=>router.push("/gestao")} style={{ padding:"8px 20px",background:"rgba(37,99,235,0.08)",border:"1.5px solid #b0b8c4",borderRadius:8,color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600 }}>← Voltar para Gestão</button>
         </main>
       </div>
     );
@@ -559,35 +726,35 @@ function DetalhesContent() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
         *{box-sizing:border-box}
-        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.2);border-radius:4px}
+        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#9ca3af;border-radius:4px}
         select option{background:#0a1628}
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
       `}</style>
 
-      <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
+      <div className="signu-layout" style={{ background:"#dde1e7", fontFamily:"'Inter',system-ui,sans-serif", color:"#111827" }}>
         <Sidebar/>
 
         <main className="signu-main">
 
           {/* Top bar */}
-          <header style={{ height:56,borderBottom:"1px solid rgba(201,168,76,0.1)",background:"#0a1628",display:"flex",alignItems:"center",padding:"0 24px",gap:12,flexShrink:0 }}>
-            <button onClick={()=>router.back()} style={{ display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:6,padding:"5px 10px",color:"rgba(255,255,255,0.5)",fontSize:12,cursor:"pointer" }}>
+          <header style={{ height:56,borderBottom:"1px solid #e5e7eb",background:"#1e2d3d",display:"flex",alignItems:"center",padding:"0 24px",gap:12,flexShrink:0 }}>
+            <button onClick={()=>router.back()} style={{ display:"flex",alignItems:"center",gap:6,background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:6,padding:"5px 10px",color:"#374151",fontSize:12,cursor:"pointer" }}>
               <Ico.Back/> Voltar
             </button>
-            <span style={{ color:"rgba(255,255,255,0.15)" }}>/</span>
-            <span style={{ fontSize:13,color:"rgba(255,255,255,0.5)" }}>Detalhes</span>
-            <span style={{ fontSize:13,color:"rgba(255,255,255,0.2)" }}>/</span>
+            <span style={{ color:"#d1d5db" }}>/</span>
+            <span style={{ fontSize:13,color:"#9ca3af" }}>Detalhes</span>
+            <span style={{ fontSize:13,color:"#9ca3af" }}>/</span>
             <span style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:12,color:meta.color }}>{idDisplay}</span>
             <div style={{ flex:1 }}/>
             {salvando && <Ico.Spinner color={meta.color} size={16}/>}
             {!editMode ? (
-              <button onClick={handleEdit} style={{ display:"flex",alignItems:"center",gap:6,background:"rgba(201,168,76,0.1)",border:"1px solid rgba(201,168,76,0.3)",borderRadius:6,padding:"6px 14px",color:"#c9a84c",fontSize:12,fontWeight:600,cursor:"pointer" }}>
+              <button onClick={handleEdit} style={{ display:"flex",alignItems:"center",gap:6,background:"rgba(37,99,235,0.08)",border:"1.5px solid #b0b8c4",borderRadius:6,padding:"6px 14px",color:"#2563eb",fontSize:12,fontWeight:600,cursor:"pointer" }}>
                 <Ico.Edit/> Editar
               </button>
             ) : (
               <div style={{ display:"flex",gap:8 }}>
-                <button onClick={()=>setEditMode(false)} disabled={salvando} style={{ display:"flex",alignItems:"center",gap:6,background:"transparent",border:"1px solid rgba(255,255,255,0.1)",borderRadius:6,padding:"6px 12px",color:"rgba(255,255,255,0.5)",fontSize:12,cursor:"pointer" }}>
+                <button onClick={()=>setEditMode(false)} disabled={salvando} style={{ display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.1)",border:"1.5px solid rgba(255,255,255,0.2)",borderRadius:6,padding:"6px 12px",color:"#e5e7eb",fontSize:12,cursor:"pointer" }}>
                   <Ico.Cancel/> Cancelar
                 </button>
                 <button onClick={handleSave} disabled={salvando} style={{ display:"flex",alignItems:"center",gap:6,background:"linear-gradient(135deg,#15803d,#22c55e)",border:"none",borderRadius:6,padding:"6px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer" }}>
@@ -600,7 +767,7 @@ function DetalhesContent() {
           <div style={{ flex:1,overflow:"auto",display:"flex",flexDirection:"column" }}>
 
             {/* Hero header */}
-            <div style={{ padding:"24px 28px 0",background:"linear-gradient(180deg,rgba(10,22,40,0.8) 0%,transparent 100%)" }}>
+            <div style={{ padding:"24px 28px 0",background:"#fff",borderBottom:"1px solid #e5e7eb" }}>
               <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:16,marginBottom:20 }}>
                 <div style={{ display:"flex",alignItems:"center",gap:16 }}>
                   <div style={{ width:56,height:56,borderRadius:12,background:`linear-gradient(135deg,${meta.bg},rgba(6,15,30,0.8))`,border:`1px solid ${meta.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26 }}>
@@ -613,10 +780,10 @@ function DetalhesContent() {
                         {current?.STATUS_DILIGENCIA || "—"}
                       </span>
                     </div>
-                    <h1 style={{ fontSize:20,fontWeight:700,color:"#fff",margin:0,letterSpacing:"-0.02em" }}>
+                    <h1 style={{ fontSize:20,fontWeight:700,color:"#0f172a",margin:0,letterSpacing:"-0.02em" }}>
                       {current?.TIPO_BEM || "Bem"} — {current?.ID_PASEI || "—"}
                     </h1>
-                    <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:12,color:"rgba(255,255,255,0.35)",marginTop:3 }}>
+                    <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:12,color:"#6b7280",marginTop:3 }}>
                       NIV: {current?.NIV || "—"} · Responsável: {responsavel || "—"}
                     </div>
                   </div>
@@ -625,12 +792,12 @@ function DetalhesContent() {
                 {/* Botões de transição — apenas CEGOC, fora do modo edição */}
                 {listaKey === "CEGOC" && !editMode && (
                   <div style={{ display:"flex",gap:10,flexWrap:"wrap" }}>
-                    {current?.DESTINACAO === "EM DILIGÊNCIA HIGEIA" && (
+                    {current?.STATUS_DILIGENCIA === "EM DILIGÊNCIA HIGEIA" && (
                       <button onClick={()=>setModal("HIGEIA")} style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderRadius:10,background:"linear-gradient(135deg,rgba(29,78,216,0.2),rgba(59,130,246,0.1))",border:"1px solid rgba(59,130,246,0.5)",color:"#60a5fa",fontSize:13,fontWeight:700,cursor:"pointer" }}>
                         🏛️ Mover → PCDF 2ª <Ico.Arrow/>
                       </button>
                     )}
-                    {current?.DESTINACAO === "LPC" && (
+                    {current?.STATUS_DILIGENCIA === "LPC" && (
                       <button onClick={()=>setModal("CATALOGO")} style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderRadius:10,background:"linear-gradient(135deg,rgba(21,128,61,0.2),rgba(34,197,94,0.1))",border:"1px solid rgba(34,197,94,0.5)",color:"#22c55e",fontSize:13,fontWeight:700,cursor:"pointer" }}>
                         📋 LPC → Catálogo <Ico.Arrow/>
                       </button>
@@ -640,9 +807,9 @@ function DetalhesContent() {
               </div>
 
               {/* Tabs */}
-              <div style={{ display:"flex",gap:0,borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
+              <div style={{ display:"flex",gap:0,borderBottom:"1px solid #e5e7eb" }}>
                 {[["dados","📋 Dados"],["historico","🕐 Histórico"],["anexos","📎 Anexos"]].map(([id,label])=>(
-                  <button key={id} onClick={()=>setActiveTab(id)} style={{ padding:"10px 20px",fontSize:13,fontWeight:activeTab===id?600:400,color:activeTab===id?"#c9a84c":"rgba(255,255,255,0.4)",background:"transparent",border:"none",borderBottom:activeTab===id?"2px solid #c9a84c":"2px solid transparent",cursor:"pointer",transition:"all 0.15s" }}>{label}</button>
+                  <button key={id} onClick={()=>setActiveTab(id)} style={{ padding:"10px 20px",fontSize:13,fontWeight:activeTab===id?600:400,color:activeTab===id?"#2563eb":"#4b5563",background:"transparent",border:"none",borderBottom:activeTab===id?"2px solid #2563eb":"2px solid transparent",cursor:"pointer",transition:"all 0.15s" }}>{label}</button>
                 ))}
               </div>
             </div>
@@ -654,9 +821,10 @@ function DetalhesContent() {
                 {/* Coluna principal */}
                 <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
 
+                  {!["DPJ_GC99", "DOACOES"].includes(listaKey) && (
                   <Section title="Identificação">
                     <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
-                      <FieldView label="ID_PASEI" value={current?.ID_PASEI} mono highlight="#c9a84c"/>
+                      <FieldView label="ID_PASEI" value={current?.ID_PASEI} mono highlight="#2563eb"/>
                       <FieldView label="ID Legado" value={idDisplay} mono/>
                       {editMode
                         ? <FieldEdit label="Tipo de Bem" value={editData?.TIPO_BEM} onChange={v=>upd("TIPO_BEM",v)} options={TIPOS_BEM}/>
@@ -664,25 +832,91 @@ function DetalhesContent() {
                       {editMode
                         ? <FieldEdit label="Status" value={editData?.STATUS_DILIGENCIA} onChange={v=>upd("STATUS_DILIGENCIA",v)} options={STATUS_OPTIONS}/>
                         : <FieldView label="Status" value={current?.STATUS_DILIGENCIA}/>}
+                      {listaKey === "PCDF_2HIGEIA" && (editMode
+                        ? <FieldEdit label="Etapa HIGEIA" value={editData?.STATUS_2HIGEIA||"EM PROCESSAMENTO"} onChange={v=>upd("STATUS_2HIGEIA",v)} options={STATUS_2HIGEIA}/>
+                        : <FieldView label="Etapa HIGEIA" value={current?.STATUS_2HIGEIA||"EM PROCESSAMENTO"} highlight={current?.STATUS_2HIGEIA==="FINALIZADO"?"#22c55e":"#2563eb"}/>
+                      )}
                       {editMode
                         ? <FieldEdit label="NIV / Chassi" value={editData?.NIV} onChange={v=>upd("NIV",v)} mono/>
                         : <FieldView label="NIV / Chassi" value={current?.NIV} mono/>}
                       {editMode
                         ? <FieldEdit label="Destinação" value={editData?.DESTINACAO} onChange={v=>upd("DESTINACAO",v)} options={DESTINACOES}/>
                         : <FieldView label="Destinação" value={current?.DESTINACAO}/>}
+                      {bem?.ULTIMA_ANALISE && (
+                        <FieldView label="Última atualização" value={
+                          (() => {
+                            const d = new Date(bem.ULTIMA_ANALISE);
+                            return isNaN(d) ? bem.ULTIMA_ANALISE :
+                              d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+                          })()
+                        } highlight="#2563eb"/>
+                      )}
                     </div>
                   </Section>
+                  )}
 
                   <Section title="Responsável">
                     {editMode ? (
-                      <FieldEdit label="Nome do Servidor" value={editData?.RESPONSAVEL||editData?.Responsavel||""} onChange={v=>upd("RESPONSAVEL",v)}/>
+                      <div>
+                        {/* Select com opção de distribuição automática */}
+                        <label style={{ fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6 }}>Nome do Servidor</label>
+                        <select
+                          value={editData?.RESPONSAVEL||editData?.Responsavel||""}
+                          onChange={e => {
+                            upd("RESPONSAVEL", e.target.value);
+                            if (e.target.value === "__AUTO__") calcularDistribuicao();
+                            else setAutoResp(null);
+                          }}
+                          style={{ width:"100%",padding:"8px 10px",background:"#f3f4f6",border:"1.5px solid #c4c9d0",borderRadius:8,color: (editData?.RESPONSAVEL==="__AUTO__")?"#2563eb":"#fff",fontSize:12,outline:"none",fontWeight:(editData?.RESPONSAVEL==="__AUTO__")?700:400 }}>
+                          <option value="" style={{background:"#1e2d3d"}}>— Selecione —</option>
+                          <option value="__AUTO__" style={{background:"#1e2d3d",color:"#2563eb",fontWeight:700}}>⚡ Distribuição automática</option>
+                          {SERVIDORES.map(s => <option key={s} value={s} style={{background:"#1e2d3d"}}>{s}</option>)}
+                        </select>
+
+                        {/* Card de resultado da distribuição */}
+                        {(autoLoading || autoResp) && (
+                          <div style={{ marginTop:10, borderRadius:8, overflow:"hidden", border:"1.5px solid #b0b8c4", background:"rgba(37,99,235,0.05)" }}>
+                            {autoLoading && (
+                              <div style={{ padding:"10px 14px",fontSize:12,color:"#374151",display:"flex",alignItems:"center",gap:8 }}>
+                                <span style={{ animation:"spin 1s linear infinite",display:"inline-block" }}>⟳</span>
+                                Calculando distribuição de carga…
+                              </div>
+                            )}
+                            {!autoLoading && autoResp && (
+                              <div>
+                                <div style={{ padding:"10px 14px",background:"rgba(37,99,235,0.08)",display:"flex",alignItems:"center",gap:8 }}>
+                                  <span style={{ fontSize:16 }}>⚡</span>
+                                  <div>
+                                    <div style={{ fontSize:12,fontWeight:700,color:"#2563eb" }}>🎯 {autoResp.servidor}</div>
+                                    <div style={{ fontSize:10,color:"#4b5563",marginTop:1 }}>Servidor com menos processos recebidos</div>
+                                  </div>
+                                </div>
+                                <div style={{ padding:"10px 14px" }}>
+                                  <div style={{ display:"flex",flexWrap:"wrap",gap:5 }}>
+                                    {SERVIDORES.map(s => {
+                                      const n = autoResp.contagens[s] ?? 0;
+                                      const atual = s === autoResp.servidor;
+                                      return (
+                                        <div key={s} style={{ display:"flex",alignItems:"center",gap:5,padding:"3px 9px",borderRadius:16,fontSize:11,background:atual?"rgba(37,99,235,0.1)":"#f3f4f6",border:`1px solid ${atual?"rgba(37,99,235,0.4)":"#e5e7eb"}`,color:atual?"#2563eb":"#4b5563",fontWeight:atual?700:400 }}>
+                                          {atual&&"★ "}{s.split(" ")[0]} <span style={{ opacity:.6,fontSize:10 }}>{n}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  <div style={{ fontSize:10,color:"#9ca3af",marginTop:8 }}>O nome será registrado ao salvar.</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div style={{ display:"flex",alignItems:"center",gap:12 }}>
                         <div style={{ width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#1e40af,#3b82f6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,flexShrink:0 }}>
                           {responsavel ? responsavel.split(" ").map(w=>w[0]).slice(0,2).join("") : "?"}
                         </div>
                         <div>
-                          <div style={{ fontSize:13,fontWeight:600,color:"#fff" }}>{responsavel || "—"}</div>
+                          <div style={{ fontSize:13,fontWeight:600,color:"#0f172a" }}>{responsavel || "—"}</div>
                         </div>
                       </div>
                     )}
@@ -698,6 +932,76 @@ function DetalhesContent() {
                   {/* Campos condicionais PCDF 2ª */}
                   {listaKey==="PCDF_2HIGEIA" && (
                     <Section title="Campos PCDF 2ª HIGEIA">
+                      {/* ── Fluxo de status ── */}
+                      {!editMode && (() => {
+                        const s2 = bem?.STATUS_2HIGEIA || "EM PROCESSAMENTO";
+                        const etapas = STATUS_2HIGEIA;
+                        const idx = etapas.indexOf(s2);
+                        const finalizado = s2 === "FINALIZADO";
+                        return (
+                          <div style={{ marginBottom:16 }}>
+                            {/* Barra de progresso */}
+                            <div style={{ display:"flex", alignItems:"center", gap:0, marginBottom:14 }}>
+                              {etapas.map((e, i) => {
+                                const done   = i < idx;
+                                const active = i === idx;
+                                return (
+                                  <div key={e} style={{ display:"flex", alignItems:"center", flex: i < etapas.length-1 ? 1 : "none" }}>
+                                    <div title={e} style={{ width:28, height:28, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:800,
+                                      background: done ? "#22c55e" : active ? "#2563eb" : "#e5e7eb",
+                                      border: `2px solid ${done ? "#22c55e" : active ? "#2563eb" : "#d1d5db"}`,
+                                      color: done||active ? "#fff" : "#6b7280" }}>
+                                      {done ? "✓" : i+1}
+                                    </div>
+                                    {i < etapas.length-1 && (
+                                      <div style={{ flex:1, height:2, background: done ? "#22c55e" : "#e5e7eb" }}/>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div style={{ fontSize:12, fontWeight:700, color: finalizado?"#22c55e":"#2563eb", marginBottom:12 }}>
+                              {finalizado?"✅":"📍"} {s2}
+                            </div>
+
+                            {/* Botões de avanço conforme etapa atual */}
+                            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                              {s2 === "EM PROCESSAMENTO" && (
+                                <button onClick={()=>avancarFluxo2Higeia("TEP REGISTRADO", { DATA_TEP: new Date().toISOString().split("T")[0] })}
+                                  style={{ padding:"8px 16px", borderRadius:8, background:"rgba(37,99,235,0.1)", border:"1.5px solid #93c5fd", color:"#2563eb", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                                  📄 Registrar TEP
+                                </button>
+                              )}
+                              {s2 === "TEP REGISTRADO" && (
+                                <button onClick={()=>avancarFluxo2Higeia("ENVIAR OFÍCIO DETRAN")}
+                                  style={{ padding:"8px 16px", borderRadius:8, background:"rgba(96,165,250,0.12)", border:"1px solid rgba(96,165,250,0.4)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                                  📤 Pronto para enviar ofício DETRAN
+                                </button>
+                              )}
+                              {s2 === "ENVIAR OFÍCIO DETRAN" && (
+                                <button onClick={()=>avancarFluxo2Higeia("AGUARDAR RESPOSTA DETRAN", { DATA_OFICIO_DETRAN: new Date().toISOString().split("T")[0] })}
+                                  style={{ padding:"8px 16px", borderRadius:8, background:"rgba(96,165,250,0.15)", border:"1px solid rgba(96,165,250,0.5)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                                  ✉️ Ofício enviado → Aguardar DETRAN
+                                </button>
+                              )}
+                              {s2 === "AGUARDAR RESPOSTA DETRAN" && (
+                                <button onClick={()=>avancarFluxo2Higeia("GERAR TAP", { DATA_RESPOSTA_DETRAN: new Date().toISOString().split("T")[0] })}
+                                  style={{ padding:"8px 16px", borderRadius:8, background:"rgba(167,139,250,0.12)", border:"1px solid rgba(167,139,250,0.4)", color:"#a78bfa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                                  📩 Resposta recebida → Gerar TAP
+                                </button>
+                              )}
+                              {s2 === "GERAR TAP" && (
+                                <button onClick={()=>avancarFluxo2Higeia("FINALIZADO", { DATA_TAP: new Date().toISOString().split("T")[0] })}
+                                  style={{ padding:"8px 16px", borderRadius:8, background:"rgba(34,197,94,0.12)", border:"1px solid rgba(34,197,94,0.5)", color:"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                                  ✅ TAP gerado → Finalizar
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── Campos ── */}
                       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:8 }}>
                         {editMode
                           ? <FieldEdit label="Depósito" value={editData?.DEPOSITO} onChange={v=>upd("DEPOSITO",v)} options={DEPOSITOS}/>
@@ -709,7 +1013,22 @@ function DetalhesContent() {
                         {editMode
                           ? <FieldEdit label="Peso (kg)" value={editData?.PESO_KG} onChange={v=>upd("PESO_KG",v)} type="number"/>
                           : <FieldView label="Peso (kg)" value={current?.PESO_KG?`${current.PESO_KG} kg`:null}/>}
+
+                        {/* TEP */}
+                        {editMode
+                          ? <FieldEdit label="Nº SEI do TEP" value={editData?.TEP_SEI} onChange={v=>upd("TEP_SEI",v)}/>
+                          : <FieldView label="Nº SEI do TEP" value={current?.TEP_SEI} mono/>}
+                        {editMode
+                          ? <FieldEdit label="Valor TEP (R$)" value={editData?.TEP_VALOR} onChange={v=>upd("TEP_VALOR",v)}/>
+                          : <FieldView label="Valor TEP (R$)" value={current?.TEP_VALOR ? `R$ ${current.TEP_VALOR}` : null}/>}
+                        <FieldView label="Data TEP" value={current?.DATA_TEP}/>
+
+                        {/* Datas do fluxo */}
+                        {current?.DATA_OFICIO_DETRAN && <FieldView label="Ofício DETRAN enviado" value={current.DATA_OFICIO_DETRAN}/>}
+                        {current?.DATA_RESPOSTA_DETRAN && <FieldView label="Resposta DETRAN" value={current.DATA_RESPOSTA_DETRAN}/>}
+                        {current?.DATA_TAP && <FieldView label="Data TAP" value={current.DATA_TAP}/>}
                       </div>
+
                       {[["FIB Expedida","FIB"],["CEB/TEP/TIV Emitido","CEB_TEP_TIV"],["Ofício de Baixa","OFICIO_BAIXA"],["Inutilizado","INUTILIZADO"],["Restrição Roubo/Furto","RESTRICAO_ROUBO"]].map(([label,field])=>(
                         <Toggle key={field} label={label} value={editMode?editData?.[field]:current?.[field]} onChange={v=>upd(field,v)} editMode={editMode}/>
                       ))}
@@ -728,6 +1047,33 @@ function DetalhesContent() {
                           ? <FieldEdit label="Motivo de Saída" value={editData?.MOTIVO_SAIDA||""} onChange={v=>upd("MOTIVO_SAIDA",v)} options={["","DETERIORADO","BAIXA","DOAÇÃO","ARREMATAÇÃO LPC"]}/>
                           : <FieldView label="Motivo de Saída" value={current?.MOTIVO_SAIDA}/>}
                       </div>
+                    </Section>
+                  )}
+
+                  {/* ── Checklist RENAJUD (exibido quando status = RENAJUD) ── */}
+                  {(bem?.STATUS_DILIGENCIA === "RENAJUD" || bem?.STATUS_2HIGEIA === "RENAJUD") && (
+                    <Section title="🔒 Restrições RENAJUD">
+                      <RenajudChecklist
+                        renajudsStr={bem?.RENAJUDS || "[]"}
+                        salvando={salvando}
+                        onSalvar={async (novoJson) => {
+                          setSalvando(true);
+                          try {
+                            const res = await fetch(`/api/bens/${lista}/${row}`, {
+                              method:"PATCH",
+                              headers:{"Content-Type":"application/json"},
+                              body: JSON.stringify({ RENAJUDS: novoJson }),
+                            });
+                            const json = await res.json();
+                            if (!res.ok) throw new Error(json.erro || "Erro ao salvar");
+                            setBem(json.item);
+                          } catch(e) {
+                            showToast(e.message, "error");
+                          } finally {
+                            setSalvando(false);
+                          }
+                        }}
+                      />
                     </Section>
                   )}
 
@@ -772,7 +1118,7 @@ function DetalhesContent() {
                   </Section>
 
                   <Section title="Rota API SIGNU">
-                    <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:11,color:"rgba(255,255,255,0.35)",lineHeight:2 }}>
+                    <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:11,color:"#6b7280",lineHeight:2 }}>
                       <div><span style={{ color:"#22c55e" }}>GET</span> /api/bens/{lista}/{row}</div>
                       <div><span style={{ color:"#fbbf24" }}>PATCH</span> /api/bens/{lista}/{row}</div>
                       <div><span style={{ color:"#3b82f6" }}>POST</span> /api/bens/transicao</div>
@@ -788,7 +1134,7 @@ function DetalhesContent() {
               return (
                 <div style={{ padding:"28px 32px 40px",maxWidth:680 }}>
                   {historico.length === 0 ? (
-                    <div style={{ textAlign:"center",padding:"48px 0",color:"rgba(255,255,255,0.25)",fontSize:13,fontStyle:"italic" }}>
+                    <div style={{ textAlign:"center",padding:"48px 0",color:"#6b7280",fontSize:13,fontStyle:"italic" }}>
                       Nenhum histórico disponível. Preencha DATA_CADASTRO ou realize uma transição para gerar entradas.
                     </div>
                   ) : (
@@ -802,15 +1148,15 @@ function DetalhesContent() {
                           </div>
                           {/* Conteúdo */}
                           <div style={{ paddingBottom:8,flex:1 }}>
-                            <div style={{ fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:4,fontFamily:"'IBM Plex Mono',monospace" }}>{h.data}</div>
-                            <div style={{ fontSize:13,fontWeight:600,color:"#fff",marginBottom:h.detalhe?4:0,lineHeight:1.4 }}>{h.acao}</div>
-                            {h.detalhe && <div style={{ fontSize:11,color:"rgba(255,255,255,0.4)" }}>{h.detalhe}</div>}
+                            <div style={{ fontSize:11,color:"#6b7280",marginBottom:4,fontFamily:"'IBM Plex Mono',monospace" }}>{h.data}</div>
+                            <div style={{ fontSize:13,fontWeight:600,color:"#0f172a",marginBottom:h.detalhe?4:0,lineHeight:1.4 }}>{h.acao}</div>
+                            {h.detalhe && <div style={{ fontSize:11,color:"#4b5563" }}>{h.detalhe}</div>}
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
-                  <div style={{ marginTop:8,padding:"10px 14px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:8,fontSize:11,color:"rgba(255,255,255,0.25)" }}>
+                  <div style={{ marginTop:8,padding:"10px 14px",background:"#f9fafb",border:"1.5px solid #b0b8c4",borderRadius:8,fontSize:11,color:"#6b7280" }}>
                     💡 Entradas de histórico são geradas automaticamente pelas transições de estado e ficam registradas no campo OBSERVACOES da planilha.
                   </div>
                 </div>
@@ -827,45 +1173,45 @@ function DetalhesContent() {
                   onDrop={e=>{e.preventDefault();setArrastando(false);addFiles(e.dataTransfer.files);}}
                   onClick={()=>!uploadando&&fileInputRef.current?.click()}
                   style={{
-                    border:`2px dashed ${arrastando?"rgba(201,168,76,0.6)":"rgba(201,168,76,0.2)"}`,
+                    border:`2px dashed ${arrastando?"#2563eb":"rgba(37,99,235,0.2)"}`,
                     borderRadius:12, padding:"36px 20px", textAlign:"center", marginBottom:20,
-                    background:arrastando?"rgba(201,168,76,0.06)":"rgba(201,168,76,0.02)",
+                    background:arrastando?"rgba(37,99,235,0.06)":"rgba(37,99,235,0.02)",
                     cursor:uploadando?"not-allowed":"pointer", transition:"all 0.2s",
                   }}>
                   <div style={{ fontSize:32,marginBottom:10 }}>
-                    {uploadando ? <Ico.Spinner color="#c9a84c" size={32}/> : arrastando ? "⬇️" : "📎"}
+                    {uploadando ? <Ico.Spinner color="#2563eb" size={32}/> : arrastando ? "⬇️" : "📎"}
                   </div>
-                  <div style={{ fontSize:14,fontWeight:600,color:arrastando?"#c9a84c":"rgba(255,255,255,0.6)",marginBottom:6 }}>
+                  <div style={{ fontSize:14,fontWeight:600,color:arrastando?"#2563eb":"#1f2937",marginBottom:6 }}>
                     {uploadando ? "Enviando para o Google Drive…" : arrastando ? "Solte para anexar" : "Arraste arquivos ou clique para selecionar"}
                   </div>
-                  <div style={{ fontSize:12,color:"rgba(255,255,255,0.3)" }}>PDF, DOC, DOCX, JPG, PNG — máx. 20 MB por arquivo</div>
+                  <div style={{ fontSize:12,color:"#6b7280" }}>PDF, DOC, DOCX, JPG, PNG — máx. 20 MB por arquivo</div>
                   <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                     style={{ display:"none" }} onChange={e=>{addFiles(e.target.files);e.target.value="";}}/>
                 </div>
 
                 {/* Lista de arquivos */}
                 {carregandoAnexos ? (
-                  <div style={{ textAlign:"center",padding:"24px 0",color:"rgba(255,255,255,0.3)",fontSize:13 }}>
+                  <div style={{ textAlign:"center",padding:"24px 0",color:"#6b7280",fontSize:13 }}>
                     <Ico.Spinner/> <span style={{ marginLeft:8 }}>Carregando anexos…</span>
                   </div>
                 ) : anexos.length > 0 ? (
                   <div style={{ display:"flex",flexDirection:"column",gap:8,marginBottom:20 }}>
-                    <div style={{ fontSize:11,fontWeight:700,color:"rgba(201,168,76,0.7)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4 }}>
+                    <div style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4 }}>
                       {anexos.length} arquivo{anexos.length!==1?"s":""} no Google Drive
                     </div>
                     {anexos.map(a => (
-                      <div key={a.id} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10 }}>
+                      <div key={a.id} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:10 }}>
                         <span style={{ fontSize:22,flexShrink:0 }}>{fileIcon(a.tipo)}</span>
                         <div style={{ flex:1,minWidth:0 }}>
                           {a.url ? (
                             <a href={a.url} target="_blank" rel="noreferrer"
-                              style={{ fontSize:13,fontWeight:500,color:"#c9a84c",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block",textDecoration:"none" }}>
+                              style={{ fontSize:13,fontWeight:500,color:"#2563eb",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block",textDecoration:"none" }}>
                               {a.nome} ↗
                             </a>
                           ) : (
-                            <div style={{ fontSize:13,fontWeight:500,color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{a.nome}</div>
+                            <div style={{ fontSize:13,fontWeight:500,color:"#0f172a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{a.nome}</div>
                           )}
-                          <div style={{ fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2 }}>{fmtBytes(a.tamanho)} · {a.data}</div>
+                          <div style={{ fontSize:11,color:"#6b7280",marginTop:2 }}>{fmtBytes(a.tamanho)} · {a.data}</div>
                         </div>
                         <span style={{ fontSize:10,background:"rgba(34,197,94,0.12)",color:"#22c55e",padding:"2px 8px",borderRadius:10,fontWeight:600,flexShrink:0 }}>Drive</span>
                         <button onClick={()=>removerAnexo(a.id)} title="Remover"
@@ -874,13 +1220,13 @@ function DetalhesContent() {
                     ))}
                   </div>
                 ) : (
-                  <div style={{ textAlign:"center",padding:"24px 0",color:"rgba(255,255,255,0.25)",fontSize:13,fontStyle:"italic" }}>
+                  <div style={{ textAlign:"center",padding:"24px 0",color:"#6b7280",fontSize:13,fontStyle:"italic" }}>
                     Nenhum arquivo anexado. Arraste ou clique acima para adicionar.
                   </div>
                 )}
 
                 {/* Nota */}
-                <div style={{ padding:"10px 14px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:8,fontSize:11,color:"rgba(255,255,255,0.25)" }}>
+                <div style={{ padding:"10px 14px",background:"#f9fafb",border:"1.5px solid #b0b8c4",borderRadius:8,fontSize:11,color:"#6b7280" }}>
                   ☁️ Arquivos armazenados no Google Drive (pasta SIGNU_Anexos). Clique no nome do arquivo para abrir.
                 </div>
               </div>
@@ -898,8 +1244,8 @@ function DetalhesContent() {
 export default function DetalhesPage() {
   return (
     <Suspense fallback={
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#060f1e" }}>
-        <div style={{ width:32, height:32, border:"2px solid rgba(201,168,76,0.2)", borderTop:"2px solid #c9a84c", borderRadius:"50%", animation:"spin 0.8s linear infinite" }}/>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#dde1e7" }}>
+        <div style={{ width:32, height:32, border:"2px solid rgba(37,99,235,0.15)", borderTop:"2px solid #2563eb", borderRadius:"50%", animation:"spin 0.8s linear infinite" }}/>
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     }>
