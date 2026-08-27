@@ -414,10 +414,11 @@ function Info({ label, value, mono, alert, positive }) {
 export default function SIGNUMinhaFila() {
   const [activeNav, setActiveNav] = useState("fila");
   // Filtros multi-seleção — conjunto vazio = "todos"
-  const [filtroStatus, setFiltroStatus] = useState(new Set());
-  const [filtroLista,  setFiltroLista]  = useState(new Set());
-  const [filtroTipo,   setFiltroTipo]   = useState(new Set());
-  const [filtroFlags,  setFiltroFlags]  = useState(new Set()); // FIB | CEB_TEP_TIV | OFICIO_BAIXA | HIGEIA
+  const [filtroStatus,    setFiltroStatus]    = useState(new Set());
+  const [filtroLista,     setFiltroLista]     = useState(new Set());
+  const [filtroTipo,      setFiltroTipo]      = useState(new Set());
+  const [filtroFlags,     setFiltroFlags]     = useState(new Set()); // FIB | CEB_TEP_TIV | OFICIO_BAIXA | HIGEIA
+  const [filtroDestinacao,setFiltroDestinacao]= useState(new Set());
   const [busca,        setBusca]        = useState("");
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [sortOrder, setSortOrder] = useState("recentes"); // "recentes" | "antigos"
@@ -443,6 +444,7 @@ export default function SIGNUMinhaFila() {
     setFiltroLista(new Set());
     setFiltroTipo(new Set());
     setFiltroFlags(new Set());
+    setFiltroDestinacao(new Set());
     setBusca("");
   };
 
@@ -455,7 +457,7 @@ export default function SIGNUMinhaFila() {
   };
 
   const totalFiltrosAtivos =
-    filtroStatus.size + filtroLista.size + filtroTipo.size + filtroFlags.size + (busca.trim() ? 1 : 0);
+    filtroStatus.size + filtroLista.size + filtroTipo.size + filtroFlags.size + filtroDestinacao.size + (busca.trim() ? 1 : 0);
   const [selectedItem,   setSelectedItem]   = useState(null);
   const [drawerEditMode, setDrawerEditMode] = useState(false);
   const [drawerEditData, setDrawerEditData] = useState(null);
@@ -574,10 +576,11 @@ export default function SIGNUMinhaFila() {
   }, [usuarioAtual, carregarFila]);
 
   const filtered = fila.filter(item => {
-    if (filtroStatus.size > 0 && !filtroStatus.has(item.STATUS_DILIGENCIA)) return false;
-    if (filtroLista.size  > 0 && !filtroLista.has(item.listaOrigem))        return false;
-    if (filtroTipo.size   > 0 && !filtroTipo.has(item.TIPO_BEM))            return false;
-    if (filtroFlags.size  > 0 && ![...filtroFlags].some(f => flagAtiva(item, f))) return false;
+    if (filtroStatus.size     > 0 && !filtroStatus.has(item.STATUS_DILIGENCIA))                       return false;
+    if (filtroLista.size      > 0 && !filtroLista.has(item.listaOrigem))                              return false;
+    if (filtroTipo.size       > 0 && !filtroTipo.has(item.TIPO_BEM))                                  return false;
+    if (filtroFlags.size      > 0 && ![...filtroFlags].some(f => flagAtiva(item, f)))                 return false;
+    if (filtroDestinacao.size > 0 && !filtroDestinacao.has(item.DESTINACAO))                          return false;
     if (busca.trim()) {
       const q = busca.trim().toUpperCase();
       const campos = [item.id, item.ID_PASEI, item.NIV, item.TIPO_BEM, item.STATUS_DILIGENCIA, item.DESTINACAO, item.OBSERVACOES].join(" ").toUpperCase();
@@ -799,6 +802,21 @@ export default function SIGNUMinhaFila() {
                     </div>
                   </div>;
                 })()}
+                {/* Destinação */}
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:7 }}>Destinação</div>
+                  <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                    {["CIRCULAÇÃO","RECICLAGEM"].map(d => {
+                      const ativo = filtroDestinacao.has(d);
+                      const count = fila.filter(i=>i.DESTINACAO===d).length;
+                      const cor = d==="RECICLAGEM"?"#22c55e":"#60a5fa";
+                      return <button key={d} onClick={() => toggleSet(setFiltroDestinacao,d)}
+                        style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:ativo?700:400, cursor:"pointer", border:`1px solid ${ativo?cor:"#d1d5db"}`, background:ativo?`${cor}18`:"transparent", color:ativo?cor:"#374151", display:"flex", alignItems:"center", gap:5 }}>
+                        {ativo&&"✓ "}{d} <span style={{ opacity:.6, fontSize:10 }}>({count})</span>
+                      </button>;
+                    })}
+                  </div>
+                </div>
                 {/* Flags */}
                 <div>
                   <div style={{ fontSize:10, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:7 }}>🏷 Flags e situações especiais</div>
@@ -828,6 +846,7 @@ export default function SIGNUMinhaFila() {
                 {[...filtroLista].map(l=>{const m=LISTA_META[l];return <span key={l} onClick={()=>toggleSet(setFiltroLista,l)} style={{ padding:"3px 9px", background:m?.bg||"#f3f4f6", border:`1px solid ${m?.color||"#9ca3af"}`, borderRadius:20, fontSize:11, color:m?.color||"#fff", cursor:"pointer" }}>{m?.label||l} ✕</span>;})}
                 {[...filtroTipo].map(t=><span key={t} onClick={()=>toggleSet(setFiltroTipo,t)} style={{ padding:"3px 9px", background:"#f3f4f6", border:"1px solid #d1d5db", borderRadius:20, fontSize:11, color:"#1f2937", cursor:"pointer" }}>{t} ✕</span>)}
                 {[...filtroFlags].map(f=>{const labels={FIB:"FIB",CEB_TEP_TIV:"CEB/TEP/TIV",OFICIO_BAIXA:"Ofício Baixa",HIGEIA:"HIGEIA"};return <span key={f} onClick={()=>toggleSet(setFiltroFlags,f)} style={{ padding:"3px 9px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:20, fontSize:11, color:"#a78bfa", cursor:"pointer" }}>{labels[f]||f} ✕</span>;})}
+                {[...filtroDestinacao].map(d=><span key={d} onClick={()=>toggleSet(setFiltroDestinacao,d)} style={{ padding:"3px 9px", background:"rgba(34,197,94,0.08)", border:"1px solid rgba(34,197,94,0.3)", borderRadius:20, fontSize:11, color:"#16a34a", cursor:"pointer" }}>{d} ✕</span>)}
               </div>
             )}
           </div>
