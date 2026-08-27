@@ -685,7 +685,7 @@ export default function SIGNUMinhaFila() {
             <h1 style={{
               fontSize: 22,
               fontWeight: 700,
-              color: "#fff",
+              color: "#0f172a",
               letterSpacing: "-0.02em",
               margin: 0,
             }}>

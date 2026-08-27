@@ -324,7 +324,7 @@ export default function AnotacoesPage() {
 
           {/* Cabeçalho */}
           <div style={{ marginBottom: 24 }}>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.02em" }}>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: "0 0 4px", letterSpacing: "-0.02em" }}>
               📝 Doações não realizadas
             </h1>
             <p style={{ fontSize: 13, color: "#4b5563", margin: 0 }}>
