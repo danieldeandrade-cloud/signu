@@ -34,7 +34,7 @@ const NAV_ITEMS = [
   },
   {
     href: "/anotacoes",
-    label: "Anotações de Doações",
+    label: "Anotações",
     icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
     somenteGestor: true,
   },
@@ -58,19 +58,37 @@ export default function Sidebar({ user }) {
 
   return (
     <aside className="signu-sidebar">
-      {/* Logo — oculto no mobile via CSS */}
+      {/* Logo */}
       <div
         className="signu-sidebar-logo"
         onClick={() => router.push("/inicio")}
         style={{
-          width: 36, height: 36, borderRadius: 8,
-          background: "linear-gradient(135deg,#c9a84c,#8b6914)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 16, color: "#0a1628", marginBottom: 10, cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "0 16px",
+          marginBottom: 16,
+          cursor: "pointer",
           flexShrink: 0,
         }}
-        title="SIGNU — Início"
-      >⚖</div>
+      >
+        <div style={{
+          width: 32, height: 32, borderRadius: 8,
+          background: "#2563eb",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 8.5L8.5 2L13.5 7L7 13.5L2 8.5Z"/>
+            <path d="M10.5 10.5L19 19"/>
+            <path d="M5 21h14"/>
+          </svg>
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 800, color: "#fff", letterSpacing: "-0.3px" }}>SIGNU</span>
+      </div>
+
+      {/* Divider */}
+      <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "0 12px 10px" }}/>
 
       {/* Nav items */}
       {itensVisiveis.map(({ href, label, icon }) => {
@@ -81,53 +99,83 @@ export default function Sidebar({ user }) {
             title={label}
             onClick={() => router.push(href)}
             style={{
-              width: 40, height: 40, borderRadius: 8, border: "none",
-              background: active ? "rgba(201,168,76,0.12)" : "transparent",
-              color: active ? "#c9a84c" : "rgba(255,255,255,0.3)",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "0 14px",
+              height: 40,
+              margin: "0 8px",
+              borderRadius: 8,
+              border: "none",
+              background: active ? "#2563eb" : "transparent",
+              color: active ? "#fff" : "rgba(255,255,255,0.5)",
               cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
               transition: "all 0.15s ease",
               outline: "none",
               flexShrink: 0,
+              width: "calc(100% - 16px)",
+              textAlign: "left",
+              position: "relative",
             }}
             onMouseEnter={e => {
-              if (!active) e.currentTarget.style.color = "rgba(255,255,255,0.7)";
+              if (!active) {
+                e.currentTarget.style.background = "rgba(255,255,255,0.07)";
+                e.currentTarget.style.color = "#fff";
+              }
             }}
             onMouseLeave={e => {
-              if (!active) e.currentTarget.style.color = "rgba(255,255,255,0.3)";
+              if (!active) {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = "rgba(255,255,255,0.5)";
+              }
             }}
           >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+              style={{ flexShrink: 0 }}>
               <path d={icon}/>
             </svg>
+            <span style={{ fontSize: 12, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {label}
+            </span>
           </button>
         );
       })}
 
-      {/* Spacer — oculto no mobile */}
+      {/* Spacer */}
       <div className="signu-sidebar-spacer" style={{ flex: 1 }}/>
 
-      {/* Avatar — oculto no mobile */}
-      <div className="signu-sidebar-avatar">
+      {/* Divider */}
+      <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "0 12px 10px" }}/>
+
+      {/* Avatar */}
+      <div className="signu-sidebar-avatar" style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 14px" }}>
         {fotoUrl ? (
           <img
             src={fotoUrl}
             alt={nomeExibir}
             title={nomeExibir}
-            style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid rgba(201,168,76,0.3)", cursor: "default", objectFit: "cover" }}
+            style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.2)", cursor: "default", objectFit: "cover", flexShrink: 0 }}
           />
         ) : (
           <div
             title={nomeExibir || "Usuário"}
             style={{
-              width: 32, height: 32, borderRadius: "50%",
-              background: "linear-gradient(135deg,#1e40af,#3b82f6)",
+              width: 30, height: 30, borderRadius: "50%",
+              background: "#2563eb",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 11, fontWeight: 700, color: "#fff", cursor: "default",
+              fontSize: 11, fontWeight: 700, color: "#fff", cursor: "default", flexShrink: 0,
             }}
           >{initials}</div>
         )}
+        <div style={{ overflow: "hidden" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.8)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {nomeExibir.split(" ")[0] || "Usuário"}
+          </div>
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", whiteSpace: "nowrap" }}>
+            {isGestor ? "Gestor" : "Servidor"}
+          </div>
+        </div>
       </div>
     </aside>
   );
