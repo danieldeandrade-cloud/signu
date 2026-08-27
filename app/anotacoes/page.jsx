@@ -305,31 +305,31 @@ export default function AnotacoesPage() {
             <span style={{ color: "#d1d5db" }}>/</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Anotações de Doações</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {carregando && <Spinner />}
-            <button
-              onClick={() => setModalAberto(true)}
-              style={{
-                padding: "7px 16px", borderRadius: 8, border: "none",
-                background: "linear-gradient(135deg, rgba(37,99,235,0.2), rgba(37,99,235,0.08))",
-                color: "#2563eb", fontSize: 13, fontWeight: 700, cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 6,
-              }}>
-              + Nova Anotação
-            </button>
-          </div>
+          {carregando && <Spinner />}
         </header>
 
         <div style={{ flex: 1, overflow: "auto", padding: "28px" }}>
 
           {/* Cabeçalho */}
-          <div style={{ marginBottom: 24 }}>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: "0 0 4px", letterSpacing: "-0.02em" }}>
-              📝 Doações não realizadas
-            </h1>
-            <p style={{ fontSize: 13, color: "#4b5563", margin: 0 }}>
-              Registro de motivos de recusa por entidade — {anotacoes.length} anotaç{anotacoes.length !== 1 ? "ões" : "ão"}
-            </p>
+          <div style={{ marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: "0 0 4px", letterSpacing: "-0.02em" }}>
+                📝 Doações não realizadas
+              </h1>
+              <p style={{ fontSize: 13, color: "#4b5563", margin: 0 }}>
+                Registro de motivos de recusa por entidade — {anotacoes.length} anotaç{anotacoes.length !== 1 ? "ões" : "ão"}
+              </p>
+            </div>
+            <button
+              onClick={() => setModalAberto(true)}
+              style={{
+                padding: "9px 18px", borderRadius: 8, border: "1.5px solid rgba(37,99,235,0.3)",
+                background: "linear-gradient(135deg, rgba(37,99,235,0.1), rgba(37,99,235,0.05))",
+                color: "#2563eb", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+              }}>
+              + Nova Anotação
+            </button>
           </div>
 
           {/* Cards de resumo */}
