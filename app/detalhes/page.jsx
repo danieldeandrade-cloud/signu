@@ -42,11 +42,12 @@ const LISTA_META = {
 };
 
 const STATUS_META = {
-  "EM DILIGÊNCIA": { color: "#22c55e", bg: "rgba(34,197,94,0.12)"   },
-  "AGUARDANDO":    { color: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
-  "ATRASADO":      { color: "#f87171", bg: "rgba(248,113,113,0.12)" },
-  "PRAZO 6 MESES": { color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
-  "BAIXADO":       { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+  "EM DILIGÊNCIA":       { color: "#22c55e", bg: "rgba(34,197,94,0.12)"   },
+  "AGUARDANDO":          { color: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
+  "ATRASADO":            { color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  "PRAZO 6 MESES":       { color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
+  "BAIXADO":             { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+  "DOAÇÃO EM ANDAMENTO": { color: "#34d399", bg: "rgba(52,211,153,0.12)"  },
 };
 
 const TIPO_ICON = { CARRO:"🚗", MOTO:"🏍️", CAMINHONETE:"🛻", CAMINHÃO:"🚛", REBOQUE:"🚜", OUTROS:"📦" };
@@ -155,7 +156,7 @@ function FieldEdit({ label, value, onChange, type="text", options }) {
       <div style={{ fontSize:10,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:5 }}>{label}</div>
       {options ? (
         <select value={value||""} onChange={e=>onChange(e.target.value)} style={{ ...st,cursor:"pointer" }}>
-          {options.map(o=><option key={o} value={o} style={{ background:"#1e2d3d" }}>{o}</option>)}
+          {options.map(o=><option key={o} value={o} style={{ background:"#fff", color:"#111827" }}>{o}</option>)}
         </select>
       ) : (
         <input type={type} value={value||""} onChange={e=>onChange(e.target.value)} style={st}/>
@@ -727,7 +728,7 @@ function DetalhesContent() {
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#9ca3af;border-radius:4px}
-        select option{background:#0a1628}
+        select option{background:#fff;color:#111827}
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
       `}</style>
@@ -868,9 +869,9 @@ function DetalhesContent() {
                             else setAutoResp(null);
                           }}
                           style={{ width:"100%",padding:"8px 10px",background:"#f3f4f6",border:"1.5px solid #c4c9d0",borderRadius:8,color: (editData?.RESPONSAVEL==="__AUTO__")?"#2563eb":"#111827",fontSize:12,outline:"none",fontWeight:(editData?.RESPONSAVEL==="__AUTO__")?700:400 }}>
-                          <option value="" style={{background:"#1e2d3d"}}>— Selecione —</option>
-                          <option value="__AUTO__" style={{background:"#1e2d3d",color:"#2563eb",fontWeight:700}}>⚡ Distribuição automática</option>
-                          {SERVIDORES.map(s => <option key={s} value={s} style={{background:"#1e2d3d"}}>{s}</option>)}
+                          <option value="" style={{background:"#fff",color:"#111827"}}>— Selecione —</option>
+                          <option value="__AUTO__" style={{background:"#fff",color:"#2563eb",fontWeight:700}}>⚡ Distribuição automática</option>
+                          {SERVIDORES.map(s => <option key={s} value={s} style={{background:"#fff",color:"#111827"}}>{s}</option>)}
                         </select>
 
                         {/* Card de resultado da distribuição */}
@@ -1043,8 +1044,31 @@ function DetalhesContent() {
                         <FieldView label="PA PJE" value={current?.PA_PJE} mono/>
                         <FieldView label="Data de Entrada" value={current?.DATA_ENTRADA}/>
                         <FieldView label="Prazo 6 Meses" value={current?.PRAZO_6MESES} highlight="#fbbf24"/>
+                        {editMode ? (
+                          <FieldEdit
+                            label="Situação"
+                            value={editData?.STATUS_DILIGENCIA||""}
+                            onChange={v=>upd("STATUS_DILIGENCIA",v)}
+                            options={["EM DILIGÊNCIA","LPC","RETIRADO","PRAZO 6 MESES","DOAÇÃO EM ANDAMENTO"]}
+                          />
+                        ) : (
+                          <FieldView label="Situação">
+                            {(() => {
+                              const sit = current?.STATUS_DILIGENCIA;
+                              if (!sit) return <span style={{color:"#9ca3af",fontStyle:"italic"}}>—</span>;
+                              const c = {
+                                "EM DILIGÊNCIA":       {color:"#22c55e",bg:"rgba(34,197,94,0.12)",bd:"rgba(34,197,94,0.3)"},
+                                "LPC":                 {color:"#a78bfa",bg:"rgba(167,139,250,0.12)",bd:"rgba(167,139,250,0.3)"},
+                                "RETIRADO":            {color:"#6b7280",bg:"rgba(107,114,128,0.12)",bd:"rgba(107,114,128,0.3)"},
+                                "PRAZO 6 MESES":       {color:"#fbbf24",bg:"rgba(251,191,36,0.12)",bd:"rgba(251,191,36,0.3)"},
+                                "DOAÇÃO EM ANDAMENTO": {color:"#34d399",bg:"rgba(52,211,153,0.12)",bd:"rgba(52,211,153,0.3)"},
+                              }[sit]||{color:"#6b7280",bg:"rgba(107,114,128,0.08)",bd:"rgba(107,114,128,0.2)"};
+                              return <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:20,color:c.color,background:c.bg,border:`1px solid ${c.bd}`}}>{sit}</span>;
+                            })()}
+                          </FieldView>
+                        )}
                         {editMode
-                          ? <FieldEdit label="Motivo de Saída" value={editData?.MOTIVO_SAIDA||""} onChange={v=>upd("MOTIVO_SAIDA",v)} options={["","DETERIORADO","BAIXA","DOAÇÃO","ARREMATAÇÃO LPC"]}/>
+                          ? <FieldEdit label="Motivo de Saída" value={editData?.MOTIVO_SAIDA||""} onChange={v=>upd("MOTIVO_SAIDA",v)} options={["","DOAÇÃO","LEILÃO INDIVIDUAL","LEILÃO COLETIVO","ADJUDICAÇÃO","RESTITUIÇÃO","ALIENAÇÃO PARTICULAR"]}/>
                           : <FieldView label="Motivo de Saída" value={current?.MOTIVO_SAIDA}/>}
                       </div>
                     </Section>

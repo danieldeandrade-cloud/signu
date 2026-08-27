@@ -93,8 +93,8 @@ function MotivoBadge({ motivo }) {
 function Spinner() {
   return (
     <div style={{
-      width: 20, height: 20, border: "2px solid rgba(201,168,76,0.2)",
-      borderTop: "2px solid #c9a84c", borderRadius: "50%",
+      width: 20, height: 20, border: "2px solid rgba(37,99,235,0.15)",
+      borderTop: "2px solid #2563eb", borderRadius: "50%",
       animation: "spin 0.8s linear infinite", flexShrink: 0,
     }}/>
   );
@@ -131,9 +131,9 @@ function NovaAnotacaoModal({ onClose, onSalvo }) {
 
   const inputStyle = {
     width: "100%", padding: "9px 12px",
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 8, color: "#fff", fontSize: 13,
+    background: "#f3f4f6",
+    border: "1px solid #d1d5db",
+    borderRadius: 8, color: "#0f172a", fontSize: 13,
     outline: "none", boxSizing: "border-box",
     fontFamily: "'Inter', system-ui, sans-serif",
   };
@@ -143,41 +143,41 @@ function NovaAnotacaoModal({ onClose, onSalvo }) {
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}/>
       <div style={{
         position: "relative", width: 520, maxHeight: "90vh", overflow: "auto",
-        background: "linear-gradient(145deg, #0f2040, #0a1628)",
-        border: "1px solid rgba(201,168,76,0.2)", borderRadius: 16, padding: 28, zIndex: 1,
+        background: "#fff",
+        border: "1px solid rgba(37,99,235,0.15)", borderRadius: 16, padding: 28, zIndex: 1,
       }}>
-        <div style={{ fontSize: 11, color: "rgba(201,168,76,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
+        <div style={{ fontSize: 11, color: "#2563eb", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
           Nova Anotação
         </div>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", margin: "0 0 24px" }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: "0 0 24px" }}>
           📝 Doação não realizada
         </h2>
 
         {/* Entidade */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
+          <label style={{ fontSize: 11, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
             Entidade *
           </label>
           <select value={form.entidade} onChange={e => set("entidade", e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-            <option value="" style={{ background: "#0a1628" }}>— Selecione a entidade —</option>
-            {ENTIDADES.map(e => <option key={e} value={e} style={{ background: "#0a1628" }}>{e}</option>)}
+            <option value="" style={{ background: "#fff", color: "#111827" }}>— Selecione a entidade —</option>
+            {ENTIDADES.map(e => <option key={e} value={e} style={{ background: "#fff", color: "#111827" }}>{e}</option>)}
           </select>
         </div>
 
         {/* Motivo */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
+          <label style={{ fontSize: 11, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
             Motivo *
           </label>
           <select value={form.motivo} onChange={e => set("motivo", e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-            <option value="" style={{ background: "#0a1628" }}>— Selecione o motivo —</option>
-            {MOTIVOS.map(m => <option key={m} value={m} style={{ background: "#0a1628" }}>{m}</option>)}
+            <option value="" style={{ background: "#fff", color: "#111827" }}>— Selecione o motivo —</option>
+            {MOTIVOS.map(m => <option key={m} value={m} style={{ background: "#fff", color: "#111827" }}>{m}</option>)}
           </select>
         </div>
 
         {/* Bem vinculado */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
+          <label style={{ fontSize: 11, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
             Bem vinculado (opcional)
           </label>
           <input
@@ -185,14 +185,14 @@ function NovaAnotacaoModal({ onClose, onSalvo }) {
             placeholder="Ex: CEGOC-0142 ou ID_PASEI"
             style={inputStyle}
           />
-          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginTop: 4, fontStyle: "italic" }}>
+          <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4, fontStyle: "italic" }}>
             ID do bem que foi oferecido à entidade
           </div>
         </div>
 
         {/* Observações */}
         <div style={{ marginBottom: 24 }}>
-          <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
+          <label style={{ fontSize: 11, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
             Observações
           </label>
           <textarea
@@ -210,16 +210,16 @@ function NovaAnotacaoModal({ onClose, onSalvo }) {
 
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={onClose} disabled={salvando}
-            style={{ flex: 1, padding: "11px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.5)", fontSize: 13, cursor: "pointer" }}>
+            style={{ flex: 1, padding: "11px", borderRadius: 8, border: "1px solid #d1d5db", background: "transparent", color: "#374151", fontSize: 13, cursor: "pointer" }}>
             Cancelar
           </button>
           <button onClick={handleSalvar} disabled={salvando || !form.entidade || !form.motivo}
             style={{
               flex: 2, padding: "11px", borderRadius: 8, border: "none",
               background: salvando || !form.entidade || !form.motivo
-                ? "rgba(255,255,255,0.06)"
-                : "linear-gradient(135deg, rgba(201,168,76,0.3), rgba(201,168,76,0.15))",
-              color: salvando || !form.entidade || !form.motivo ? "rgba(255,255,255,0.3)" : "#c9a84c",
+                ? "#e5e7eb"
+                : "linear-gradient(135deg, rgba(37,99,235,0.25), rgba(37,99,235,0.12))",
+              color: salvando || !form.entidade || !form.motivo ? "#6b7280" : "#2563eb",
               fontSize: 13, fontWeight: 700, cursor: salvando || !form.entidade || !form.motivo ? "not-allowed" : "pointer",
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             }}>
@@ -281,12 +281,12 @@ export default function AnotacoesPage() {
     .slice(0, 5);
 
   return (
-    <div className="signu-layout" style={{ background: "#060f1e", fontFamily: "'Inter', system-ui, sans-serif", color: "#e2e8f0" }}>
+    <div className="signu-layout" style={{ background: "#dde1e7", fontFamily: "'Inter', system-ui, sans-serif", color: "#111827" }}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
         @keyframes fadeIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
         ::-webkit-scrollbar { width: 4px }
-        ::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.2); border-radius: 4px }
+        ::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 4px }
       `}</style>
 
       <Sidebar />
@@ -295,14 +295,14 @@ export default function AnotacoesPage() {
 
         {/* Top bar */}
         <header style={{
-          height: 56, background: "#0a1628",
-          borderBottom: "1px solid rgba(201,168,76,0.1)",
+          height: 56, background: "#1e2d3d",
+          borderBottom: "1px solid #e5e7eb",
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "0 28px", flexShrink: 0,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>SIGNU</span>
-            <span style={{ color: "rgba(255,255,255,0.15)" }}>/</span>
+            <span style={{ fontSize: 13, color: "#4b5563" }}>SIGNU</span>
+            <span style={{ color: "#d1d5db" }}>/</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Anotações de Doações</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -311,8 +311,8 @@ export default function AnotacoesPage() {
               onClick={() => setModalAberto(true)}
               style={{
                 padding: "7px 16px", borderRadius: 8, border: "none",
-                background: "linear-gradient(135deg, rgba(201,168,76,0.25), rgba(201,168,76,0.1))",
-                color: "#c9a84c", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                background: "linear-gradient(135deg, rgba(37,99,235,0.2), rgba(37,99,235,0.08))",
+                color: "#2563eb", fontSize: 13, fontWeight: 700, cursor: "pointer",
                 display: "flex", alignItems: "center", gap: 6,
               }}>
               + Nova Anotação
@@ -327,7 +327,7 @@ export default function AnotacoesPage() {
             <h1 style={{ fontSize: 20, fontWeight: 700, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.02em" }}>
               📝 Doações não realizadas
             </h1>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", margin: 0 }}>
+            <p style={{ fontSize: 13, color: "#4b5563", margin: 0 }}>
               Registro de motivos de recusa por entidade — {anotacoes.length} anotaç{anotacoes.length !== 1 ? "ões" : "ão"}
             </p>
           </div>
@@ -342,12 +342,12 @@ export default function AnotacoesPage() {
                     onClick={() => setFiltroMotivo(filtroMotivo === motivo ? "TODOS" : motivo)}
                     style={{
                       padding: "14px 16px",
-                      background: filtroMotivo === motivo ? m.bg : "rgba(255,255,255,0.03)",
-                      border: `1px solid ${filtroMotivo === motivo ? m.color + "44" : "rgba(255,255,255,0.06)"}`,
+                      background: filtroMotivo === motivo ? m.bg : "#f9fafb",
+                      border: `1px solid ${filtroMotivo === motivo ? m.color + "44" : "#e5e7eb"}`,
                       borderRadius: 10, cursor: "pointer", transition: "all 0.15s",
                     }}>
                     <div style={{ fontSize: 22, fontWeight: 800, color: m.color, marginBottom: 4 }}>{count}</div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.4 }}>{motivo}</div>
+                    <div style={{ fontSize: 11, color: "#374151", lineHeight: 1.4 }}>{motivo}</div>
                   </div>
                 );
               })}
@@ -361,7 +361,7 @@ export default function AnotacoesPage() {
               placeholder="Buscar em todas as anotações…"
               style={{
                 flex: 1, minWidth: 200, padding: "8px 12px",
-                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                background: "#f3f4f6", border: "1px solid #d1d5db",
                 borderRadius: 8, color: "#fff", fontSize: 13, outline: "none",
               }}
             />
@@ -370,13 +370,13 @@ export default function AnotacoesPage() {
               placeholder="Filtrar por entidade…"
               style={{
                 width: 220, padding: "8px 12px",
-                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                background: "#f3f4f6", border: "1px solid #d1d5db",
                 borderRadius: 8, color: "#fff", fontSize: 13, outline: "none",
               }}
             />
             {filtroMotivo !== "TODOS" && (
               <button onClick={() => setFiltroMotivo("TODOS")}
-                style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#c9a84c", fontSize: 12, cursor: "pointer" }}>
+                style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(37,99,235,0.25)", background: "rgba(37,99,235,0.07)", color: "#2563eb", fontSize: 12, cursor: "pointer" }}>
                 ✕ Limpar filtro
               </button>
             )}
@@ -384,11 +384,11 @@ export default function AnotacoesPage() {
 
           {/* Lista de anotações */}
           {carregando ? (
-            <div style={{ textAlign: "center", padding: "60px 0", color: "rgba(255,255,255,0.3)" }}>
+            <div style={{ textAlign: "center", padding: "60px 0", color: "#6b7280" }}>
               <Spinner /><div style={{ marginTop: 12 }}>Carregando anotações…</div>
             </div>
           ) : filtrados.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 0", color: "rgba(255,255,255,0.25)" }}>
+            <div style={{ textAlign: "center", padding: "60px 0", color: "#6b7280" }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
               <div style={{ fontSize: 14 }}>
                 {anotacoes.length === 0
@@ -400,8 +400,8 @@ export default function AnotacoesPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {filtrados.map((a, i) => (
                 <div key={a._rowNumber || i} style={{
-                  background: "linear-gradient(145deg, #0f2040, #0a1628)",
-                  border: "1px solid rgba(255,255,255,0.06)",
+                  background: "#fff",
+                  border: "1px solid #e5e7eb",
                   borderRadius: 12, padding: "16px 20px",
                   display: "flex", gap: 16, alignItems: "flex-start",
                   animation: "fadeIn 0.25s ease",
@@ -421,19 +421,19 @@ export default function AnotacoesPage() {
                       <MotivoBadge motivo={a.MOTIVO} />
                     </div>
                     {a.BEM_VINCULADO && (
-                      <div style={{ fontSize: 12, color: "rgba(201,168,76,0.7)", marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
+                      <div style={{ fontSize: 12, color: "#374151", marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
                         📦 {a.BEM_VINCULADO}
                       </div>
                     )}
                     {a.OBSERVACOES && (
-                      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
+                      <div style={{ fontSize: 12, color: "#374151", lineHeight: 1.5 }}>
                         {a.OBSERVACOES}
                       </div>
                     )}
                   </div>
 
                   {/* Data */}
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", flexShrink: 0, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", flexShrink: 0, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>
                     {a.DATA || "—"}
                   </div>
                 </div>
@@ -443,13 +443,13 @@ export default function AnotacoesPage() {
 
           {/* Painel lateral: entidades mais recusadas */}
           {topEntidades.length > 0 && (
-            <div style={{ marginTop: 32, padding: "20px", background: "linear-gradient(145deg, #0f2040, #0a1628)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, maxWidth: 500 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(201,168,76,0.7)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
+            <div style={{ marginTop: 32, padding: "20px", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, maxWidth: 500 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
                 Entidades com mais registros de recusa
               </div>
               {topEntidades.map(([ent, count]) => (
                 <div key={ent} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-                  <div style={{ flex: 1, fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.4 }}>{ent}</div>
+                  <div style={{ flex: 1, fontSize: 12, color: "#111827", lineHeight: 1.4 }}>{ent}</div>
                   <div style={{
                     fontSize: 13, fontWeight: 700, color: "#f87171",
                     background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.2)",

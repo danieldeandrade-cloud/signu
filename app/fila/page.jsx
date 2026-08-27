@@ -218,6 +218,18 @@ function IconLogout({ size = 16 }) {
   );
 }
 
+// ─── RENAJUD helpers ──────────────────────────────────────────────────────────
+function parseRenajuds(str) {
+  try { return JSON.parse(str || "[]"); } catch { return []; }
+}
+function renajudInfo(item) {
+  const lista = parseRenajuds(item?.RENAJUDS);
+  if (!lista.length) return null;
+  const pendentes = lista.filter(r => !r.baixado).length;
+  const baixadas  = lista.filter(r =>  r.baixado).length;
+  return { total: lista.length, pendentes, baixadas };
+}
+
 // ─── CARD COMPONENT ───────────────────────────────────────────────────────────
 function BemCard({ item, onClick }) {
   const lista = LISTA_META[item.listaOrigem] || LISTA_META.CEGOC;
@@ -314,6 +326,26 @@ function BemCard({ item, onClick }) {
         {item.RESTRICAO_ROUBO && <Info label="Restrição" value="🔒 Roubo/Furto" alert />}
         {item.FIB && <Info label="FIB" value="✓ Expedida" positive />}
       </div>
+
+      {/* Badge RENAJUD */}
+      {(() => {
+        const r = renajudInfo(item);
+        if (!r) return null;
+        return (
+          <div style={{ display:"flex", gap:6, marginBottom:8, flexWrap:"wrap" }}>
+            {r.pendentes > 0 && (
+              <span style={{ fontSize:11, fontWeight:700, color:"#f87171", background:"rgba(248,113,113,0.1)", padding:"2px 9px", borderRadius:20, border:"1px solid rgba(248,113,113,0.35)" }}>
+                🔒 {r.pendentes} pendente{r.pendentes !== 1 ? "s" : ""}
+              </span>
+            )}
+            {r.baixadas > 0 && (
+              <span style={{ fontSize:11, fontWeight:700, color:"#22c55e", background:"rgba(34,197,94,0.1)", padding:"2px 9px", borderRadius:20, border:"1px solid rgba(34,197,94,0.35)" }}>
+                ✓ {r.baixadas} baixada{r.baixadas !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Observação */}
       <div style={{
@@ -614,7 +646,7 @@ export default function SIGNUMinhaFila() {
                 <span style={{ fontSize:10, color:"#2563eb", fontWeight:700, textTransform:"uppercase" }}>Ver fila de:</span>
                 <select value={usuarioAtual || ""} onChange={e => setUsuarioAtual(e.target.value)}
                   style={{ background:"transparent", border:"none", color:"#2563eb", fontSize:12, fontWeight:600, cursor:"pointer", outline:"none" }}>
-                  {SERVIDORES.map(s => <option key={s} value={s} style={{ background:"#1e2d3d" }}>{s}</option>)}
+                  {SERVIDORES.map(s => <option key={s} value={s} style={{ background:"#fff", color:"#111827" }}>{s}</option>)}
                 </select>
               </div>
             ) : session?.user ? (
@@ -839,6 +871,10 @@ export default function SIGNUMinhaFila() {
                     if (item.FIB==="TRUE"||item.FIB===true)              flags.push({t:"FIB",c:"#22c55e"});
                     if (item.CEB_TEP_TIV==="TRUE"||item.CEB_TEP_TIV===true) flags.push({t:"CEB",c:"#60a5fa"});
                     if (item.OFICIO_BAIXA==="TRUE"||item.OFICIO_BAIXA===true) flags.push({t:"OF.BX",c:"#f472b6"});
+                    const rInfo = renajudInfo(item);
+                    if (rInfo) flags.push(rInfo.pendentes > 0
+                      ? { t:`🔒 ${rInfo.pendentes}p`, c:"#f59e0b" }
+                      : { t:"🔒 ✓", c:"#22c55e" });
                     return (
                       <tr key={item.id} onClick={() => abrirDrawer(item)}
                         style={{ borderBottom:"1px solid #f3f4f6", cursor:"pointer", background: idx%2===0?"transparent":"#fafafa", transition:"background 0.1s" }}
@@ -976,7 +1012,7 @@ export default function SIGNUMinhaFila() {
                       <select value={drawerEditData[field]||""} onChange={e=>updDrawer(field,e.target.value)}
                         style={{ width:"100%", padding:"7px 10px", background:"#fff", border:"1px solid #d1d5db", borderRadius:7, color:"#0f172a", fontSize:12, outline:"none" }}>
                         <option value="">— Selecione —</option>
-                        {opts.map(o=><option key={o} value={o} style={{background:"#1e2d3d"}}>{o}</option>)}
+                        {opts.map(o=><option key={o} value={o} style={{background:"#fff",color:"#111827"}}>{o}</option>)}
                       </select>
                     ) : (
                       <input value={drawerEditData[field]||""} onChange={e=>updDrawer(field,e.target.value)}

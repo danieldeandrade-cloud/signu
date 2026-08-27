@@ -36,6 +36,7 @@ const SERVIDORES = [
   "Carla Araújo","Amanda Junqueira","Carlos Caetano",
   "Cláudia Santos","Loara Passo","Letícia Mota","Marcelo Oliveira",
 ];
+const RENAJUD_SERVIDORES = ["Amanda Junqueira", "Letícia Mota"];
 
 const TIPOS_BEM    = ["CARRO","MOTO","CAMINHÃO","CAMINHONETE","REBOQUE","OUTROS"];
 const DESTINACOES  = ["CIRCULAÇÃO","RECICLAGEM"];
@@ -106,7 +107,7 @@ const CAMPOS = {
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
     { id:"DESTINACAO",        label:"Destinação *",        type:"select",   required:true,  options:DESTINACOES },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES },
+    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"FIB",               label:"FIB Expedida",        type:"toggle" },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação e ações..." },
   ],
@@ -117,7 +118,7 @@ const CAMPOS = {
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"DATA_ENTRADA",      label:"Data de Entrada *",   type:"date",     required:true },
     { id:"PRAZO_6MESES",      label:"Prazo 6 Meses",       type:"date",     readonly:true,  hint:"Calculado automaticamente (+180 dias)" },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES },
+    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"MOTIVO_SAIDA",      label:"Motivo de Saída",     type:"select",   options:["", ...MOTIVOS_SAIDA] },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação..." },
   ],
@@ -127,7 +128,7 @@ const CAMPOS = {
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"DEPOSITO",          label:"Depósito *",          type:"select",   required:true,  options:DEPOSITOS },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES },
+    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"FIB",               label:"FIB Expedida",        type:"toggle" },
     { id:"CEB_TEP_TIV",       label:"CEB/TEP/TIV Emitido", type:"toggle" },
     { id:"OFICIO_BAIXA",      label:"Ofício de Baixa",     type:"toggle" },
@@ -143,7 +144,7 @@ const CAMPOS = {
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
     { id:"PA_TJDFT",          label:"PA TJDFT",            type:"text",     placeholder:"N/C se não houver" },
     { id:"ORIGEM_CEGOC_ID",   label:"Origem CEGOC ID",     type:"text",     placeholder:"Ex: CEGOC-0142" },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES },
+    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"FIB",               label:"FIB Expedida",        type:"toggle" },
     { id:"CEB_TEP_TIV",       label:"CEB/TEP/TIV Emitido", type:"toggle" },
     { id:"OFICIO_BAIXA",      label:"Ofício de Baixa",     type:"toggle" },
@@ -158,14 +159,14 @@ const CAMPOS = {
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"STATUS_LOCAL_PA",   label:"Status Local PA",     type:"select",   options:STATUS_LOCAL },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES },
+    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Detalhes da doação..." },
   ],
   CAIXA_SEI: [
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0038491-22.2024.8.07.0001" },
     { id:"TIPO_BEM",          label:"Tipo de Bem",         type:"select",   options:TIPOS_BEM },
     { id:"ACAO",              label:"Ação *",              type:"select",   required:true,  options:ACOES_SEI },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES },
+    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Descrição da triagem..." },
   ],
 };
@@ -174,9 +175,9 @@ const CAMPOS = {
 function FormField({ campo, value, onChange, accentColor }) {
   const inputBase = {
     width:"100%", padding:"9px 12px",
-    background:"rgba(255,255,255,0.05)",
-    border:`1px solid ${campo.required && !value ? "rgba(248,113,113,0.3)" : "rgba(255,255,255,0.1)"}`,
-    borderRadius:8, color:"#fff", fontSize:13,
+    background:"#f3f4f6",
+    border:`1px solid ${campo.required && !value ? "rgba(248,113,113,0.3)" : "#d1d5db"}`,
+    borderRadius:8, color:"#0f172a", fontSize:13,
     outline:"none", transition:"border 0.15s", boxSizing:"border-box",
   };
 
@@ -184,11 +185,11 @@ function FormField({ campo, value, onChange, accentColor }) {
 
   if (campo.type === "toggle") {
     return (
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 14px", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:8 }}>
-        <span style={{ fontSize:13, color:"rgba(255,255,255,0.75)", fontWeight:500 }}>{campo.label}</span>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 14px", background:"#f9fafb", border:"1.5px solid #b0b8c4", borderRadius:8 }}>
+        <span style={{ fontSize:13, color:"#111827", fontWeight:500 }}>{campo.label}</span>
         <button onClick={() => onChange(!value)} style={{
           width:44, height:24, borderRadius:12, border:"none", cursor:"pointer",
-          background: value ? "#22c55e" : "rgba(255,255,255,0.1)",
+          background: value ? "#22c55e" : "#d1d5db",
           position:"relative", transition:"background 0.2s", flexShrink:0,
         }}>
           <span style={{ position:"absolute", top:3, left: value ? 23 : 3, width:18, height:18, borderRadius:"50%", background:"#fff", transition:"left 0.2s" }}/>
@@ -200,29 +201,33 @@ function FormField({ campo, value, onChange, accentColor }) {
   if (campo.type === "textarea") {
     return (
       <div>
-        <label style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", display:"block", marginBottom:6 }}>{campo.label}</label>
+        <label style={{ fontSize:11, color:"#4b5563", textTransform:"uppercase", letterSpacing:"0.08em", display:"block", marginBottom:6 }}>{campo.label}</label>
         <textarea value={value} onChange={e => onChange(e.target.value)}
           placeholder={campo.placeholder}
           onFocus={e => e.target.style.border = `1px solid ${accentColor}66`}
-          onBlur={e => e.target.style.border = "1px solid rgba(255,255,255,0.1)"}
+          onBlur={e => e.target.style.border = "1px solid #d1d5db"}
           style={{ ...inputBase, minHeight:90, resize:"vertical", lineHeight:1.6 }}/>
-        {campo.hint && <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:4, fontStyle:"italic" }}>{campo.hint}</div>}
+        {campo.hint && <div style={{ fontSize:10, color:"#6b7280", marginTop:4, fontStyle:"italic" }}>{campo.hint}</div>}
       </div>
     );
   }
 
   if (campo.type === "select") {
+    const isAuto = campo.autoDistribute && value === "__AUTO__";
     return (
       <div>
-        <label style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", display:"block", marginBottom:6 }}>
+        <label style={{ fontSize:11, color:"#4b5563", textTransform:"uppercase", letterSpacing:"0.08em", display:"block", marginBottom:6 }}>
           {campo.label}
         </label>
         <select value={value} onChange={e => onChange(e.target.value)}
           onFocus={e => e.target.style.border = `1px solid ${accentColor}66`}
-          onBlur={e => e.target.style.border = `1px solid ${campo.required && !value ? "rgba(248,113,113,0.3)" : "rgba(255,255,255,0.1)"}`}
-          style={{ ...inputBase, cursor:"pointer" }}>
-          <option value="" style={{ background:"#0a1628" }}>— Selecione —</option>
-          {campo.options.map(o => <option key={o} value={o} style={{ background:"#0a1628" }}>{o}</option>)}
+          onBlur={e => e.target.style.border = `1px solid ${campo.required && !value ? "rgba(248,113,113,0.3)" : "#d1d5db"}`}
+          style={{ ...inputBase, cursor:"pointer", color: isAuto ? "#2563eb" : undefined, fontWeight: isAuto ? 700 : undefined }}>
+          <option value="" style={{ background:"#fff", color:"#6b7280" }}>— Selecione —</option>
+          {campo.autoDistribute && (
+            <option value="__AUTO__" style={{ background:"#fff", color:"#2563eb", fontWeight:700 }}>⚡ Distribuição automática</option>
+          )}
+          {campo.options.map(o => <option key={o} value={o} style={{ background:"#fff", color:"#111827" }}>{o}</option>)}
         </select>
       </div>
     );
@@ -230,7 +235,7 @@ function FormField({ campo, value, onChange, accentColor }) {
 
   return (
     <div>
-      <label style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", display:"block", marginBottom:6 }}>
+      <label style={{ fontSize:11, color:"#4b5563", textTransform:"uppercase", letterSpacing:"0.08em", display:"block", marginBottom:6 }}>
         {campo.label}
       </label>
       <input
@@ -241,10 +246,10 @@ function FormField({ campo, value, onChange, accentColor }) {
         readOnly={campo.readonly}
         maxLength={campo.maxLength}
         onFocus={e => { if(!campo.readonly) e.target.style.border = `1px solid ${accentColor}66`; }}
-        onBlur={e => e.target.style.border = `1px solid ${campo.required && !value ? "rgba(248,113,113,0.3)" : "rgba(255,255,255,0.1)"}`}
+        onBlur={e => e.target.style.border = `1px solid ${campo.required && !value ? "rgba(248,113,113,0.3)" : "#d1d5db"}`}
         style={{ ...inputBase, cursor: campo.readonly ? "default" : "text", opacity: campo.readonly ? 0.5 : 1 }}
       />
-      {campo.hint && <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:4, fontStyle:"italic" }}>{campo.hint}</div>}
+      {campo.hint && <div style={{ fontSize:10, color:"#6b7280", marginTop:4, fontStyle:"italic" }}>{campo.hint}</div>}
     </div>
   );
 }
@@ -257,6 +262,34 @@ export default function CadastroPage() {
   const [sucesso, setSucesso] = useState(false);
   const [erroSalvar, setErroSalvar] = useState(null);
   const [erros, setErros] = useState([]);
+
+  // ── Distribuição automática ────────────────────────────────────────────────
+  const [autoResp, setAutoResp]   = useState(null);   // { servidor, contagens }
+  const [autoLoading, setAutoLoading] = useState(false);
+
+  const calcularDistribuicao = async (candidatos = SERVIDORES) => {
+    setAutoLoading(true);
+    setAutoResp(null);
+    try {
+      const contagens = Object.fromEntries(SERVIDORES.map(s => [s, 0]));
+      await Promise.allSettled(
+        TODAS_LISTAS_ROTA.map(async ({ rota }) => {
+          try {
+            const res  = await fetch(`/api/bens/${rota}`);
+            const json = await res.json();
+            (json.dados || []).forEach(item => {
+              const resp = item.RESPONSAVEL || item.Responsavel || "";
+              if (contagens[resp] !== undefined) contagens[resp]++;
+            });
+          } catch {}
+        })
+      );
+      // Escolhe apenas entre os candidatos permitidos para este status
+      const servidor = candidatos.reduce((a, b) => contagens[a] <= contagens[b] ? a : b);
+      setAutoResp({ servidor, contagens, candidatos });
+    } catch {}
+    setAutoLoading(false);
+  };
 
   const lista = LISTAS_CONFIG.find(l => l.key === listaKey);
   const campos = listaKey ? CAMPOS[listaKey] || [] : [];
@@ -366,11 +399,27 @@ export default function CadastroPage() {
       const campo = id === "PA_PJE" ? "ID_PASEI" : id;
       buscarDuplicata(campo, val);
     }
+    // Distribuição automática
+    if (id === "Responsavel") {
+      if (val === "__AUTO__") {
+        const isRenajud = (next.STATUS_DILIGENCIA || "") === "RENAJUD";
+        calcularDistribuicao(isRenajud ? RENAJUD_SERVIDORES : SERVIDORES);
+      } else {
+        setAutoResp(null);
+      }
+    }
   };
 
   const handleSalvar = async () => {
+    // Resolve distribuição automática antes de validar
+    const dadosResolvidos = { ...formData };
+    if (dadosResolvidos.Responsavel === "__AUTO__") {
+      if (!autoResp?.servidor) { setErros(["Responsavel"]); return; }
+      dadosResolvidos.Responsavel = autoResp.servidor;
+    }
+
     // Validação dos campos obrigatórios
-    const novosErros = campos.filter(c => c.required && !formData[c.id]).map(c => c.id);
+    const novosErros = campos.filter(c => c.required && !dadosResolvidos[c.id]).map(c => c.id);
     if (novosErros.length > 0) { setErros(novosErros); return; }
 
     setSalvando(true);
@@ -383,9 +432,9 @@ export default function CadastroPage() {
       const payload = {};
       campos.forEach(c => {
         if (c.type === "toggle") {
-          payload[c.id] = formData[c.id] ? "TRUE" : "FALSE";
-        } else if (formData[c.id] !== undefined && formData[c.id] !== "") {
-          payload[c.id] = formData[c.id];
+          payload[c.id] = dadosResolvidos[c.id] ? "TRUE" : "FALSE";
+        } else if (dadosResolvidos[c.id] !== undefined && dadosResolvidos[c.id] !== "") {
+          payload[c.id] = dadosResolvidos[c.id];
         }
       });
 
@@ -419,12 +468,12 @@ export default function CadastroPage() {
   const progresso = totalNormais > 0 ? Math.round((preenchidos / totalNormais) * 100) : 0;
 
   return (
-    <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
+    <div className="signu-layout" style={{ background:"#dde1e7", fontFamily:"'Inter',system-ui,sans-serif", color:"#111827" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:4px}
-        ::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.2);border-radius:4px}
+        ::-webkit-scrollbar-thumb{background:#9ca3af;border-radius:4px}
         input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.5)}
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -436,21 +485,21 @@ export default function CadastroPage() {
       <main className="signu-main">
 
         {/* Top bar */}
-        <header style={{ height:56,borderBottom:"1px solid rgba(201,168,76,0.1)",background:"#0a1628",display:"flex",alignItems:"center",padding:"0 28px",justifyContent:"space-between",flexShrink:0 }}>
+        <header style={{ height:56,borderBottom:"1px solid #e5e7eb",background:"#1e2d3d",display:"flex",alignItems:"center",padding:"0 28px",justifyContent:"space-between",flexShrink:0 }}>
           <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-            <span style={{ fontSize:13,color:"rgba(255,255,255,0.4)" }}>SIGNU</span>
-            <span style={{ color:"rgba(255,255,255,0.15)" }}>/</span>
+            <span style={{ fontSize:13,color:"#4b5563" }}>SIGNU</span>
+            <span style={{ color:"#d1d5db" }}>/</span>
             <span style={{ fontSize:13,fontWeight:700,color:"#fff" }}>Cadastro</span>
             {lista && <>
-              <span style={{ color:"rgba(255,255,255,0.15)" }}>/</span>
+              <span style={{ color:"#d1d5db" }}>/</span>
               <span style={{ fontSize:12,fontWeight:700,color:lista.color,background:lista.bg,padding:"2px 10px",borderRadius:4 }}>{lista.label}</span>
             </>}
           </div>
           {listaKey && (
             <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-              <span style={{ fontSize:11,color:"rgba(255,255,255,0.3)" }}>{preenchidos}/{totalNormais} campos</span>
-              <div style={{ width:80,height:4,background:"rgba(255,255,255,0.08)",borderRadius:4,overflow:"hidden" }}>
-                <div style={{ width:`${progresso}%`,height:"100%",background:lista?.color||"#c9a84c",borderRadius:4,transition:"width 0.3s" }}/>
+              <span style={{ fontSize:11,color:"#6b7280" }}>{preenchidos}/{totalNormais} campos</span>
+              <div style={{ width:80,height:4,background:"#e5e7eb",borderRadius:4,overflow:"hidden" }}>
+                <div style={{ width:`${progresso}%`,height:"100%",background:lista?.color||"#2563eb",borderRadius:4,transition:"width 0.3s" }}/>
               </div>
             </div>
           )}
@@ -461,11 +510,11 @@ export default function CadastroPage() {
           {/* ── SELEÇÃO DE LISTA ── */}
           {!listaKey ? (
             <div style={{ animation:"fadeIn 0.3s ease" }}>
-              <h1 style={{ fontSize:20,fontWeight:700,color:"#fff",margin:"0 0 6px",letterSpacing:"-0.02em" }}>Novo Cadastro</h1>
-              <p style={{ fontSize:13,color:"rgba(255,255,255,0.35)",margin:"0 0 28px" }}>Selecione a lista de destino para o bem.</p>
+              <h1 style={{ fontSize:20,fontWeight:700,color:"#0f172a",margin:"0 0 6px",letterSpacing:"-0.02em" }}>Novo Cadastro</h1>
+              <p style={{ fontSize:13,color:"#6b7280",margin:"0 0 28px" }}>Selecione a lista de destino para o bem.</p>
               <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,maxWidth:800 }}>
                 {LISTAS_CONFIG.map(l => (
-                  <button key={l.key} onClick={() => { setListaKey(l.key); setFormData({}); setErros([]); setDuplicata(null); }}
+                  <button key={l.key} onClick={() => { setListaKey(l.key); setFormData({}); setErros([]); setDuplicata(null); setAutoResp(null); }}
                     style={{
                       background:`linear-gradient(145deg,${l.bg},rgba(6,15,30,0.9))`,
                       border:`1px solid ${l.color}30`,
@@ -477,8 +526,8 @@ export default function CadastroPage() {
                   >
                     <div style={{ fontSize:28,marginBottom:10 }}>{l.icon}</div>
                     <div style={{ fontSize:14,fontWeight:700,color:l.color,marginBottom:5 }}>{l.label}</div>
-                    <div style={{ fontSize:11,color:"rgba(255,255,255,0.4)",lineHeight:1.5 }}>{l.desc}</div>
-                    <div style={{ marginTop:12,fontSize:10,color:"rgba(255,255,255,0.25)" }}>
+                    <div style={{ fontSize:11,color:"#4b5563",lineHeight:1.5 }}>{l.desc}</div>
+                    <div style={{ marginTop:12,fontSize:10,color:"#6b7280" }}>
                       {(CAMPOS[l.key]||[]).filter(c=>c.required).length} campos obrigatórios
                     </div>
                   </button>
@@ -491,13 +540,13 @@ export default function CadastroPage() {
               {/* Header do form */}
               <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24 }}>
                 <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-                  <button onClick={() => setListaKey(null)} style={{ width:32,height:32,borderRadius:8,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",color:"rgba(255,255,255,0.5)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16 }}>←</button>
+                  <button onClick={() => setListaKey(null)} style={{ width:32,height:32,borderRadius:8,background:"#f3f4f6",border:"1.5px solid #b0b8c4",color:"#374151",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16 }}>←</button>
                   <div>
                     <div style={{ display:"flex",alignItems:"center",gap:8 }}>
                       <span style={{ fontSize:22 }}>{lista.icon}</span>
-                      <h1 style={{ fontSize:18,fontWeight:700,color:"#fff",margin:0 }}>Novo bem em {lista.label}</h1>
+                      <h1 style={{ fontSize:18,fontWeight:700,color:"#0f172a",margin:0 }}>Novo bem em {lista.label}</h1>
                     </div>
-                    <p style={{ fontSize:12,color:"rgba(255,255,255,0.35)",margin:"3px 0 0" }}>{lista.desc}</p>
+                    <p style={{ fontSize:12,color:"#6b7280",margin:"3px 0 0" }}>{lista.desc}</p>
                   </div>
                 </div>
               </div>
@@ -516,11 +565,11 @@ export default function CadastroPage() {
                           Próxima entidade na ordem
                         </div>
                         {carregandoEntidade ? (
-                          <div style={{ fontSize:12,color:"rgba(255,255,255,0.35)",fontStyle:"italic" }}>Calculando…</div>
+                          <div style={{ fontSize:12,color:"#6b7280",fontStyle:"italic" }}>Calculando…</div>
                         ) : proximaEntidade ? (
-                          <div style={{ fontSize:13,fontWeight:600,color:"#fff" }}>{proximaEntidade}</div>
+                          <div style={{ fontSize:13,fontWeight:600,color:"#0f172a" }}>{proximaEntidade}</div>
                         ) : (
-                          <div style={{ fontSize:12,color:"rgba(255,255,255,0.35)",fontStyle:"italic" }}>Iniciando pela entidade nº 1</div>
+                          <div style={{ fontSize:12,color:"#6b7280",fontStyle:"italic" }}>Iniciando pela entidade nº 1</div>
                         )}
                       </div>
                       <div style={{ fontSize:10,color:"rgba(52,211,153,0.5)",textAlign:"right",flexShrink:0 }}>
@@ -530,7 +579,7 @@ export default function CadastroPage() {
                   )}
 
                   {/* Grid de campos 2 colunas */}
-                  <div style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"20px" }}>
+                  <div style={{ background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"20px" }}>
                     <div style={{ fontSize:11,fontWeight:700,color:`${lista.color}99`,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:18 }}>
                       Dados do Bem
                     </div>
@@ -551,11 +600,58 @@ export default function CadastroPage() {
                     </div>
                   </div>
 
+                  {/* ── Distribuição automática ── */}
+                  {(autoLoading || autoResp) && (
+                    <div style={{ borderRadius:10, overflow:"hidden", border:"1px solid rgba(37,99,235,0.3)", background:"rgba(37,99,235,0.05)" }}>
+                      {autoLoading && (
+                        <div style={{ padding:"12px 16px", display:"flex", alignItems:"center", gap:10, fontSize:12, color:"#374151" }}>
+                          <span style={{ animation:"spin 1s linear infinite", display:"inline-block", fontSize:16 }}>⟳</span>
+                          Analisando distribuição de carga entre os servidores…
+                        </div>
+                      )}
+                      {!autoLoading && autoResp && (
+                        <div>
+                          <div style={{ padding:"12px 16px", background:"rgba(37,99,235,0.08)", display:"flex", alignItems:"center", gap:10 }}>
+                            <span style={{ fontSize:18 }}>⚡</span>
+                            <div>
+                              <div style={{ fontSize:12, fontWeight:700, color:"#2563eb" }}>Distribuição automática</div>
+                              <div style={{ fontSize:11, color:"#374151", marginTop:1 }}>
+                                {autoResp.candidatos?.length < SERVIDORES.length
+                                  ? `Restrito a: ${autoResp.candidatos.map(s=>s.split(" ")[0]).join(", ")} — processos RENAJUD`
+                                  : "Servidor com menos processos recebidos no total"}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ padding:"12px 16px" }}>
+                            <div style={{ fontSize:16, fontWeight:700, color:"#0f172a", marginBottom:12 }}>
+                              🎯 {autoResp.servidor}
+                            </div>
+                            <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                              {(autoResp.candidatos || SERVIDORES).map(s => {
+                                const n     = autoResp.contagens[s] ?? 0;
+                                const atual = s === autoResp.servidor;
+                                return (
+                                  <div key={s} style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 10px", borderRadius:20, fontSize:11, background: atual ? "rgba(37,99,235,0.12)" : "#f3f4f6", border: `1px solid ${atual ? "rgba(37,99,235,0.5)" : "#e5e7eb"}`, color: atual ? "#2563eb" : "#374151", fontWeight: atual ? 700 : 400 }}>
+                                    {atual && "★ "}{s}
+                                    <span style={{ fontSize:10, opacity:.7 }}>{n} processo{n!==1?"s":""}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div style={{ fontSize:10, color:"#6b7280", marginTop:10 }}>
+                              O nome será registrado automaticamente ao salvar.
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* ── Alerta de duplicata ── */}
                   {(buscandoDup || duplicata) && (
-                    <div style={{ borderRadius:10, overflow:"hidden", border:`1px solid ${duplicata ? "rgba(248,113,113,0.4)" : "rgba(201,168,76,0.2)"}` }}>
+                    <div style={{ borderRadius:10, overflow:"hidden", border:`1px solid ${duplicata ? "rgba(248,113,113,0.4)" : "rgba(37,99,235,0.2)"}` }}>
                       {buscandoDup && !duplicata && (
-                        <div style={{ padding:"10px 14px", background:"rgba(255,255,255,0.03)", fontSize:12, color:"rgba(255,255,255,0.4)", display:"flex", alignItems:"center", gap:8 }}>
+                        <div style={{ padding:"10px 14px", background:"#f9fafb", fontSize:12, color:"#4b5563", display:"flex", alignItems:"center", gap:8 }}>
                           <span style={{ animation:"spin 1s linear infinite", display:"inline-block" }}>⟳</span>
                           Verificando duplicidade...
                         </div>
@@ -570,16 +666,16 @@ export default function CadastroPage() {
                           </div>
                           <div style={{ padding:"8px 14px 12px", background:"rgba(248,113,113,0.05)" }}>
                             {duplicata.encontrados.map((enc, i) => (
-                              <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", background:"rgba(255,255,255,0.03)", borderRadius:8, borderLeft:`3px solid ${enc.color}`, marginTop:6 }}>
+                              <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", background:"#f9fafb", borderRadius:8, borderLeft:`3px solid ${enc.color}`, marginTop:6 }}>
                                 <div style={{ flex:1, minWidth:0 }}>
                                   <div style={{ fontSize:11, fontWeight:700, color:enc.color, marginBottom:2 }}>{enc.lista}</div>
-                                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.6)" }}>
+                                  <div style={{ fontSize:11, color:"#1f2937" }}>
                                     {enc.item.ID_PASEI || enc.item.PA_PJE || "—"}
                                     {enc.item.TIPO_BEM ? ` · ${enc.item.TIPO_BEM}` : ""}
                                     {enc.item.STATUS_DILIGENCIA ? ` · ${enc.item.STATUS_DILIGENCIA}` : ""}
                                   </div>
                                   {enc.item.RESPONSAVEL && (
-                                    <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:2 }}>
+                                    <div style={{ fontSize:10, color:"#6b7280", marginTop:2 }}>
                                       Responsável: {enc.item.RESPONSAVEL}
                                     </div>
                                   )}
@@ -597,7 +693,7 @@ export default function CadastroPage() {
 
                   {/* Toggles (se houver) */}
                   {camposToggle.length > 0 && (
-                    <div style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"20px" }}>
+                    <div style={{ background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"20px" }}>
                       <div style={{ fontSize:11,fontWeight:700,color:`${lista.color}99`,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>
                         Flags e Indicadores
                       </div>
@@ -614,27 +710,27 @@ export default function CadastroPage() {
                 <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
 
                   {/* Resumo do preenchimento */}
-                  <div style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:`1px solid ${lista.color}22`,borderRadius:12,padding:"18px" }}>
+                  <div style={{ background:"#fff",border:`1px solid ${lista.color}22`,borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"18px" }}>
                     <div style={{ fontSize:11,fontWeight:700,color:`${lista.color}99`,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14 }}>Resumo</div>
                     <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
                       {camposNormais.filter(c => formData[c.id]).map(c => (
                         <div key={c.id} style={{ display:"flex",justifyContent:"space-between",gap:8 }}>
-                          <span style={{ fontSize:10,color:"rgba(255,255,255,0.3)",textTransform:"uppercase",letterSpacing:"0.06em",flexShrink:0 }}>{c.id}</span>
-                          <span style={{ fontSize:11,color:"rgba(255,255,255,0.7)",textAlign:"right",fontFamily:c.type==="text"?"'IBM Plex Mono',monospace":"inherit",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140 }}>{formData[c.id]}</span>
+                          <span style={{ fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.06em",flexShrink:0 }}>{c.id}</span>
+                          <span style={{ fontSize:11,color:"#111827",textAlign:"right",fontFamily:c.type==="text"?"'IBM Plex Mono',monospace":"inherit",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140 }}>{formData[c.id]}</span>
                         </div>
                       ))}
                       {camposNormais.filter(c => formData[c.id]).length === 0 && (
-                        <div style={{ fontSize:12,color:"rgba(255,255,255,0.2)",fontStyle:"italic",textAlign:"center",padding:"16px 0" }}>Preencha os campos ao lado</div>
+                        <div style={{ fontSize:12,color:"#9ca3af",fontStyle:"italic",textAlign:"center",padding:"16px 0" }}>Preencha os campos ao lado</div>
                       )}
                     </div>
                     {/* Barra de progresso */}
                     {totalNormais > 0 && (
-                      <div style={{ marginTop:16,paddingTop:14,borderTop:"1px solid rgba(255,255,255,0.06)" }}>
+                      <div style={{ marginTop:16,paddingTop:14,borderTop:"1px solid #e5e7eb" }}>
                         <div style={{ display:"flex",justifyContent:"space-between",marginBottom:6 }}>
-                          <span style={{ fontSize:10,color:"rgba(255,255,255,0.3)" }}>Progresso</span>
+                          <span style={{ fontSize:10,color:"#6b7280" }}>Progresso</span>
                           <span style={{ fontSize:10,fontWeight:700,color:lista.color }}>{progresso}%</span>
                         </div>
-                        <div style={{ height:6,background:"rgba(255,255,255,0.06)",borderRadius:4,overflow:"hidden" }}>
+                        <div style={{ height:6,background:"#e5e7eb",borderRadius:4,overflow:"hidden" }}>
                           <div style={{ width:`${progresso}%`,height:"100%",background:`linear-gradient(90deg,${lista.color}88,${lista.color})`,borderRadius:4,transition:"width 0.4s ease" }}/>
                         </div>
                       </div>
@@ -642,11 +738,11 @@ export default function CadastroPage() {
                   </div>
 
                   {/* Rota API */}
-                  <div style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"16px" }}>
-                    <div style={{ fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.25)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10 }}>Destino</div>
-                    <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:11,lineHeight:1.8,color:"rgba(255,255,255,0.3)" }}>
+                  <div style={{ background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"16px" }}>
+                    <div style={{ fontSize:10,fontWeight:700,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10 }}>Destino</div>
+                    <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:11,lineHeight:1.8,color:"#6b7280" }}>
                       <div><span style={{ color:"#a78bfa" }}>POST</span> /api/bens/<span style={{ color:lista?.color }}>{LISTA_API_MAP[listaKey]}</span></div>
-                      <div style={{ fontSize:10,marginTop:4,color:"rgba(255,255,255,0.2)" }}>→ Google Sheets: SIGNU_DB</div>
+                      <div style={{ fontSize:10,marginTop:4,color:"#9ca3af" }}>→ Google Sheets: SIGNU_DB</div>
                     </div>
                   </div>
 
@@ -662,8 +758,8 @@ export default function CadastroPage() {
                   <button onClick={handleSalvar} disabled={salvando}
                     style={{
                       width:"100%",padding:"13px",borderRadius:10,border:"none",
-                      background: salvando ? "rgba(255,255,255,0.06)" : `linear-gradient(135deg,${lista.color}cc,${lista.color})`,
-                      color:"#fff",fontSize:14,fontWeight:700,cursor:salvando?"not-allowed":"pointer",
+                      background: salvando ? "#e5e7eb" : `linear-gradient(135deg,${lista.color}cc,${lista.color})`,
+                      color:"#0f172a",fontSize:14,fontWeight:700,cursor:salvando?"not-allowed":"pointer",
                       transition:"all 0.2s",display:"flex",alignItems:"center",justifyContent:"center",gap:8,
                     }}>
                     {salvando ? (
@@ -671,7 +767,7 @@ export default function CadastroPage() {
                     ) : "💾 Salvar Cadastro"}
                   </button>
 
-                  <button onClick={handleLimpar} style={{ width:"100%",padding:"10px",borderRadius:10,border:"1px solid rgba(255,255,255,0.08)",background:"transparent",color:"rgba(255,255,255,0.4)",fontSize:13,cursor:"pointer" }}>
+                  <button onClick={handleLimpar} style={{ width:"100%",padding:"10px",borderRadius:10,border:"1.5px solid #b0b8c4",background:"transparent",color:"#4b5563",fontSize:13,cursor:"pointer" }}>
                     🗑 Limpar Formulário
                   </button>
                 </div>
@@ -690,7 +786,7 @@ export default function CadastroPage() {
           background:"linear-gradient(135deg,#15803d,#166534)",
           border:"1px solid rgba(34,197,94,0.4)",
           boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
-          fontSize:14,fontWeight:700,color:"#fff",
+          fontSize:14,fontWeight:700,color:"#0f172a",
           animation:"fadeIn 0.3s ease",
         }}>
           ✅ Bem cadastrado em {lista?.label} com sucesso!
