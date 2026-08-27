@@ -46,6 +46,7 @@ const LISTAS_FILA = [
   { key:"PCDF_1HIGEIA", rota:"pcdf1",  prefixo:"PCDF1", statusField:"STATUS_DILIGENCIA" },
   { key:"PCDF_2HIGEIA", rota:"pcdf2",  prefixo:"PCDF2", statusField:"STATUS_DILIGENCIA" },
   { key:"DPJ_GC99",     rota:"dpj",    prefixo:"DPJ",   statusField:"STATUS_DILIGENCIA" },
+  { key:"CAIXA_SEI",    rota:"sei",    prefixo:"CAIXA", statusField:"STATUS_DILIGENCIA" },
 ];
 
 // Placeholder para manter compatibilidade com o card (removido abaixo)
@@ -119,7 +120,8 @@ const LISTA_META = {
   CEGOC:       { label: "CEGOC",       color: "#3b82f6", bg: "#1e3a5f" },
   PCDF_1HIGEIA:{ label: "PCDF 1ª",    color: "#a78bfa", bg: "#3b1f5f" },
   PCDF_2HIGEIA:{ label: "PCDF 2ª",    color: "#c084fc", bg: "#4a1f6f" },
-  DPJ_GC99:   { label: "DPJ-GC99",   color: "#fb923c", bg: "#5f2a0e" },
+  DPJ_GC99:    { label: "DPJ-GC99",   color: "#fb923c", bg: "#5f2a0e" },
+  CAIXA_SEI:   { label: "Caixa SEI",  color: "#fbbf24", bg: "#451a03" },
 };
 
 const STATUS_META = {
@@ -464,7 +466,7 @@ export default function SIGNUMinhaFila() {
   const [drawerSalvando, setDrawerSalvando] = useState(false);
   const [drawerToast,    setDrawerToast]    = useState(null);
 
-  const ROTA_MAP = { CEGOC:"cegoc", PCDF_1HIGEIA:"pcdf1", PCDF_2HIGEIA:"pcdf2", DPJ_GC99:"dpj" };
+  const ROTA_MAP = { CEGOC:"cegoc", PCDF_1HIGEIA:"pcdf1", PCDF_2HIGEIA:"pcdf2", DPJ_GC99:"dpj", CAIXA_SEI:"sei" };
   const DESTINACOES_OPT = ["CIRCULAÇÃO","RECICLAGEM"];
 
   const abrirDrawer = (item) => {
@@ -547,7 +549,7 @@ export default function SIGNUMinhaFila() {
   }, [session]);
 
   const statusOptions = ["EM DILIGÊNCIA", "EM DILIGÊNCIA HIGEIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "RENAJUD", "LPC", "CATÁLOGO", "BAIXADO"];
-  const listaOptions  = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99"];
+  const listaOptions  = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99", "CAIXA_SEI"];
 
   // Carrega itens de todas as listas atribuídos ao usuário
   const carregarFila = useCallback(async (usuario) => {
