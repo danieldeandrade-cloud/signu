@@ -56,7 +56,7 @@ const DESTINACOES  = ["CIRCULAÇÃO","RECICLAGEM"];
 const STATUS_DI    = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO","EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD"];
 const DEPOSITOS    = ["SELAB/PCDF","CPA/PCDF","CPA","CEGOC","5ªDP","23ªDP","30ªDP","33ªDP"];
 const ACOES_SEI    = ["DILIGÊNCIA","ARQUIVAR","ENCAMINHAR","AGUARDAR RETORNO","CONCLUIR"];
-const STATUS_LOCAL = ["EM ANÁLISE","AGUARDANDO ENTIDADE","AGUARDANDO APTIDÃO","CONCLUÍDO","CANCELADO"];
+const STATUS_LOCAL = ["EM ANÁLISE","AGUARDANDO ENTIDADE","AGUARDANDO APTIDÃO","EM DILIGÊNCIA","SEMA","SGC","GC","ENTIDADE","CONCLUÍDO","CANCELADO"];
 // Entidades credenciadas (Edital nº 2/2024): carregadas em runtime da aba
 // Entidades_Credenciadas via useEntidades(); ENTIDADES_FALLBACK é só o padrão estático.
 const MOTIVOS_SAIDA= ["DETERIORADO","BAIXA","DOAÇÃO","ARREMATAÇÃO LPC","OUTROS"];
@@ -260,10 +260,20 @@ export default function CadastroPage() {
 
   const lista = LISTAS_CONFIG.find(l => l.key === listaKey);
   const entidades = useEntidades();
+  // Item "aguardando aptidão" ainda não tem entidade definida
+  const aguardandoAptidao = listaKey === "DOACOES" && formData.STATUS_LOCAL_PA === "AGUARDANDO APTIDÃO";
   const campos = useMemo(() => {
     const base = listaKey ? CAMPOS[listaKey] || [] : [];
-    return base.map(c => (c.id === "ENTIDADE_NOME" ? { ...c, options: entidades } : c));
-  }, [listaKey, entidades]);
+    return base.map(c => {
+      if (c.id !== "ENTIDADE_NOME") return c;
+      return {
+        ...c,
+        options: entidades,
+        required: !aguardandoAptidao,
+        label: aguardandoAptidao ? "Entidade Credenciada (definir depois)" : c.label,
+      };
+    });
+  }, [listaKey, entidades, aguardandoAptidao]);
   const [proximaEntidade, setProximaEntidade] = useState(null);
   const [carregandoEntidade, setCarregandoEntidade] = useState(false);
 
@@ -351,7 +361,10 @@ export default function CadastroPage() {
 
       const proxima = ordenadas[0];
       setProximaEntidade(proxima);
-      setFormData(prev => ({ ...prev, ENTIDADE_NOME: proxima }));
+      // não pré-preenche entidade se o item estiver marcado como "aguardando aptidão"
+      setFormData(prev => (prev.STATUS_LOCAL_PA === "AGUARDANDO APTIDÃO"
+        ? prev
+        : { ...prev, ENTIDADE_NOME: proxima }));
     }).finally(() => setCarregandoEntidade(false));
   }, [listaKey, entidades]);
 
@@ -365,6 +378,8 @@ export default function CadastroPage() {
       d.setDate(d.getDate() + 180);
       next.PRAZO_6MESES = d.toISOString().split("T")[0];
     }
+    // Doação "aguardando aptidão" não tem entidade ainda — limpa o preenchimento automático
+    if (id === "STATUS_LOCAL_PA" && val === "AGUARDANDO APTIDÃO") next.ENTIDADE_NOME = "";
     setFormData(next);
     setErros(erros.filter(e => e !== id));
     // Dispara verificação de duplicata nos campos críticos
@@ -542,8 +557,15 @@ export default function CadastroPage() {
                 {/* Coluna principal — campos normais */}
                 <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
 
-                  {/* Banner: próxima entidade na fila (somente Doações) */}
-                  {listaKey === "DOACOES" && (
+                  {/* Aviso: item aguardando aptidão (sem entidade ainda) */}
+                  {aguardandoAptidao && (
+                    <div style={{ background:"#fffbeb",border:"1.5px solid #fcd34d",borderRadius:10,padding:"12px 16px",fontSize:12,color:"#92400e" }}>
+                      ⏳ <strong>Aguardando aptidão</strong> — item ainda em diligência para desvinculação de débitos. A entidade credenciada será definida depois; ele fica no grupo “Ainda não aptos” da lista de Doações.
+                    </div>
+                  )}
+
+                  {/* Banner: próxima entidade na fila (somente Doações, exceto aguardando aptidão) */}
+                  {listaKey === "DOACOES" && !aguardandoAptidao && (
                     <div style={{ background:"linear-gradient(135deg,rgba(52,211,153,0.1),rgba(52,211,153,0.04))",border:"1px solid rgba(52,211,153,0.25)",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:12 }}>
                       <span style={{ fontSize:22,flexShrink:0 }}>🔢</span>
                       <div style={{ flex:1 }}>

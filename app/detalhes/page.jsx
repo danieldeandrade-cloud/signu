@@ -4,6 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useEntidades } from "@/lib/useEntidades";
 
 // Mapa rota API → chave interna de lista
 const ROTA_TO_KEY = {
@@ -31,6 +32,8 @@ const DEPOSITOS   = ["SELAB/PCDF","CPA/PCDF","CPA","CEGOC","5ªDP","23ªDP","30�
 
 const STATUS_OPTIONS  = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO","EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD"];
 const STATUS_2HIGEIA  = ["EM PROCESSAMENTO","TEP REGISTRADO","ENVIAR OFÍCIO DETRAN","AGUARDAR RESPOSTA DETRAN","GERAR TAP","FINALIZADO"];
+// Status Local PA das doações — igual ao usado no cadastro (lib compartilhada seria melhor, mas o padrão do projeto é const por arquivo)
+const STATUS_LOCAL_PA_OPTIONS = ["EM ANÁLISE","AGUARDANDO ENTIDADE","AGUARDANDO APTIDÃO","EM DILIGÊNCIA","SEMA","SGC","GC","ENTIDADE","CONCLUÍDO","CANCELADO"];
 const SEI_ACAO_OPTIONS = ["DILIGÊNCIA","ARQUIVADO","ENCAMINHAR","AGUARDAR RETORNO"];
 
 const LISTA_META = {
@@ -465,6 +468,7 @@ function DetalhesContent() {
   const row          = searchParams.get("row");   // ex: "142"
   const listaKey     = ROTA_TO_KEY[lista] || "CEGOC";
   const meta         = LISTA_META[listaKey] || LISTA_META.CEGOC;
+  const entidades    = useEntidades();
 
   const [bem,         setBem]         = useState(null);
   const [editMode,    setEditMode]    = useState(false);
@@ -963,6 +967,28 @@ function DetalhesContent() {
                   {listaKey==="CEGOC" && (
                     <Section title="Campos CEGOC">
                       <Toggle label="FIB Expedida" value={editMode?editData?.FIB:current?.FIB} onChange={v=>upd("FIB",v)} editMode={editMode}/>
+                    </Section>
+                  )}
+
+                  {/* Campos condicionais Doações */}
+                  {listaKey==="DOACOES" && (
+                    <Section title="Campos Doações">
+                      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
+                        <FieldView label="ID_PASEI" value={current?.ID_PASEI} mono highlight="#2563eb"/>
+                        {editMode
+                          ? <FieldEdit label="Tipo de Bem" value={editData?.TIPO_BEM} onChange={v=>upd("TIPO_BEM",v)} options={TIPOS_BEM}/>
+                          : <FieldView label="Tipo de Bem" value={current?.TIPO_BEM}/>}
+                        {editMode
+                          ? <FieldEdit label="Status Local PA" value={editData?.STATUS_LOCAL_PA}
+                              onChange={v=>upd("STATUS_LOCAL_PA",v)}
+                              options={STATUS_LOCAL_PA_OPTIONS.includes(editData?.STATUS_LOCAL_PA) || !editData?.STATUS_LOCAL_PA
+                                ? STATUS_LOCAL_PA_OPTIONS
+                                : [editData.STATUS_LOCAL_PA, ...STATUS_LOCAL_PA_OPTIONS]}/>
+                          : <FieldView label="Status Local PA" value={current?.STATUS_LOCAL_PA}/>}
+                        {editMode
+                          ? <FieldEdit label="Entidade Credenciada" value={editData?.ENTIDADE_NOME} onChange={v=>upd("ENTIDADE_NOME",v)} options={["", ...entidades]}/>
+                          : <FieldView label="Entidade Credenciada" value={current?.ENTIDADE_NOME}/>}
+                      </div>
                     </Section>
                   )}
 
