@@ -976,6 +976,9 @@ function DetalhesContent() {
                       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
                         <FieldView label="ID_PASEI" value={current?.ID_PASEI} mono highlight="#2563eb"/>
                         {editMode
+                          ? <FieldEdit label="Data da Decisão" value={editData?.DATA_DECISAO} onChange={v=>upd("DATA_DECISAO",v)} type="date"/>
+                          : <FieldView label="Data da Decisão" value={current?.DATA_DECISAO} mono/>}
+                        {editMode
                           ? <FieldEdit label="Tipo de Bem" value={editData?.TIPO_BEM} onChange={v=>upd("TIPO_BEM",v)} options={TIPOS_BEM}/>
                           : <FieldView label="Tipo de Bem" value={current?.TIPO_BEM}/>}
                         {editMode

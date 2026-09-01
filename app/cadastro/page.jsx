@@ -120,6 +120,7 @@ const CAMPOS = {
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação..." },
   ],
   DOACOES: [
+    { id:"DATA_DECISAO",      label:"Data da Decisão *",   type:"date",     required:true, hint:"Data da decisão que autorizou a doação — define a ordem da fila" },
     { id:"ENTIDADE_NOME",     label:"Entidade Credenciada *", type:"select", required:true, options:ENTIDADES_FALLBACK },
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0038491-22.2024.8.07.0001" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
@@ -265,13 +266,19 @@ export default function CadastroPage() {
   const campos = useMemo(() => {
     const base = listaKey ? CAMPOS[listaKey] || [] : [];
     return base.map(c => {
-      if (c.id !== "ENTIDADE_NOME") return c;
-      return {
-        ...c,
-        options: entidades,
-        required: !aguardandoAptidao,
-        label: aguardandoAptidao ? "Entidade Credenciada (definir depois)" : c.label,
-      };
+      if (c.id === "ENTIDADE_NOME") {
+        return {
+          ...c,
+          options: entidades,
+          required: !aguardandoAptidao,
+          label: aguardandoAptidao ? "Entidade Credenciada (definir depois)" : c.label,
+        };
+      }
+      // Sem decisão ainda quando o item está aguardando aptidão
+      if (c.id === "DATA_DECISAO" && aguardandoAptidao) {
+        return { ...c, required: false, label: "Data da Decisão (definir depois)" };
+      }
+      return c;
     });
   }, [listaKey, entidades, aguardandoAptidao]);
   const [proximaEntidade, setProximaEntidade] = useState(null);

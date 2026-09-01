@@ -325,6 +325,10 @@ export default function GestaoPage() {
     setFiltroSemFib(false);
     setFiltroDestinacao(new Set());
     setPag(1);
+    // Doações: fila ordenada pela data da decisão (mais antiga primeiro)
+    setOrdenacao(abaAtiva === "DOACOES"
+      ? { campo:"DATA_DECISAO", dir:"asc" }
+      : { campo:"_rowNumber", dir:"asc" });
   }, [abaAtiva, fetchAba]);
 
   // Filtragem e ordenação
@@ -361,6 +365,9 @@ export default function GestaoPage() {
     res.sort((a, b) => {
       const va = a[ordenacao.campo] ?? "";
       const vb = b[ordenacao.campo] ?? "";
+      // valores vazios sempre no fim, independente da direção
+      if (va === "" && vb !== "") return 1;
+      if (vb === "" && va !== "") return -1;
       const r = typeof va === "string" ? va.localeCompare(vb, "pt-BR") : Number(va) - Number(vb);
       return ordenacao.dir === "asc" ? r : -r;
     });
@@ -730,6 +737,7 @@ export default function GestaoPage() {
                 <table style={{ width:"100%", borderCollapse:"collapse" }}>
                   <thead>
                     <tr style={{ background:"#f9fafb" }}>
+                      {abaAtiva==="DOACOES" && <th style={{ padding:"10px 14px", fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:600, textAlign:"right", whiteSpace:"nowrap", borderBottom:"1px solid #e5e7eb" }}>Fila</th>}
                       <ThSort campo="_rowNumber">ID</ThSort>
                       <ThSort campo="ID_PASEI">ID_PASEI</ThSort>
                       <ThSort campo="TIPO_BEM">Tipo</ThSort>
@@ -738,6 +746,7 @@ export default function GestaoPage() {
                       {abaAtiva==="DPJ_GC99"      && <ThSort campo="PRAZO_6MESES">Prazo 6m</ThSort>}
                       {(abaAtiva==="PCDF_1HIGEIA"||abaAtiva==="PCDF_2HIGEIA") && <ThSort campo="DEPOSITO">Depósito</ThSort>}
                       {abaAtiva==="PCDF_2HIGEIA"  && <ThSort campo="RESTRICAO_ROUBO">Roubo</ThSort>}
+                      {abaAtiva==="DOACOES"        && <ThSort campo="DATA_DECISAO">Data Decisão</ThSort>}
                       {abaAtiva==="DOACOES"        && <ThSort campo="ENTIDADE_NOME">Entidade</ThSort>}
                       {abaAtiva==="CEGOC"          && <ThSort campo="DESTINACAO">Destinação</ThSort>}
                       <ThSort campo="STATUS_DILIGENCIA">Status</ThSort>
@@ -757,6 +766,7 @@ export default function GestaoPage() {
                         <tr key={item._rowNumber}
                           onClick={() => router.push(`/detalhes?lista=${LISTA_API_MAP[abaAtiva]}&row=${item._rowNumber}`)}
                           style={{ cursor:"pointer", background: ri%2===0?"transparent":"#fafafa" }}>
+                          {abaAtiva==="DOACOES" && <Cell right><span style={{ fontWeight:700, color:tab.color }}>{(pag-1)*POR_PAGINA + ri + 1}º</span></Cell>}
                           <Cell mono><span style={{ color:tab.color, fontWeight:700 }}>{idDisplay}</span></Cell>
                           <Cell mono muted>{item.ID_PASEI ? item.ID_PASEI.substring(0,22)+"…" : "—"}</Cell>
                           <Cell>{TIPO_ICON[item.TIPO_BEM] || "📦"} {item.TIPO_BEM || "—"}</Cell>
@@ -765,6 +775,7 @@ export default function GestaoPage() {
                           {abaAtiva==="DPJ_GC99"      && <Cell mono><span style={{ color: prazoVencido ? "#f87171" : "#111827" }}>{item.PRAZO_6MESES || "—"}</span></Cell>}
                           {(abaAtiva==="PCDF_1HIGEIA"||abaAtiva==="PCDF_2HIGEIA") && <Cell muted>{item.DEPOSITO || "—"}</Cell>}
                           {abaAtiva==="PCDF_2HIGEIA"  && <Cell right>{item.RESTRICAO_ROUBO === "TRUE" || item.RESTRICAO_ROUBO === true ? "🔒 Sim" : "—"}</Cell>}
+                          {abaAtiva==="DOACOES"        && <Cell mono muted>{item.DATA_DECISAO || "—"}</Cell>}
                           {abaAtiva==="DOACOES"        && <Cell muted>{(item.ENTIDADE_NOME || item.ENTIDADE) ? (item.ENTIDADE_NOME || item.ENTIDADE).substring(0,30)+"…" : "—"}</Cell>}
                           {abaAtiva==="CEGOC"          && <Cell muted>{item.DESTINACAO || "—"}</Cell>}
                           <td style={{ padding:"11px 14px", borderBottom:"1px solid #f3f4f6" }}>
