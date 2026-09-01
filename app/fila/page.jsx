@@ -25,7 +25,7 @@ const MAPA_EMAIL_NOME = {
   "cacausantos@gmail.com":             "Cláudia Santos",
 };
 
-const GESTORES_GMAIL = ["danieldeandrade@icloud.com","carlosalex1318@gmail.com"];
+const GESTORES_GMAIL = ["danieldeandrade.pessoal@gmail.com","danieldeandrade@icloud.com","carlosalex1318@gmail.com"];
 
 // Resolve qual nome do sistema corresponde ao usuário logado.
 // Prioridade: 1) mapa de e-mail  2) nome Google bate exatamente com SERVIDORES
@@ -46,7 +46,7 @@ const LISTAS_FILA = [
   { key:"PCDF_1HIGEIA", rota:"pcdf1",  prefixo:"PCDF1", statusField:"STATUS_DILIGENCIA" },
   { key:"PCDF_2HIGEIA", rota:"pcdf2",  prefixo:"PCDF2", statusField:"STATUS_DILIGENCIA" },
   { key:"DPJ_GC99",     rota:"dpj",    prefixo:"DPJ",   statusField:"STATUS_DILIGENCIA" },
-  { key:"CAIXA_SEI",    rota:"sei",    prefixo:"CAIXA", statusField:"STATUS_DILIGENCIA" },
+  { key:"CAIXA_SEI",    rota:"sei",    prefixo:"CAIXA", statusField:"ACAO" },
 ];
 
 // Placeholder para manter compatibilidade com o card (removido abaixo)
@@ -125,11 +125,16 @@ const LISTA_META = {
 };
 
 const STATUS_META = {
-  "EM DILIGÊNCIA": { color: "#22c55e",  bg: "rgba(34,197,94,0.12)"  },
-  "AGUARDANDO":    { color: "#60a5fa",  bg: "rgba(96,165,250,0.12)" },
-  "ATRASADO":      { color: "#f87171",  bg: "rgba(248,113,113,0.12)"},
-  "PRAZO 6 MESES": { color: "#fbbf24",  bg: "rgba(251,191,36,0.12)" },
-  "BAIXADO":       { color: "#6b7280",  bg: "rgba(107,114,128,0.12)"},
+  "EM DILIGÊNCIA":   { color: "#22c55e", bg: "rgba(34,197,94,0.12)"   },
+  "AGUARDANDO":      { color: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
+  "ATRASADO":        { color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  "PRAZO 6 MESES":   { color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
+  "BAIXADO":         { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+  // Ações SEI
+  "DILIGÊNCIA":      { color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
+  "ARQUIVADO":       { color: "#94a3b8", bg: "rgba(148,163,184,0.12)" },
+  "ENCAMINHAR":      { color: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
+  "AGUARDAR RETORNO":{ color: "#f97316", bg: "rgba(249,115,22,0.12)"  },
 };
 
 const TIPO_ICON = {
@@ -486,6 +491,23 @@ export default function SIGNUMinhaFila() {
     setDrawerEditData(null);
   };
 
+  const concluirSEI = async (item, e) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/api/bens/sei/${item._rowNumber}`, {
+        method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ACAO:"ARQUIVADO"}),
+      });
+      if (!res.ok) throw new Error("Erro ao arquivar processo SEI");
+      setFila(prev => prev.map(i =>
+        i._rowNumber === item._rowNumber && i.listaOrigem === "CAIXA_SEI"
+          ? { ...i, STATUS_DILIGENCIA: "ARQUIVADO" }
+          : i
+      ));
+    } catch(err) {
+      alert(err.message);
+    }
+  };
+
   const updDrawer = (field, val) => setDrawerEditData(prev => ({ ...prev, [field]: val }));
 
   const boolStr = (v) => (v === true || v === "TRUE") ? "TRUE" : "FALSE";
@@ -578,14 +600,15 @@ export default function SIGNUMinhaFila() {
   }, [usuarioAtual, carregarFila]);
 
   const filtered = fila.filter(item => {
+    if (item.listaOrigem === "CAIXA_SEI" && item.STATUS_DILIGENCIA === "ARQUIVADO") return false;
     if (filtroStatus.size     > 0 && !filtroStatus.has(item.STATUS_DILIGENCIA))                       return false;
     if (filtroLista.size      > 0 && !filtroLista.has(item.listaOrigem))                              return false;
     if (filtroTipo.size       > 0 && !filtroTipo.has(item.TIPO_BEM))                                  return false;
     if (filtroFlags.size      > 0 && ![...filtroFlags].some(f => flagAtiva(item, f)))                 return false;
     if (filtroDestinacao.size > 0 && !filtroDestinacao.has(item.DESTINACAO))                          return false;
     if (busca.trim()) {
-      const q = busca.trim().toUpperCase();
-      const campos = [item.id, item.ID_PASEI, item.NIV, item.TIPO_BEM, item.STATUS_DILIGENCIA, item.DESTINACAO, item.OBSERVACOES].join(" ").toUpperCase();
+      const q = busca.trim().toLowerCase();
+      const campos = [item.id, ...Object.values(item).filter(v => typeof v === "string")].join(" ").toLowerCase();
       if (!campos.includes(q)) return false;
     }
     return true;
@@ -885,6 +908,7 @@ export default function SIGNUMinhaFila() {
                   {sorted.map((item, idx) => {
                     const meta   = LISTA_META[item.listaOrigem] || {};
                     const sMeta  = STATUS_META[item.STATUS_DILIGENCIA] || { color:"#4b5563", bg:"transparent" };
+                    const isSEI  = item.listaOrigem === "CAIXA_SEI";
                     const ultimaStr = item.ULTIMA_ANALISE
                       ? (() => { const d=new Date(item.ULTIMA_ANALISE); return isNaN(d)?item.ULTIMA_ANALISE:d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"})+"\n"+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); })()
                       : "—";
@@ -915,7 +939,13 @@ export default function SIGNUMinhaFila() {
                         <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#374151" }}>{item.NIV||"—"}</td>
                         <td style={{ padding:"9px 12px", fontSize:11, color:"#4b5563", whiteSpace:"pre-line", lineHeight:1.3 }}>{ultimaStr}</td>
                         <td style={{ padding:"9px 12px" }}>
-                          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+                          <div style={{ display:"flex", gap:4, flexWrap:"wrap", alignItems:"center" }}>
+                            {isSEI && item.STATUS_DILIGENCIA !== "ARQUIVADO" && (
+                              <button onClick={e => concluirSEI(item, e)}
+                                style={{ padding:"2px 8px", borderRadius:10, fontSize:10, fontWeight:700, background:"rgba(34,197,94,0.1)", color:"#22c55e", border:"1px solid rgba(34,197,94,0.4)", cursor:"pointer", whiteSpace:"nowrap" }}>
+                                ✓ Arquivar
+                              </button>
+                            )}
                             {flags.map(f=>(
                               <span key={f.t} style={{ padding:"1px 6px", borderRadius:10, fontSize:10, fontWeight:700, background:`${f.c}18`, color:f.c, border:`1px solid ${f.c}44` }}>{f.t}</span>
                             ))}

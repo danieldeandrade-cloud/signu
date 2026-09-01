@@ -28,12 +28,33 @@ const TIPOS = ["CARRO","MOTO","CAMINHONETE","CAMINHÃO","REBOQUE","OUTROS"];
 const TIPO_ICON = { CARRO:"🚗", MOTO:"🏍️", CAMINHONETE:"🛻", CAMINHÃO:"🚛", REBOQUE:"🚜", OUTROS:"📦" };
 const TIPO_COLOR = { CARRO:"#3b82f6", MOTO:"#a78bfa", CAMINHONETE:"#34d399", CAMINHÃO:"#fb923c", REBOQUE:"#fbbf24", OUTROS:"#6b7280" };
 
-// Preview da fila — mantido estático no dashboard (a tela "Minha Fila" tem os dados reais)
-const MINHA_FILA_PREVIEW = [
-  { id:"CEGOC-0142", tipo:"CARRO",       lista:"CEGOC",   status:"EM DILIGÊNCIA", dias:12, color:"#3b82f6" },
-  { id:"CEGOC-0087", tipo:"MOTO",        lista:"CEGOC",   status:"ATRASADO",      dias:34, color:"#3b82f6" },
-  { id:"PCDF1-0331", tipo:"CAMINHONETE", lista:"PCDF 1ª", status:"AGUARDANDO",    dias:5,  color:"#a78bfa" },
-  { id:"DPJ-0049",   tipo:"CARRO",       lista:"DPJ-GC99",status:"PRAZO 6 MESES", dias:8,  color:"#fb923c" },
+// Mapeamento e-mail → nome do servidor no sistema
+const MAPA_EMAIL_NOME = {
+  "danieldeandrade@icloud.com":        null,
+  "carlosalex1318@gmail.com":          null,
+  "carcae@gmail.com":                  "Carlos Caetano",
+  "amandalobojunqueira@gmail.com":     "Amanda Junqueira",
+  "bsboqfazer@gmail.com":              "Letícia Mota",
+  "carlaearaujo2@gmail.com":           "Carla Araújo",
+  "marcelodefreitasoliveira@gmail.com":"Marcelo Oliveira",
+  "joloara@gmail.com":                 "Loara Passo",
+  "cacausantos@gmail.com":             "Cláudia Santos",
+};
+const GESTORES_GMAIL = ["danieldeandrade.pessoal@gmail.com","danieldeandrade@icloud.com","carlosalex1318@gmail.com"];
+const SERVIDORES = ["Carla Araújo","Amanda Junqueira","Carlos Caetano","Cláudia Santos","Loara Passo","Letícia Mota","Marcelo Oliveira"];
+
+function resolverNomeServidor(email, nomeGoogle) {
+  if (!email && !nomeGoogle) return null;
+  if (email && MAPA_EMAIL_NOME[email] !== undefined) return MAPA_EMAIL_NOME[email];
+  return SERVIDORES.find(s => s.toLowerCase() === (nomeGoogle||"").toLowerCase()) || null;
+}
+
+const LISTAS_FILA = [
+  { key:"CEGOC",        rota:"cegoc",  prefixo:"CEG",   statusField:"STATUS_DILIGENCIA" },
+  { key:"PCDF_1HIGEIA", rota:"pcdf1",  prefixo:"PCDF1", statusField:"STATUS_DILIGENCIA" },
+  { key:"PCDF_2HIGEIA", rota:"pcdf2",  prefixo:"PCDF2", statusField:"STATUS_DILIGENCIA" },
+  { key:"DPJ_GC99",     rota:"dpj",    prefixo:"DPJ",   statusField:"STATUS_DILIGENCIA" },
+  { key:"CAIXA_SEI",    rota:"sei",    prefixo:"CAIXA", statusField:"ACAO"              },
 ];
 
 const FLOWS = [
@@ -62,7 +83,7 @@ function Stat({ label, value, color }) {
   return (
     <div style={{ textAlign:"center" }}>
       <div style={{ fontSize:13, fontWeight:700, color }}>{value}</div>
-      <div style={{ fontSize:9, color:"rgba(255,255,255,0.25)", textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
+      <div style={{ fontSize:9, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
     </div>
   );
 }
@@ -71,7 +92,7 @@ function Stat({ label, value, color }) {
 function BarH({ value, max, color, height=8 }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div style={{ flex:1, height, background:"rgba(255,255,255,0.06)", borderRadius:4, overflow:"hidden" }}>
+    <div style={{ flex:1, height, background:"#e5e7eb", borderRadius:4, overflow:"hidden" }}>
       <div style={{ width:`${pct}%`, height:"100%", background:color, borderRadius:4, transition:"width 0.6s ease", minWidth: value > 0 ? 4 : 0 }}/>
     </div>
   );
@@ -104,8 +125,8 @@ function GraficoBarras({ filtroLista, tiposPorLista }) {
         const y = PADDING.top + chartH - (v / maxVal) * chartH;
         return (
           <g key={i}>
-            <line x1={PADDING.left} y1={y} x2={PADDING.left + chartW} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
-            <text x={PADDING.left - 6} y={y + 4} fontSize="9" fill="rgba(255,255,255,0.25)" textAnchor="end">{v}</text>
+            <line x1={PADDING.left} y1={y} x2={PADDING.left + chartW} y2={y} stroke="#f3f4f6" strokeWidth="1"/>
+            <text x={PADDING.left - 6} y={y + 4} fontSize="9" fill="#6b7280" textAnchor="end">{v}</text>
           </g>
         );
       })}
@@ -128,13 +149,13 @@ function GraficoBarras({ filtroLista, tiposPorLista }) {
             {/* Valor no topo */}
             <text x={x + barW/2} y={y - 5} fontSize="10" fill="#fff" textAnchor="middle" fontWeight="600">{d.total}</text>
             {/* Label embaixo */}
-            <text x={x + barW/2} y={PADDING.top + chartH + 14} fontSize="9" fill="rgba(255,255,255,0.45)" textAnchor="middle">{d.tipo}</text>
+            <text x={x + barW/2} y={PADDING.top + chartH + 14} fontSize="9" fill="#374151" textAnchor="middle">{d.tipo}</text>
             <text x={x + barW/2} y={PADDING.top + chartH + 25} fontSize="11" textAnchor="middle">{TIPO_ICON[d.tipo]}</text>
           </g>
         );
       })}
       {/* Eixo X */}
-      <line x1={PADDING.left} y1={PADDING.top + chartH} x2={PADDING.left + chartW} y2={PADDING.top + chartH} stroke="rgba(255,255,255,0.1)" strokeWidth="1"/>
+      <line x1={PADDING.left} y1={PADDING.top + chartH} x2={PADDING.left + chartW} y2={PADDING.top + chartH} stroke="#e5e7eb" strokeWidth="1"/>
     </svg>
   );
 }
@@ -172,14 +193,14 @@ function GraficoRosca({ filtroLista, tiposPorLista }) {
           <path key={s.tipo} d={s.path} fill={TIPO_COLOR[s.tipo] || "#6b7280"} opacity="0.85"/>
         ))}
         <text x={CX} y={CY - 6} textAnchor="middle" fontSize="18" fontWeight="800" fill="#fff">{total}</text>
-        <text x={CX} y={CY + 10} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.4)">TOTAL</text>
+        <text x={CX} y={CY + 10} textAnchor="middle" fontSize="9" fill="#4b5563">TOTAL</text>
       </svg>
       <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
         {slices.map(s => (
           <div key={s.tipo} style={{ display:"flex", alignItems:"center", gap:6 }}>
             <span style={{ width:8, height:8, borderRadius:2, background:TIPO_COLOR[s.tipo], flexShrink:0 }}/>
-            <span style={{ fontSize:11, color:"rgba(255,255,255,0.6)", flex:1 }}>{TIPO_ICON[s.tipo]} {s.tipo}</span>
-            <span style={{ fontSize:11, fontWeight:700, color:"#fff" }}>{s.pct}%</span>
+            <span style={{ fontSize:11, color:"#1f2937", flex:1 }}>{TIPO_ICON[s.tipo]} {s.tipo}</span>
+            <span style={{ fontSize:11, fontWeight:700, color:"#0f172a" }}>{s.pct}%</span>
           </div>
         ))}
       </div>
@@ -200,17 +221,17 @@ function TabelaTipos({ filtroLista, tiposPorLista, LISTAS }) {
       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
         <thead>
           <tr>
-            <th style={{ textAlign:"left", padding:"8px 12px", color:"rgba(255,255,255,0.3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:600, borderBottom:"1px solid rgba(255,255,255,0.06)" }}>Tipo</th>
+            <th style={{ textAlign:"left", padding:"8px 12px", color:"#6b7280", fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:600, borderBottom:"1px solid #e5e7eb" }}>Tipo</th>
             {listas.map(([key]) => {
               const meta = LISTAS.find(l => l.key === key);
               return (
-                <th key={key} style={{ textAlign:"center", padding:"8px 12px", color: meta?.color || "#fff", fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:700, borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
+                <th key={key} style={{ textAlign:"center", padding:"8px 12px", color: meta?.color || "#fff", fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:700, borderBottom:"1px solid #e5e7eb" }}>
                   {meta?.label || key}
                 </th>
               );
             })}
-            <th style={{ textAlign:"center", padding:"8px 12px", color:"#c9a84c", fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:700, borderBottom:"1px solid rgba(255,255,255,0.06)" }}>TOTAL</th>
-            <th style={{ padding:"8px 12px", borderBottom:"1px solid rgba(255,255,255,0.06)", width:120 }}/>
+            <th style={{ textAlign:"center", padding:"8px 12px", color:"#2563eb", fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:700, borderBottom:"1px solid #e5e7eb" }}>TOTAL</th>
+            <th style={{ padding:"8px 12px", borderBottom:"1px solid #e5e7eb", width:120 }}/>
           </tr>
         </thead>
         <tbody>
@@ -218,16 +239,16 @@ function TabelaTipos({ filtroLista, tiposPorLista, LISTAS }) {
             const rowTotal = listas.reduce((a, [, d]) => a + (d[tipo]||0), 0);
             if (rowTotal === 0) return null;
             return (
-              <tr key={tipo} style={{ background: ri % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent" }}>
-                <td style={{ padding:"10px 12px", color:"rgba(255,255,255,0.8)", fontWeight:600 }}>
+              <tr key={tipo} style={{ background: ri % 2 === 0 ? "#f9fafb" : "transparent" }}>
+                <td style={{ padding:"10px 12px", color:"#0f172a", fontWeight:600 }}>
                   <span style={{ marginRight:6 }}>{TIPO_ICON[tipo]}</span>{tipo}
                 </td>
                 {listas.map(([key, d]) => (
-                  <td key={key} style={{ textAlign:"center", padding:"10px 12px", color:"rgba(255,255,255,0.6)", fontFamily:"'IBM Plex Mono',monospace" }}>
+                  <td key={key} style={{ textAlign:"center", padding:"10px 12px", color:"#1f2937", fontFamily:"'IBM Plex Mono',monospace" }}>
                     {d[tipo] || 0}
                   </td>
                 ))}
-                <td style={{ textAlign:"center", padding:"10px 12px", color:"#fff", fontWeight:800, fontFamily:"'IBM Plex Mono',monospace" }}>
+                <td style={{ textAlign:"center", padding:"10px 12px", color:"#0f172a", fontWeight:800, fontFamily:"'IBM Plex Mono',monospace" }}>
                   {rowTotal}
                 </td>
                 <td style={{ padding:"10px 12px" }}>
@@ -237,8 +258,8 @@ function TabelaTipos({ filtroLista, tiposPorLista, LISTAS }) {
             );
           })}
           {/* Totais */}
-          <tr style={{ borderTop:"1px solid rgba(255,255,255,0.08)" }}>
-            <td style={{ padding:"10px 12px", color:"rgba(201,168,76,0.8)", fontWeight:700, fontSize:11, textTransform:"uppercase" }}>TOTAL</td>
+          <tr style={{ borderTop:"1px solid #e5e7eb" }}>
+            <td style={{ padding:"10px 12px", color:"#1e40af", fontWeight:700, fontSize:11, textTransform:"uppercase" }}>TOTAL</td>
             {listas.map(([key]) => {
               const meta = LISTAS.find(l => l.key === key);
               return (
@@ -247,7 +268,7 @@ function TabelaTipos({ filtroLista, tiposPorLista, LISTAS }) {
                 </td>
               );
             })}
-            <td style={{ textAlign:"center", padding:"10px 12px", color:"#c9a84c", fontWeight:800, fontFamily:"'IBM Plex Mono',monospace" }}>
+            <td style={{ textAlign:"center", padding:"10px 12px", color:"#2563eb", fontWeight:800, fontFamily:"'IBM Plex Mono',monospace" }}>
               {listas.reduce((a,[,d]) => a + Object.values(d).reduce((b,v)=>b+v,0), 0)}
             </td>
             <td/>
@@ -270,45 +291,81 @@ export default function InicioPage() {
     if (h < 18) return "Boa tarde";
     return "Boa noite";
   })();
-  const [hoveredCard, setHoveredCard] = useState(null);
-  const [filtroLista, setFiltroLista] = useState("TODAS");
-  const [abaRelatorio, setAbaRelatorio] = useState("barras");
-  const [listas, setListas] = useState(
+  const [hoveredCard,    setHoveredCard]    = useState(null);
+  const [filtroLista,    setFiltroLista]    = useState("TODAS");
+  const [abaRelatorio,   setAbaRelatorio]   = useState("barras");
+  const [listas,         setListas]         = useState(
     LISTAS_CONFIG.map(c => ({ ...c, total:0, atrasados:0, em_diligencia:0, aguardando:0, carregando:true }))
   );
-  const [tiposPorLista, setTiposPorLista] = useState(TIPOS_POR_LISTA);
+  const [tiposPorLista,  setTiposPorLista]  = useState(TIPOS_POR_LISTA);
+  const [filaItens,      setFilaItens]      = useState([]);
+  const [nomeUsuario,    setNomeUsuario]     = useState(null);
+  const [isGestor,       setIsGestor]       = useState(false);
+  // filtroServidor: null = todos (visão gestores), string = nome do servidor
+  const [filtroServidor, setFiltroServidor] = useState(undefined); // undefined = ainda resolvendo
+  const [sessionResolvida, setSessionResolvida] = useState(false);
 
-  // Busca dados de todas as listas em paralelo
+  // 1. Resolve identidade do usuário logado
   useEffect(() => {
+    if (!session?.user) return;
+    const email      = session.user.email || "";
+    const nomeGoogle = session.user.name  || "";
+    const gestor     = GESTORES_GMAIL.includes(email);
+    setIsGestor(gestor);
+    if (gestor) {
+      setFiltroServidor(null); // gestores veem tudo por padrão
+    } else {
+      const nome = resolverNomeServidor(email, nomeGoogle);
+      setNomeUsuario(nome);
+      setFiltroServidor(nome); // servidor vê só os próprios dados
+    }
+    setSessionResolvida(true);
+  }, [session]);
+
+  // 2. Busca dados sempre que o filtro de servidor muda
+  useEffect(() => {
+    if (!sessionResolvida) return;
+    const qs = filtroServidor ? `?atribuidoA=${encodeURIComponent(filtroServidor)}` : "";
+    setListas(LISTAS_CONFIG.map(c => ({ ...c, total:0, atrasados:0, em_diligencia:0, aguardando:0, carregando:true })));
+    setTiposPorLista({ CEGOC:{}, PCDF_1HIGEIA:{}, PCDF_2HIGEIA:{}, DPJ_GC99:{}, DOACOES:{}, CAIXA_SEI:{} });
+    setFilaItens([]);
+
     LISTAS_CONFIG.forEach(async (cfg) => {
       try {
-        const res = await fetch(`/api/bens/${cfg.rota}`);
+        const res  = await fetch(`/api/bens/${cfg.rota}${qs}`);
         const json = await res.json();
         const dados = json.dados || [];
 
-        // Contagens de status
-        const total       = dados.length;
-        const atrasados   = dados.filter(r => r[cfg.statusField] === "ATRASADO").length;
+        const total         = dados.length;
+        const atrasados     = dados.filter(r => r[cfg.statusField] === "ATRASADO").length;
         const em_diligencia = dados.filter(r => r[cfg.statusField] === "EM DILIGÊNCIA").length;
-        const aguardando  = dados.filter(r => r[cfg.statusField] === "AGUARDANDO").length;
+        const aguardando    = dados.filter(r => r[cfg.statusField] === "AGUARDANDO").length;
 
-        // Distribuição por tipo
         const tipos = {};
-        dados.forEach(r => {
-          const tipo = r.TIPO_BEM || "OUTROS";
-          tipos[tipo] = (tipos[tipo] || 0) + 1;
-        });
+        dados.forEach(r => { const t = r.TIPO_BEM || "OUTROS"; tipos[t] = (tipos[t]||0)+1; });
 
         setListas(prev => prev.map(l => l.key === cfg.key
           ? { ...l, total, atrasados, em_diligencia, aguardando, carregando:false }
           : l
         ));
         setTiposPorLista(prev => ({ ...prev, [cfg.key]: tipos }));
+
+        // Itens individuais para o painel lateral (excluindo SEI arquivados)
+        const itens = dados
+          .filter(r => !(cfg.key === "CAIXA_SEI" && r.ACAO === "ARQUIVADO"))
+          .map(r => ({
+            id:    r.ID_LEGADO || `${LISTAS_FILA.find(l=>l.key===cfg.key)?.prefixo||cfg.key}-${String(r._rowNumber).padStart(4,"0")}`,
+            tipo:  r.TIPO_BEM || "—",
+            lista: cfg.label,
+            status:r[cfg.statusField] || r.STATUS_DILIGENCIA || "—",
+            color: cfg.color,
+          }));
+        setFilaItens(prev => [...prev, ...itens]);
       } catch {
         setListas(prev => prev.map(l => l.key === cfg.key ? { ...l, carregando:false } : l));
       }
     });
-  }, []);
+  }, [filtroServidor, sessionResolvida]);
 
   // Usa listas carregadas no lugar do array estático
   const LISTAS = listas;
@@ -319,7 +376,7 @@ export default function InicioPage() {
   const taxaExecucao = totalGeral > 0 ? Math.round((totalEmDiligencia / totalGeral) * 100) : 0;
 
   return (
-    <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
+    <div className="signu-layout" style={{ background:"#dde1e7", fontFamily:"'Inter',system-ui,sans-serif", color:"#111827" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
       `}</style>
@@ -329,13 +386,13 @@ export default function InicioPage() {
       {/* MAIN */}
       <main className="signu-main">
         {/* Top bar */}
-        <header style={{ height:56,borderBottom:"1px solid rgba(201,168,76,0.1)",background:"#0a1628",display:"flex",alignItems:"center",padding:"0 28px",justifyContent:"space-between",flexShrink:0 }}>
+        <header style={{ height:56,borderBottom:"1px solid #e5e7eb",background:"#1e2d3d",display:"flex",alignItems:"center",padding:"0 28px",justifyContent:"space-between",flexShrink:0 }}>
           <div>
             <span style={{ fontSize:13,fontWeight:700,color:"#fff" }}>Início</span>
-            <span style={{ fontSize:12,color:"rgba(255,255,255,0.3)",marginLeft:8 }}>SIGNU · NULEJ · TJDFT</span>
+            <span style={{ fontSize:12,color:"#6b7280",marginLeft:8 }}>SIGNU · NULEJ · TJDFT</span>
           </div>
           <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-            <div style={{ fontSize:11,color:"rgba(255,255,255,0.3)",fontFamily:"'IBM Plex Mono',monospace" }}>
+            <div style={{ fontSize:11,color:"#6b7280",fontFamily:"'IBM Plex Mono',monospace" }}>
               {new Date().toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short",year:"numeric"})}
             </div>
             {totalAtrasados > 0 && (
@@ -349,31 +406,51 @@ export default function InicioPage() {
         <div className="signu-content">
 
           {/* Saudação */}
-          <div style={{ marginBottom:24 }}>
-            <h1 style={{ fontSize:20,fontWeight:700,color:"#fff",margin:0,letterSpacing:"-0.02em" }}>
-              {primeiroNome ? `${saudacao}, ${primeiroNome} 👋` : `${saudacao} 👋`}
-            </h1>
-            <p style={{ fontSize:13,color:"rgba(255,255,255,0.35)",margin:"4px 0 0" }}>Resumo operacional do NULEJ em tempo real.</p>
+          <div style={{ marginBottom:24, display:"flex", alignItems:"flex-start", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
+            <div>
+              <h1 style={{ fontSize:20,fontWeight:700,color:"#0f172a",margin:0,letterSpacing:"-0.02em" }}>
+                {primeiroNome ? `${saudacao}, ${primeiroNome} 👋` : `${saudacao} 👋`}
+              </h1>
+              <p style={{ fontSize:13,color:"#6b7280",margin:"4px 0 0" }}>
+                {filtroServidor
+                  ? <>Dashboard de <strong style={{ color:"#1e40af" }}>{filtroServidor}</strong></>
+                  : isGestor
+                    ? "Visão geral — todos os servidores"
+                    : "Resumo operacional do NULEJ em tempo real."
+                }
+              </p>
+            </div>
+            {/* Seletor de servidor — apenas gestores */}
+            {isGestor && (
+              <div style={{ display:"flex", alignItems:"center", gap:8, background:"#fff", border:"1.5px solid #b0b8c4", borderRadius:10, padding:"8px 14px", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+                <span style={{ fontSize:10, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.08em" }}>Ver dados de:</span>
+                <select value={filtroServidor || ""} onChange={e => setFiltroServidor(e.target.value || null)}
+                  style={{ background:"transparent", border:"none", color:"#2563eb", fontSize:13, fontWeight:700, cursor:"pointer", outline:"none" }}>
+                  <option value="">Todos os servidores</option>
+                  {SERVIDORES.map(s => <option key={s} value={s} style={{ background:"#fff", color:"#111827" }}>{s}</option>)}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* KPI CARDS */}
           <div className="signu-grid-4" style={{ marginBottom:24 }}>
             {[
-              { label:"Total de Bens",   value:totalGeral,        icon:"📦", color:"#c9a84c", sub:"em 6 listas operacionais" },
+              { label:"Total de Bens",   value:totalGeral,        icon:"📦", color:"#2563eb", sub:"em 6 listas operacionais" },
               { label:"Em Diligência",   value:totalEmDiligencia, icon:"⚡", color:"#22c55e", sub:`${taxaExecucao}% taxa de execução` },
               { label:"Bens Atrasados",  value:totalAtrasados,    icon:"⚠️", color:"#f87171", sub:"+30 dias sem atualização" },
-              { label:"Minha Fila",      value:4,                 icon:"📋", color:"#60a5fa", sub:"itens atribuídos a você" },
+              { label: filtroServidor ? "Fila do servidor" : "Total na fila", value:filaItens.length, icon:"📋", color:"#60a5fa", sub: filtroServidor ? `itens de ${filtroServidor.split(" ")[0]}` : isGestor ? "todos os servidores" : "itens atribuídos a você" },
             ].map(({ label,value,icon,color,sub }) => {
-              const ainda = listas.some(l => l.carregando) && label !== "Minha Fila";
+              const ainda = listas.some(l => l.carregando);
               return (
-              <div key={label} style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:`1px solid ${color}22`,borderRadius:12,padding:"18px 20px",position:"relative",overflow:"hidden" }}>
+              <div key={label} style={{ background:"#fff",border:`1px solid ${color}22`,borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"18px 20px",position:"relative",overflow:"hidden" }}>
                 <div style={{ position:"absolute",top:0,right:0,width:60,height:60,borderRadius:"0 12px 0 60px",background:`${color}08` }}/>
                 <div style={{ fontSize:22,marginBottom:8 }}>{icon}</div>
-                <div style={{ fontSize:28,fontWeight:800,color:"#fff",lineHeight:1,marginBottom:4 }}>
+                <div style={{ fontSize:28,fontWeight:800,color:"#0f172a",lineHeight:1,marginBottom:4 }}>
                   {ainda ? <span style={{ fontSize:18,color:`${color}60` }}>…</span> : value.toLocaleString("pt-BR")}
                 </div>
                 <div style={{ fontSize:12,fontWeight:600,color,marginBottom:3 }}>{label}</div>
-                <div style={{ fontSize:11,color:"rgba(255,255,255,0.25)" }}>{sub}</div>
+                <div style={{ fontSize:11,color:"#6b7280" }}>{sub}</div>
               </div>
             );})}
           </div>
@@ -381,28 +458,28 @@ export default function InicioPage() {
           {/* GRID: LISTAS + LATERAL */}
           <div className="signu-grid-main" style={{ marginBottom:24 }}>
             <div>
-              <div style={{ fontSize:11,fontWeight:700,color:"rgba(201,168,76,0.7)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14 }}>Listas Operacionais</div>
+              <div style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14 }}>Listas Operacionais</div>
               <div className="signu-grid-2">
                 {LISTAS.map((lista) => {
                   const pct = Math.round((lista.em_diligencia/lista.total)*100);
                   return (
-                    <div key={lista.key} onClick={() => router.push("/gestao")} onMouseEnter={()=>setHoveredCard(lista.key)} onMouseLeave={()=>setHoveredCard(null)} style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:`1px solid ${hoveredCard===lista.key?lista.color+"55":lista.color+"18"}`,borderRadius:12,padding:"16px 18px",cursor:"pointer",transition:"all 0.18s ease",transform:hoveredCard===lista.key?"translateY(-2px)":"none" }}>
+                    <div key={lista.key} onClick={() => router.push("/gestao")} onMouseEnter={()=>setHoveredCard(lista.key)} onMouseLeave={()=>setHoveredCard(null)} style={{ background:"#fff",border:`1px solid ${hoveredCard===lista.key?lista.color+"55":lista.color+"18"}`,borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"16px 18px",cursor:"pointer",transition:"all 0.18s ease",transform:hoveredCard===lista.key?"translateY(-2px)":"none" }}>
                       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
                         <div style={{ display:"flex",alignItems:"center",gap:8 }}>
                           <span style={{ fontSize:18 }}>{lista.icon}</span>
                           <span style={{ fontSize:12,fontWeight:700,color:lista.color,background:lista.bg,padding:"2px 8px",borderRadius:4 }}>{lista.label}</span>
                         </div>
-                        <span style={{ fontSize:22,fontWeight:800,color:"#fff" }}>
+                        <span style={{ fontSize:22,fontWeight:800,color:"#0f172a" }}>
                           {lista.carregando ? <span style={{ fontSize:14,color:`${lista.color}60` }}>…</span> : lista.total.toLocaleString("pt-BR")}
                         </span>
                       </div>
-                      <div style={{ height:4,background:"rgba(255,255,255,0.06)",borderRadius:4,marginBottom:10,overflow:"hidden" }}>
+                      <div style={{ height:4,background:"#e5e7eb",borderRadius:4,marginBottom:10,overflow:"hidden" }}>
                         <div style={{ height:"100%",width:`${pct}%`,background:lista.color,borderRadius:4 }}/>
                       </div>
                       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:4 }}>
                         <Stat label="Em dilig." value={lista.em_diligencia} color="#22c55e"/>
                         <Stat label="Aguard."  value={lista.aguardando}    color="#60a5fa"/>
-                        <Stat label="Atrasados" value={lista.atrasados}    color={lista.atrasados>0?"#f87171":"rgba(255,255,255,0.25)"}/>
+                        <Stat label="Atrasados" value={lista.atrasados}    color={lista.atrasados>0?"#f87171":"#6b7280"}/>
                       </div>
                     </div>
                   );
@@ -412,33 +489,53 @@ export default function InicioPage() {
 
             {/* Lateral */}
             <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
-              {/* Minha Fila */}
-              <div style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"16px 18px" }}>
+              {/* Fila — dados reais filtrados */}
+              <div style={{ background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"16px 18px" }}>
                 <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14 }}>
-                  <div style={{ fontSize:11,fontWeight:700,color:"rgba(201,168,76,0.7)",textTransform:"uppercase",letterSpacing:"0.1em" }}>Minha Fila</div>
-                  <button onClick={() => router.push("/fila")} style={{ fontSize:11,color:"#c9a84c",background:"none",border:"none",cursor:"pointer",fontWeight:600 }}>Ver todos →</button>
-                </div>
-                {MINHA_FILA_PREVIEW.map(item => (
-                  <div key={item.id} style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"rgba(255,255,255,0.03)",borderRadius:8,borderLeft:`3px solid ${item.color}`,marginBottom:6 }}>
-                    <div style={{ flex:1,minWidth:0 }}>
-                      <div style={{ fontSize:11,fontFamily:"'IBM Plex Mono',monospace",color:"rgba(255,255,255,0.5)",marginBottom:2 }}>{item.id}</div>
-                      <div style={{ fontSize:12,fontWeight:600,color:"#fff" }}>{item.tipo}</div>
+                  <div>
+                    <div style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.1em" }}>
+                      {filtroServidor ? `Fila — ${filtroServidor.split(" ")[0]}` : "Fila Geral"}
                     </div>
-                    <div style={{ textAlign:"right",flexShrink:0 }}>
-                      <div style={{ fontSize:10,fontWeight:600,color:STATUS_COLOR[item.status]||"#fff",marginBottom:2 }}>{item.status}</div>
-                      <div style={{ fontSize:10,color:item.dias>30?"#f87171":"rgba(255,255,255,0.3)" }}>{item.dias}d</div>
-                    </div>
+                    {filtroServidor && <div style={{ fontSize:10,color:"#6b7280",marginTop:2 }}>{filtroServidor}</div>}
                   </div>
-                ))}
+                  <button onClick={() => router.push("/fila")} style={{ fontSize:11,color:"#2563eb",background:"none",border:"none",cursor:"pointer",fontWeight:600 }}>Ver todos →</button>
+                </div>
+                {listas.some(l => l.carregando) ? (
+                  <div style={{ textAlign:"center",padding:"20px 0",color:"#6b7280",fontSize:12 }}>carregando…</div>
+                ) : filaItens.length === 0 ? (
+                  <div style={{ textAlign:"center",padding:"20px 0",color:"#22c55e",fontSize:12 }}>
+                    <div style={{ fontSize:20,marginBottom:6 }}>✅</div>
+                    {filtroServidor ? "Nenhum item pendente" : "Fila vazia"}
+                  </div>
+                ) : (
+                  <>
+                    {filaItens.slice(0,5).map((item, idx) => (
+                      <div key={`${item.id}-${idx}`} style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"#f9fafb",borderRadius:8,borderLeft:`3px solid ${item.color}`,marginBottom:6 }}>
+                        <div style={{ flex:1,minWidth:0 }}>
+                          <div style={{ fontSize:11,fontFamily:"'IBM Plex Mono',monospace",color:"#374151",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{item.id}</div>
+                          <div style={{ fontSize:11,color:"#6b7280" }}>{item.lista}</div>
+                        </div>
+                        <div style={{ textAlign:"right",flexShrink:0 }}>
+                          <div style={{ fontSize:10,fontWeight:600,color:STATUS_COLOR[item.status]||"#6b7280" }}>{item.status}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {filaItens.length > 5 && (
+                      <button onClick={()=>router.push("/fila")} style={{ width:"100%",padding:"7px",background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:8,color:"#2563eb",fontSize:11,fontWeight:600,cursor:"pointer",marginTop:4 }}>
+                        +{filaItens.length - 5} itens a mais → Ver fila completa
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
               {/* Flows */}
-              <div style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"16px 18px" }}>
-                <div style={{ fontSize:11,fontWeight:700,color:"rgba(201,168,76,0.7)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14 }}>Power Automate — 6 Flows</div>
+              <div style={{ background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"16px 18px" }}>
+                <div style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14 }}>Power Automate — 6 Flows</div>
                 {FLOWS.map(f => (
                   <div key={f.nome} style={{ display:"flex",alignItems:"center",gap:8,marginBottom:7 }}>
                     <span style={{ width:6,height:6,borderRadius:"50%",background:"#22c55e",flexShrink:0,animation:"pulse 2s infinite" }}/>
-                    <span style={{ fontSize:11,color:"rgba(255,255,255,0.6)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{f.icon} {f.nome}</span>
-                    <span style={{ fontSize:10,color:"rgba(255,255,255,0.25)",flexShrink:0 }}>{f.ultimo}</span>
+                    <span style={{ fontSize:11,color:"#1f2937",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{f.icon} {f.nome}</span>
+                    <span style={{ fontSize:10,color:"#6b7280",flexShrink:0 }}>{f.ultimo}</span>
                   </div>
                 ))}
               </div>
@@ -446,23 +543,23 @@ export default function InicioPage() {
           </div>
 
           {/* ══ RELATÓRIO DE TIPOS DE BENS ══ */}
-          <div style={{ background:"linear-gradient(145deg,#0f2040,#0a1628)",border:"1px solid rgba(201,168,76,0.18)",borderRadius:16,padding:"20px 24px" }}>
+          <div style={{ background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:16,padding:"20px 24px" }}>
             {/* Header do relatório */}
             <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:12 }}>
               <div>
-                <div style={{ fontSize:14,fontWeight:700,color:"#fff",marginBottom:3 }}>📊 Distribuição por Tipo de Bem</div>
-                <div style={{ fontSize:11,color:"rgba(255,255,255,0.35)" }}>Carros, motos, caminhões diligenciados por lista</div>
+                <div style={{ fontSize:14,fontWeight:700,color:"#0f172a",marginBottom:3 }}>📊 Distribuição por Tipo de Bem</div>
+                <div style={{ fontSize:11,color:"#6b7280" }}>Carros, motos, caminhões diligenciados por lista</div>
               </div>
               <div style={{ display:"flex",gap:8,alignItems:"center",flexWrap:"wrap" }}>
                 {/* Filtro por lista */}
-                <select value={filtroLista} onChange={e=>setFiltroLista(e.target.value)} style={{ padding:"5px 10px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(201,168,76,0.25)",borderRadius:6,color:"#c9a84c",fontSize:12,cursor:"pointer",outline:"none" }}>
+                <select value={filtroLista} onChange={e=>setFiltroLista(e.target.value)} style={{ padding:"5px 10px",background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:6,color:"#2563eb",fontSize:12,cursor:"pointer",outline:"none" }}>
                   <option value="TODAS">Todas as listas</option>
                   {LISTAS.map(l => <option key={l.key} value={l.key}>{l.label}</option>)}
                 </select>
                 {/* Abas gráfico/tabela */}
-                <div style={{ display:"flex",background:"rgba(255,255,255,0.04)",borderRadius:8,padding:3,gap:2 }}>
+                <div style={{ display:"flex",background:"#f3f4f6",borderRadius:8,padding:3,gap:2 }}>
                   {[["barras","📊 Barras"],["rosca","🍩 Pizza"],["tabela","📋 Tabela"]].map(([id,label]) => (
-                    <button key={id} onClick={()=>setAbaRelatorio(id)} style={{ padding:"5px 12px",borderRadius:6,border:"none",fontSize:11,fontWeight:600,cursor:"pointer",background:abaRelatorio===id?"rgba(201,168,76,0.15)":"transparent",color:abaRelatorio===id?"#c9a84c":"rgba(255,255,255,0.4)",transition:"all 0.15s" }}>{label}</button>
+                    <button key={id} onClick={()=>setAbaRelatorio(id)} style={{ padding:"5px 12px",borderRadius:6,border:"none",fontSize:11,fontWeight:600,cursor:"pointer",background:abaRelatorio===id?"rgba(37,99,235,0.12)":"transparent",color:abaRelatorio===id?"#2563eb":"#4b5563",transition:"all 0.15s" }}>{label}</button>
                   ))}
                 </div>
               </div>
@@ -480,8 +577,8 @@ export default function InicioPage() {
                     return (
                       <div key={tipo} style={{ display:"flex",alignItems:"center",gap:6,background:`${TIPO_COLOR[tipo]}12`,border:`1px solid ${TIPO_COLOR[tipo]}30`,borderRadius:8,padding:"6px 12px" }}>
                         <span>{TIPO_ICON[tipo]}</span>
-                        <span style={{ fontSize:11,color:"rgba(255,255,255,0.6)" }}>{tipo}</span>
-                        <span style={{ fontSize:13,fontWeight:800,color:"#fff" }}>{total}</span>
+                        <span style={{ fontSize:11,color:"#1f2937" }}>{tipo}</span>
+                        <span style={{ fontSize:13,fontWeight:800,color:"#0f172a" }}>{total}</span>
                       </div>
                     );
                   })}
@@ -501,7 +598,7 @@ export default function InicioPage() {
                     return (
                       <div key={tipo} style={{ background:`${color}10`,border:`1px solid ${color}25`,borderRadius:10,padding:"12px 14px",textAlign:"center" }}>
                         <div style={{ fontSize:22,marginBottom:4 }}>{TIPO_ICON[tipo]}</div>
-                        <div style={{ fontSize:20,fontWeight:800,color:"#fff" }}>{total}</div>
+                        <div style={{ fontSize:20,fontWeight:800,color:"#0f172a" }}>{total}</div>
                         <div style={{ fontSize:10,color,fontWeight:600,marginTop:2 }}>{tipo}</div>
                       </div>
                     );

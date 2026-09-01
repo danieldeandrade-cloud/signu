@@ -64,7 +64,7 @@ function Highlight({ text, termo }) {
   if (idx === -1) return <>{text}</>;
   return <>
     {text.slice(0, idx)}
-    <mark style={{ background:"rgba(201,168,76,0.35)", color:"#fff", borderRadius:2, padding:"0 1px" }}>{text.slice(idx, idx + termo.length)}</mark>
+    <mark style={{ background:"rgba(37,99,235,0.25)", color:"#0f172a", borderRadius:2, padding:"0 1px" }}>{text.slice(idx, idx + termo.length)}</mark>
     {text.slice(idx + termo.length)}
   </>;
 }
@@ -86,7 +86,7 @@ function ResultCard({ item, termo, onOpen }) {
 
   return (
     <div onClick={onOpen} style={{
-      background:"linear-gradient(145deg,#0f2040,#0a1628)",
+      background:"#fff",
       border:`1px solid ${meta.color}22`,
       cursor:"pointer",
       borderLeft:`3px solid ${meta.color}`,
@@ -102,15 +102,15 @@ function ResultCard({ item, termo, onOpen }) {
         {/* Linha 1: badge lista + ID + tipo */}
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7, flexWrap:"wrap" }}>
           <span style={{ fontSize:10,fontWeight:700,color:meta.color,background:meta.bg,padding:"2px 8px",borderRadius:4,letterSpacing:"0.05em" }}>{meta.label}</span>
-          <span style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:12,fontWeight:700,color:"#fff" }}>
+          <span style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:12,fontWeight:700,color:"#0f172a" }}>
             <Highlight text={item.id} termo={termo}/>
           </span>
           <span style={{ fontSize:12 }}>{TIPO_ICON[item.TIPO_BEM]}</span>
-          <span style={{ fontSize:12,color:"rgba(255,255,255,0.6)",fontWeight:500 }}>{item.TIPO_BEM !== "—" ? item.TIPO_BEM : ""}</span>
+          <span style={{ fontSize:12,color:"#1f2937",fontWeight:500 }}>{item.TIPO_BEM !== "—" ? item.TIPO_BEM : ""}</span>
         </div>
 
         {/* Linha 2: ID_PASEI */}
-        <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:11,color:"#c9a84c",marginBottom:7 }}>
+        <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:11,color:"#2563eb",marginBottom:7 }}>
           <Highlight text={item.ID_PASEI} termo={termo}/>
         </div>
 
@@ -118,39 +118,47 @@ function ResultCard({ item, termo, onOpen }) {
         <div style={{ display:"flex",gap:16,flexWrap:"wrap" }}>
           {item.NIV && item.NIV !== "—" && (
             <div>
-              <span style={{ fontSize:9,color:"rgba(255,255,255,0.25)",textTransform:"uppercase",letterSpacing:"0.08em" }}>NIV </span>
-              <span style={{ fontSize:11,fontFamily:"'IBM Plex Mono',monospace",color:"rgba(255,255,255,0.6)" }}>
+              <span style={{ fontSize:9,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.08em" }}>NIV </span>
+              <span style={{ fontSize:11,fontFamily:"'IBM Plex Mono',monospace",color:"#1f2937" }}>
                 <Highlight text={item.NIV} termo={termo}/>
+              </span>
+            </div>
+          )}
+          {item.PLACA && (
+            <div>
+              <span style={{ fontSize:9,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.08em" }}>Placa </span>
+              <span style={{ fontSize:11,fontFamily:"'IBM Plex Mono',monospace",color:"#1f2937" }}>
+                <Highlight text={item.PLACA} termo={termo}/>
               </span>
             </div>
           )}
           {item.DESTINACAO && (
             <div>
-              <span style={{ fontSize:9,color:"rgba(255,255,255,0.25)",textTransform:"uppercase",letterSpacing:"0.08em" }}>Dest. </span>
-              <span style={{ fontSize:11,color:"rgba(255,255,255,0.5)" }}>{item.DESTINACAO}</span>
+              <span style={{ fontSize:9,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.08em" }}>Dest. </span>
+              <span style={{ fontSize:11,color:"#374151" }}>{item.DESTINACAO}</span>
             </div>
           )}
           {item.DEPOSITO && (
             <div>
-              <span style={{ fontSize:9,color:"rgba(255,255,255,0.25)",textTransform:"uppercase",letterSpacing:"0.08em" }}>Depósito </span>
-              <span style={{ fontSize:11,color:"rgba(255,255,255,0.5)" }}>{item.DEPOSITO}</span>
+              <span style={{ fontSize:9,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.08em" }}>Depósito </span>
+              <span style={{ fontSize:11,color:"#374151" }}>{item.DEPOSITO}</span>
             </div>
           )}
           {item.LOTE && (
             <div>
-              <span style={{ fontSize:9,color:"rgba(255,255,255,0.25)",textTransform:"uppercase",letterSpacing:"0.08em" }}>Lote </span>
-              <span style={{ fontSize:11,color:"rgba(255,255,255,0.5)" }}>#{item.LOTE}</span>
+              <span style={{ fontSize:9,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.08em" }}>Lote </span>
+              <span style={{ fontSize:11,color:"#374151" }}>#{item.LOTE}</span>
             </div>
           )}
           {item.ENTIDADE && (
             <div>
-              <span style={{ fontSize:9,color:"rgba(255,255,255,0.25)",textTransform:"uppercase",letterSpacing:"0.08em" }}>Entidade </span>
-              <span style={{ fontSize:11,color:"rgba(255,255,255,0.5)" }}>{item.ENTIDADE}</span>
+              <span style={{ fontSize:9,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.08em" }}>Entidade </span>
+              <span style={{ fontSize:11,color:"#374151" }}>{item.ENTIDADE}</span>
             </div>
           )}
           {item.OBSERVACOES && (
             <div style={{ width:"100%" }}>
-              <span style={{ fontSize:11,color:"rgba(255,255,255,0.35)",fontStyle:"italic" }}>{item.OBSERVACOES.substring(0,80)}…</span>
+              <span style={{ fontSize:11,color:"#6b7280",fontStyle:"italic" }}>{item.OBSERVACOES.substring(0,80)}…</span>
             </div>
           )}
         </div>
@@ -159,7 +167,7 @@ function ResultCard({ item, termo, onOpen }) {
       {/* Direita: status + responsável */}
       <div style={{ textAlign:"right",flexShrink:0 }}>
         <div style={{ fontSize:10,fontWeight:700,color:stMeta.color,marginBottom:5 }}>{item.STATUS}</div>
-        <div style={{ fontSize:11,color:"rgba(255,255,255,0.35)" }}>
+        <div style={{ fontSize:11,color:"#6b7280" }}>
           <Highlight text={item.RESPONSAVEL || item.Responsavel || item.SERVIDOR || item.ATRIBUIDO_A || item.RESPONSAVEL_DILIGENCIA || ""} termo={termo}/>
         </div>
       </div>
@@ -229,12 +237,12 @@ export default function BuscaPage() {
   const limpar = () => { setQuery(""); setBuscado(""); setFiltroLista("TODAS"); inputRef.current?.focus(); };
 
   return (
-    <div className="signu-layout" style={{ background:"#060f1e", fontFamily:"'Inter',system-ui,sans-serif", color:"#e2e8f0" }}>
+    <div className="signu-layout" style={{ background:"#dde1e7", fontFamily:"'Inter',system-ui,sans-serif", color:"#111827" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:4px}
-        ::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.2);border-radius:4px}
+        ::-webkit-scrollbar-thumb{background:#9ca3af;border-radius:4px}
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
@@ -246,11 +254,11 @@ export default function BuscaPage() {
       <main className="signu-main">
 
         {/* Top bar */}
-        <header style={{ height:56,borderBottom:"1px solid rgba(201,168,76,0.1)",background:"#0a1628",display:"flex",alignItems:"center",padding:"0 28px",flexShrink:0 }}>
-          <span style={{ fontSize:13,color:"rgba(255,255,255,0.4)" }}>SIGNU</span>
-          <span style={{ color:"rgba(255,255,255,0.15)",margin:"0 8px" }}>/</span>
+        <header style={{ height:56,borderBottom:"1px solid #e5e7eb",background:"#1e2d3d",display:"flex",alignItems:"center",padding:"0 28px",flexShrink:0 }}>
+          <span style={{ fontSize:13,color:"#4b5563" }}>SIGNU</span>
+          <span style={{ color:"#d1d5db",margin:"0 8px" }}>/</span>
           <span style={{ fontSize:13,fontWeight:700,color:"#fff" }}>Busca Global</span>
-          <span style={{ fontSize:11,color:"rgba(255,255,255,0.25)",marginLeft:12 }}>
+          <span style={{ fontSize:11,color:"#6b7280",marginLeft:12 }}>
             {carregando
               ? `— carregando… ${listasCarregadas}/${LISTAS_BUSCA.length} listas`
               : `— ${indice.length.toLocaleString("pt-BR")} registros indexados em ${LISTAS_BUSCA.length} listas`}
@@ -262,15 +270,15 @@ export default function BuscaPage() {
           {/* HERO DE BUSCA */}
           <div style={{
             padding: buscado ? "20px 28px 16px" : "60px 28px 40px",
-            background: buscado ? "#0a1628" : "linear-gradient(180deg,#0a1628 0%,#060f1e 100%)",
-            borderBottom: buscado ? "1px solid rgba(255,255,255,0.06)" : "none",
+            background: "#fff",
+            borderBottom: buscado ? "1px solid #e5e7eb" : "none",
             transition:"all 0.3s ease",
           }}>
             {!buscado && (
               <div style={{ textAlign:"center",marginBottom:28 }}>
                 <div style={{ fontSize:36,marginBottom:10 }}>🔍</div>
-                <h1 style={{ fontSize:22,fontWeight:800,color:"#fff",margin:"0 0 6px",letterSpacing:"-0.03em" }}>Busca Global SIGNU</h1>
-                <p style={{ fontSize:13,color:"rgba(255,255,255,0.35)",margin:0 }}>Pesquise por PA, NIV, ID do bem ou servidor em todas as listas simultaneamente</p>
+                <h1 style={{ fontSize:22,fontWeight:800,color:"#0f172a",margin:"0 0 6px",letterSpacing:"-0.03em" }}>Busca Global SIGNU</h1>
+                <p style={{ fontSize:13,color:"#6b7280",margin:0 }}>Pesquise por PA, NIV, ID do bem ou servidor em todas as listas simultaneamente</p>
               </div>
             )}
 
@@ -278,15 +286,15 @@ export default function BuscaPage() {
             <div style={{ maxWidth:640,margin:"0 auto",position:"relative" }}>
               <div style={{
                 display:"flex",alignItems:"center",
-                background:"rgba(255,255,255,0.06)",
-                border:`2px solid ${query || buscado ? "rgba(201,168,76,0.5)" : "rgba(255,255,255,0.1)"}`,
+                background:"#e5e7eb",
+                border:`2px solid ${query || buscado ? "rgba(37,99,235,0.5)" : "#d1d5db"}`,
                 borderRadius:14,overflow:"hidden",
                 transition:"border 0.2s",
-                boxShadow: query || buscado ? "0 0 24px rgba(201,168,76,0.1)" : "none",
+                boxShadow: query || buscado ? "0 0 24px rgba(37,99,235,0.08)" : "none",
               }}>
-                <div style={{ padding:"0 16px",color:"rgba(255,255,255,0.3)",flexShrink:0 }}>
+                <div style={{ padding:"0 16px",color:"#6b7280",flexShrink:0 }}>
                   {buscando
-                    ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" strokeWidth="2" style={{ animation:"spin 0.8s linear infinite" }}><circle cx="12" cy="12" r="9" strokeDasharray="28" strokeDashoffset="10"/></svg>
+                    ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" style={{ animation:"spin 0.8s linear infinite" }}><circle cx="12" cy="12" r="9" strokeDasharray="28" strokeDashoffset="10"/></svg>
                     : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
                   }
                 </div>
@@ -297,13 +305,13 @@ export default function BuscaPage() {
                   onKeyDown={e => e.key==="Enter" && executarBusca()}
                   placeholder="Pesquisar PA, NIV, ID, servidor..."
                   autoFocus
-                  style={{ flex:1,padding:"14px 0",background:"transparent",border:"none",color:"#fff",fontSize:15,outline:"none" }}
+                  style={{ flex:1,padding:"14px 0",background:"transparent",border:"none",color:"#0f172a",fontSize:15,outline:"none" }}
                 />
                 {(query || buscado) && (
-                  <button onClick={limpar} style={{ padding:"0 14px",background:"none",border:"none",color:"rgba(255,255,255,0.35)",cursor:"pointer",fontSize:18 }}>×</button>
+                  <button onClick={limpar} style={{ padding:"0 14px",background:"none",border:"none",color:"#6b7280",cursor:"pointer",fontSize:18 }}>×</button>
                 )}
                 <button onClick={() => executarBusca()} style={{
-                  padding:"12px 22px",background:"linear-gradient(135deg,#c9a84c,#8b6914)",
+                  padding:"12px 22px",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
                   border:"none",color:"#0a1628",fontSize:13,fontWeight:700,cursor:"pointer",
                   borderRadius:"0 12px 12px 0",
                 }}>Buscar</button>
@@ -314,9 +322,9 @@ export default function BuscaPage() {
                 <div style={{ display:"flex",gap:8,marginTop:14,justifyContent:"center",flexWrap:"wrap" }}>
                   {SUGESTOES.map(s => (
                     <button key={s.exemplo} onClick={() => { setQuery(s.exemplo); executarBusca(s.exemplo); }}
-                      style={{ padding:"5px 14px",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:20,color:"rgba(255,255,255,0.45)",fontSize:11,cursor:"pointer",transition:"all 0.15s" }}
-                      onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(201,168,76,0.4)";e.currentTarget.style.color="#c9a84c";}}
-                      onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.1)";e.currentTarget.style.color="rgba(255,255,255,0.45)";}}>
+                      style={{ padding:"5px 14px",background:"#f3f4f6",border:"1.5px solid #c4c9d0",borderRadius:20,color:"#374151",fontSize:11,cursor:"pointer",transition:"all 0.15s" }}
+                      onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(37,99,235,0.4)";e.currentTarget.style.color="#2563eb";}}
+                      onMouseLeave={e=>{e.currentTarget.style.borderColor="#d1d5db";e.currentTarget.style.color="#374151";}}>
                       {s.label}: <strong>{s.exemplo}</strong>
                     </button>
                   ))}
@@ -332,14 +340,14 @@ export default function BuscaPage() {
               {/* Header dos resultados */}
               <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:10 }}>
                 <div>
-                  <span style={{ fontSize:14,fontWeight:700,color:"#fff" }}>
+                  <span style={{ fontSize:14,fontWeight:700,color:"#0f172a" }}>
                     {resultados.length > 0
-                      ? <>{resultados.length} resultado{resultados.length!==1?"s":""} para <span style={{ color:"#c9a84c" }}>"{buscado}"</span></>
+                      ? <>{resultados.length} resultado{resultados.length!==1?"s":""} para <span style={{ color:"#2563eb" }}>"{buscado}"</span></>
                       : <>Nenhum resultado para <span style={{ color:"#f87171" }}>"{buscado}"</span></>
                     }
                   </span>
                   {resultados.length > 0 && (
-                    <span style={{ fontSize:11,color:"rgba(255,255,255,0.3)",marginLeft:10 }}>
+                    <span style={{ fontSize:11,color:"#6b7280",marginLeft:10 }}>
                       em {Object.keys(porLista).length} lista{Object.keys(porLista).length!==1?"s":""}
                     </span>
                   )}
@@ -348,14 +356,14 @@ export default function BuscaPage() {
                 {/* Filtro por lista */}
                 {resultados.length > 0 && (
                   <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
-                    <button onClick={()=>setFiltroLista("TODAS")} style={{ padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:filtroLista==="TODAS"?700:400,border:`1px solid ${filtroLista==="TODAS"?"rgba(201,168,76,0.5)":"rgba(255,255,255,0.1)"}`,background:filtroLista==="TODAS"?"rgba(201,168,76,0.1)":"transparent",color:filtroLista==="TODAS"?"#c9a84c":"rgba(255,255,255,0.4)",cursor:"pointer" }}>
+                    <button onClick={()=>setFiltroLista("TODAS")} style={{ padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:filtroLista==="TODAS"?700:400,border:`1px solid ${filtroLista==="TODAS"?"rgba(37,99,235,0.5)":"#d1d5db"}`,background:filtroLista==="TODAS"?"rgba(37,99,235,0.08)":"transparent",color:filtroLista==="TODAS"?"#2563eb":"#4b5563",cursor:"pointer" }}>
                       Todas ({resultados.length})
                     </button>
                     {Object.entries(porLista).map(([key,items]) => {
                       const meta = LISTA_META[key];
                       return (
                         <button key={key} onClick={()=>setFiltroLista(key===filtroLista?"TODAS":key)}
-                          style={{ padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:filtroLista===key?700:400,border:`1px solid ${filtroLista===key?meta.color+"66":"rgba(255,255,255,0.1)"}`,background:filtroLista===key?meta.bg:"transparent",color:filtroLista===key?meta.color:"rgba(255,255,255,0.4)",cursor:"pointer" }}>
+                          style={{ padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:filtroLista===key?700:400,border:`1px solid ${filtroLista===key?meta.color+"66":"#d1d5db"}`,background:filtroLista===key?meta.bg:"transparent",color:filtroLista===key?meta.color:"#4b5563",cursor:"pointer" }}>
                           {meta.label} ({items.length})
                         </button>
                       );
@@ -366,10 +374,17 @@ export default function BuscaPage() {
 
               {/* Resultados agrupados por lista */}
               {resultados.length === 0 ? (
-                <div style={{ textAlign:"center",padding:"60px 20px",color:"rgba(255,255,255,0.2)" }}>
+                <div style={{ textAlign:"center",padding:"60px 20px",color:"#6b7280" }}>
                   <div style={{ fontSize:40,marginBottom:12 }}>🔍</div>
-                  <div style={{ fontSize:14,marginBottom:8 }}>Nenhum bem encontrado</div>
-                  <div style={{ fontSize:12 }}>Tente buscar por PA, NIV, ID ou nome do responsável</div>
+                  <div style={{ fontSize:15,marginBottom:6,color:"#4b5563" }}>Nenhum bem encontrado para <span style={{ color:"#f87171" }}>"{buscado}"</span></div>
+                  <div style={{ fontSize:12,marginBottom:24 }}>Tente buscar por PA, NIV, ID ou nome do responsável</div>
+                  <button onClick={() => router.push("/cadastro")}
+                    style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 20px", background:"rgba(37,99,235,0.1)", border:"1px solid rgba(37,99,235,0.3)", borderRadius:10, color:"#2563eb", fontSize:13, fontWeight:700, cursor:"pointer", transition:"all 0.15s" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(37,99,235,0.2)"}
+                    onMouseLeave={e=>e.currentTarget.style.background="rgba(37,99,235,0.1)"}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Cadastrar novo bem
+                  </button>
                 </div>
               ) : filtroLista !== "TODAS" ? (
                 <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
@@ -382,8 +397,8 @@ export default function BuscaPage() {
                     <div key={listaKey} style={{ marginBottom:24 }}>
                       <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:10 }}>
                         <span style={{ fontSize:11,fontWeight:700,color:meta.color,background:meta.bg,padding:"3px 10px",borderRadius:4,letterSpacing:"0.06em" }}>{meta.label}</span>
-                        <span style={{ fontSize:11,color:"rgba(255,255,255,0.25)" }}>{items.length} resultado{items.length!==1?"s":""}</span>
-                        <div style={{ flex:1,height:1,background:"rgba(255,255,255,0.04)"}}/>
+                        <span style={{ fontSize:11,color:"#6b7280" }}>{items.length} resultado{items.length!==1?"s":""}</span>
+                        <div style={{ flex:1,height:1,background:"#f3f4f6"}}/>
                       </div>
                       <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
                         {items.map(item => <ResultCard key={item.id} item={item} termo={buscado} onOpen={() => router.push(`/detalhes?lista=${LISTA_ROTA[item.lista]}&row=${item._rowNumber}`)}/>)}
@@ -398,7 +413,7 @@ export default function BuscaPage() {
           {/* Estado vazio sem busca */}
           {!buscado && (
             <div style={{ padding:"0 28px 40px",maxWidth:640,margin:"0 auto" }}>
-              <div style={{ fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.2)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,textAlign:"center" }}>
+              <div style={{ fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,textAlign:"center" }}>
                 Listas disponíveis para busca
               </div>
               <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8 }}>
@@ -408,7 +423,7 @@ export default function BuscaPage() {
                   return (
                     <div key={cfg.key} style={{ background:meta?.bg,border:`1px solid ${meta?.color}22`,borderRadius:8,padding:"10px 12px",textAlign:"center" }}>
                       <div style={{ fontSize:12,fontWeight:700,color:meta?.color,marginBottom:3 }}>{meta?.label}</div>
-                      <div style={{ fontSize:10,color:"rgba(255,255,255,0.25)" }}>
+                      <div style={{ fontSize:10,color:"#6b7280" }}>
                         {carregando && total === 0 ? "carregando…" : `${total} registros`}
                       </div>
                     </div>

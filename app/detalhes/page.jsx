@@ -29,8 +29,9 @@ const TIPOS_BEM   = ["CARRO","MOTO","CAMINHÃO","CAMINHONETE","REBOQUE","OUTROS"
 const DESTINACOES = ["CIRCULAÇÃO","RECICLAGEM"];
 const DEPOSITOS   = ["SELAB/PCDF","CPA/PCDF","CPA","CEGOC","5ªDP","23ªDP","30ªDP","33ªDP"];
 
-const STATUS_OPTIONS = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO","EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD"];
-const STATUS_2HIGEIA = ["EM PROCESSAMENTO","TEP REGISTRADO","ENVIAR OFÍCIO DETRAN","AGUARDAR RESPOSTA DETRAN","GERAR TAP","FINALIZADO"];
+const STATUS_OPTIONS  = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO","EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD"];
+const STATUS_2HIGEIA  = ["EM PROCESSAMENTO","TEP REGISTRADO","ENVIAR OFÍCIO DETRAN","AGUARDAR RESPOSTA DETRAN","GERAR TAP","FINALIZADO"];
+const SEI_ACAO_OPTIONS = ["DILIGÊNCIA","ARQUIVADO","ENCAMINHAR","AGUARDAR RETORNO"];
 
 const LISTA_META = {
   CEGOC:        { label: "CEGOC",     color: "#3b82f6", bg: "#1e3a5f" },
@@ -578,6 +579,8 @@ function DetalhesContent() {
         if (!autoResp?.servidor) { showToast("Aguarde o cálculo de distribuição.", "error"); setSalvando(false); return; }
         payload.RESPONSAVEL = autoResp.servidor;
       }
+      // Itens em HIGEIA vão sempre para reciclagem
+      if (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") payload.DESTINACAO = "RECICLAGEM";
       // OBSERVACOES é gerenciado exclusivamente pela TimelineObservacoes (PATCH separado).
       // Não incluir aqui para não sobrescrever notas adicionadas durante a edição.
       delete payload.OBSERVACOES;
@@ -680,7 +683,8 @@ function DetalhesContent() {
   const current = editMode ? editData : bem;
 
   const idDisplay = displayId(current, listaKey);
-  const status    = STATUS_META[current?.STATUS_DILIGENCIA] || STATUS_META["AGUARDANDO"];
+  const statusValor = listaKey === "CAIXA_SEI" ? (current?.ACAO || current?.STATUS_DILIGENCIA) : current?.STATUS_DILIGENCIA;
+  const status    = STATUS_META[statusValor] || STATUS_META["AGUARDANDO"];
   const responsavel = nomeResp(current);
 
   // ── Loading ──
@@ -778,17 +782,38 @@ function DetalhesContent() {
                     <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap" }}>
                       <span style={{ fontSize:11,fontWeight:700,color:meta.color,background:meta.bg,padding:"3px 10px",borderRadius:4,letterSpacing:"0.06em" }}>{meta.label}</span>
                       <span style={{ fontSize:11,fontWeight:600,color:status.color,background:status.bg,padding:"3px 10px",borderRadius:20,border:`1px solid ${status.color}33` }}>
-                        {current?.STATUS_DILIGENCIA || "—"}
+                        {statusValor || "—"}
                       </span>
                     </div>
                     <h1 style={{ fontSize:20,fontWeight:700,color:"#0f172a",margin:0,letterSpacing:"-0.02em" }}>
                       {current?.TIPO_BEM || "Bem"} — {current?.ID_PASEI || "—"}
                     </h1>
                     <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:12,color:"#6b7280",marginTop:3 }}>
-                      NIV: {current?.NIV || "—"} · Responsável: {responsavel || "—"}
+                      NIV: {current?.NIV || "—"}{current?.PLACA ? ` · Placa: ${current.PLACA}` : ""} · Responsável: {responsavel || "—"}
                     </div>
                   </div>
                 </div>
+
+                {/* Botão Concluir — apenas Caixa SEI, fora do modo edição, quando ainda não concluído */}
+                {listaKey === "CAIXA_SEI" && !editMode && current?.ACAO !== "ARQUIVADO" && (
+                  <button onClick={async () => {
+                    setSalvando(true);
+                    try {
+                      const res = await fetch(`/api/bens/${lista}/${row}`, {
+                        method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ACAO:"ARQUIVADO"}),
+                      });
+                      const json = await res.json();
+                      if (!res.ok) throw new Error(json.erro||"Erro");
+                      setBem(json.item);
+                      showToast("Processo SEI marcado como arquivado!");
+                    } catch(e) { showToast(e.message,"error"); }
+                    finally { setSalvando(false); }
+                  }}
+                  disabled={salvando}
+                  style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderRadius:10,background:"linear-gradient(135deg,rgba(21,128,61,0.2),rgba(34,197,94,0.1))",border:"1px solid rgba(34,197,94,0.5)",color:"#22c55e",fontSize:13,fontWeight:700,cursor:"pointer",opacity:salvando?.5:1 }}>
+                    ✓ Marcar como Arquivado
+                  </button>
+                )}
 
                 {/* Botões de transição — apenas CEGOC, fora do modo edição */}
                 {listaKey === "CEGOC" && !editMode && (
@@ -830,9 +855,15 @@ function DetalhesContent() {
                       {editMode
                         ? <FieldEdit label="Tipo de Bem" value={editData?.TIPO_BEM} onChange={v=>upd("TIPO_BEM",v)} options={TIPOS_BEM}/>
                         : <FieldView label="Tipo de Bem" value={current?.TIPO_BEM}/>}
-                      {editMode
-                        ? <FieldEdit label="Status" value={editData?.STATUS_DILIGENCIA} onChange={v=>upd("STATUS_DILIGENCIA",v)} options={STATUS_OPTIONS}/>
-                        : <FieldView label="Status" value={current?.STATUS_DILIGENCIA}/>}
+                      {listaKey === "CAIXA_SEI" ? (
+                        editMode
+                          ? <FieldEdit label="Ação SEI" value={editData?.ACAO} onChange={v=>upd("ACAO",v)} options={SEI_ACAO_OPTIONS}/>
+                          : <FieldView label="Ação SEI" value={current?.ACAO || current?.STATUS_DILIGENCIA}/>
+                      ) : (
+                        editMode
+                          ? <FieldEdit label="Status" value={editData?.STATUS_DILIGENCIA} onChange={v=>upd("STATUS_DILIGENCIA",v)} options={STATUS_OPTIONS}/>
+                          : <FieldView label="Status" value={current?.STATUS_DILIGENCIA}/>
+                      )}
                       {listaKey === "PCDF_2HIGEIA" && (editMode
                         ? <FieldEdit label="Etapa HIGEIA" value={editData?.STATUS_2HIGEIA||"EM PROCESSAMENTO"} onChange={v=>upd("STATUS_2HIGEIA",v)} options={STATUS_2HIGEIA}/>
                         : <FieldView label="Etapa HIGEIA" value={current?.STATUS_2HIGEIA||"EM PROCESSAMENTO"} highlight={current?.STATUS_2HIGEIA==="FINALIZADO"?"#22c55e":"#2563eb"}/>
@@ -840,9 +871,14 @@ function DetalhesContent() {
                       {editMode
                         ? <FieldEdit label="NIV / Chassi" value={editData?.NIV} onChange={v=>upd("NIV",v)} mono/>
                         : <FieldView label="NIV / Chassi" value={current?.NIV} mono/>}
-                      {editMode
-                        ? <FieldEdit label="Destinação" value={editData?.DESTINACAO} onChange={v=>upd("DESTINACAO",v)} options={DESTINACOES}/>
-                        : <FieldView label="Destinação" value={current?.DESTINACAO}/>}
+                      {listaKey !== "CAIXA_SEI" && (editMode
+                        ? <FieldEdit label="Placa" value={editData?.PLACA} onChange={v=>upd("PLACA", v.toUpperCase().replace(/[^A-Z0-9]/g,""))} mono/>
+                        : <FieldView label="Placa" value={current?.PLACA} mono/>)}
+                      {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA")
+                        ? <FieldView label="Destinação" value="RECICLAGEM"/>
+                        : editMode
+                          ? <FieldEdit label="Destinação" value={editData?.DESTINACAO} onChange={v=>upd("DESTINACAO",v)} options={DESTINACOES}/>
+                          : <FieldView label="Destinação" value={current?.DESTINACAO}/>}
                       {bem?.ULTIMA_ANALISE && (
                         <FieldView label="Última atualização" value={
                           (() => {

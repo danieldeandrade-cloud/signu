@@ -36,6 +36,7 @@ export const authOptions = {
         'joloara@gmail.com',                  // Loara Passo — teste servidor
         'cacausantos@gmail.com',              // Cláudia Santos — teste servidor
         'danieldeandrade@icloud.com',         // Daniel — gestor
+        'danieldeandrade.pessoal@gmail.com', // Daniel — gestor (Gmail pessoal)
         'carlosalex1318@gmail.com',           // Carlos Amorim — gestor
       ];
       return PERMITIDOS.includes(email);

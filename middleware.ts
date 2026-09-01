@@ -8,7 +8,7 @@ const GESTORES = [
   'carlosalex1318@gmail.com',
 ];
 
-const ROTAS_GESTORES = ['/gestao', '/cadastro', '/anotacoes'];
+const ROTAS_GESTORES = ['/gestao', '/cadastro', '/anotacoes', '/api/entidades'];
 
 export async function middleware(request: NextRequest) {
   const token = await getToken({

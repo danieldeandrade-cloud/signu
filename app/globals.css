@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #060f1e;
-  --foreground: #e2e8f0;
+  --background: #dde1e7;
+  --foreground: #111827;
+  --sidebar-bg: #1e2d3d;
+  --topbar-bg: #1e2d3d;
+  --card-bg: #ffffff;
+  --card-border: #b0b8c4;
+  --accent: #2563eb;
 }
 
 * { box-sizing: border-box; }
@@ -32,14 +37,14 @@ body {
 
 /* ── Sidebar ──────────────────────────────────────────────── */
 .signu-sidebar {
-  width: 64px;
-  background: #0a1628;
-  border-right: 1px solid rgba(201,168,76,0.1);
+  width: 164px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid rgba(255,255,255,0.06);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 20px 0;
-  gap: 6px;
+  align-items: stretch;
+  padding: 16px 0;
+  gap: 2px;
   flex-shrink: 0;
 }
 
@@ -65,47 +70,93 @@ body {
     height: 100dvh;
   }
 
-  /* Sidebar vira bottom nav */
+  /* ── Sidebar → bottom nav ────────────────────────────────── */
   .signu-sidebar {
     width: 100% !important;
-    height: 56px !important;
+    height: 58px !important;
     flex-direction: row !important;
-    padding: 0 12px !important;
-    gap: 4px !important;
+    padding: 0 !important;
+    gap: 0 !important;
     border-right: none !important;
-    border-top: 1px solid rgba(201,168,76,0.15) !important;
+    border-top: 1px solid rgba(255,255,255,0.1) !important;
     order: 2;
-    justify-content: space-around;
+    justify-content: stretch !important;
+    align-items: stretch !important;
     flex-shrink: 0;
   }
 
-  /* Logo some na bottom nav (espaço curto) */
-  .signu-sidebar-logo { display: none !important; }
+  /* Ocultar logo, avatar e spacer no bottom nav */
+  .signu-sidebar-logo    { display: none !important; }
+  .signu-sidebar-avatar  { display: none !important; }
+  .signu-sidebar-spacer  { display: none !important; }
 
-  /* Avatar vai para o header */
-  .signu-sidebar-avatar { display: none !important; }
+  /* Botões de nav: ícone em cima + label pequeno embaixo */
+  .signu-sidebar > button {
+    flex: 1 !important;
+    width: auto !important;
+    height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    padding: 6px 4px 4px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
 
-  /* Spacer não precisa crescer */
-  .signu-sidebar-spacer { display: none !important; }
+  /* Label do botão: menor e cortado */
+  .signu-sidebar > button span {
+    font-size: 9px !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 56px !important;
+  }
 
-  .signu-main { order: 1; flex: 1; min-height: 0; }
+  /* Separador entre botões */
+  .signu-sidebar > div[style*="height: 1"] { display: none !important; }
 
-  .signu-content { padding: 16px 14px 20px; }
+  /* ── Main content ───────────────────────────────────────── */
+  .signu-main { order: 1; flex: 1; min-height: 0; overflow: hidden; }
+
+  .signu-content { padding: 14px 12px 16px; }
 
   /* Grids colapsam */
-  .signu-grid-4 { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
-  .signu-grid-2 { grid-template-columns: 1fr !important; }
+  .signu-grid-4    { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
+  .signu-grid-2    { grid-template-columns: 1fr !important; }
   .signu-grid-main { grid-template-columns: 1fr !important; }
 
-  /* Tabelas scrolláveis */
-  .signu-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Tabelas e conteúdo largo: scroll horizontal */
+  .signu-table-wrap,
+  .signu-main table { overflow-x: auto; -webkit-overflow-scrolling: touch; display: block; }
 
-  /* Header top bar */
-  .signu-topbar-date { display: none; }
+  /* Topbar: permite overflow sem quebrar altura */
+  .signu-main > header {
+    height: auto !important;
+    min-height: 52px !important;
+    flex-wrap: wrap !important;
+    padding: 8px 14px !important;
+    gap: 6px !important;
+  }
+
+  /* Esconder elementos de topbar opcionais no mobile */
+  .signu-topbar-date   { display: none !important; }
+  .signu-topbar-extra  { display: none !important; }
+
+  /* Modais: tela cheia no mobile */
+  .signu-modal {
+    width: 96vw !important;
+    max-width: 96vw !important;
+    max-height: 92vh !important;
+    border-radius: 10px !important;
+  }
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.2); border-radius: 4px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #e5e7eb; }
+::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 4px; }
 
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }

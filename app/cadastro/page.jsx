@@ -1,6 +1,7 @@
 "use client";
 import Sidebar from "@/components/Sidebar";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useEntidades, ENTIDADES_FALLBACK } from "@/lib/useEntidades";
 
 // Listas onde buscar duplicatas (todas)
 const TODAS_LISTAS_ROTA = [
@@ -38,65 +39,26 @@ const SERVIDORES = [
 ];
 const RENAJUD_SERVIDORES = ["Amanda Junqueira", "Letícia Mota"];
 
+// Servidoras fora da distribuição automática nessas listas
+// (ainda podem ser atribuídas manualmente; RENAJUD continua indo p/ Amanda/Letícia).
+const EXCLUIR_AUTO_DISTRIBUICAO = {
+  CEGOC:        ["Amanda Junqueira", "Letícia Mota", "Cláudia Santos"],
+  PCDF_1HIGEIA: ["Amanda Junqueira", "Letícia Mota", "Cláudia Santos"],
+  PCDF_2HIGEIA: ["Amanda Junqueira", "Letícia Mota", "Cláudia Santos"],
+};
+const poolDistribuicao = (listaKey) => {
+  const excluir = new Set(EXCLUIR_AUTO_DISTRIBUICAO[listaKey] || []);
+  return SERVIDORES.filter((s) => !excluir.has(s));
+};
+
 const TIPOS_BEM    = ["CARRO","MOTO","CAMINHÃO","CAMINHONETE","REBOQUE","OUTROS"];
 const DESTINACOES  = ["CIRCULAÇÃO","RECICLAGEM"];
 const STATUS_DI    = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO","EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD"];
 const DEPOSITOS    = ["SELAB/PCDF","CPA/PCDF","CPA","CEGOC","5ªDP","23ªDP","30ªDP","33ªDP"];
 const ACOES_SEI    = ["DILIGÊNCIA","ARQUIVAR","ENCAMINHAR","AGUARDAR RETORNO","CONCLUIR"];
-const STATUS_LOCAL = ["EM ANÁLISE","AGUARDANDO ENTIDADE","CONCLUÍDO","CANCELADO"];
-// Edital de Chamamento nº 2/2024 — lista extraída em 24/06/2026 do site TJDFT
-// https://www.tjdft.jus.br/.../lista-de-entidades-credenciadas-edital-de-chamamento-no-2-2024
-const ENTIDADES = [
-  "1. Associação Casa de Proteção Magnólia - CPM",
-  "2. Projeto Integral de Vida - Pró-Vida",
-  "3. ASCOM - Associação Comunitária de São Sebastião - DF",
-  "4. Associação Capoeiristas do Rei",
-  "5. Instituto de Desenvolvimento da Educação e Implementação de Ações Sociais - IDEIAS Ser Escola",
-  "6. Associação de Pais e Amigos dos Excepcionais do DF - APAE/DF",
-  "7. Associação Brasília Inclusiva e Direitos Sociais - ABIDS",
-  "8. Associação Beneficente Luz do Dia - ABLD",
-  "9. Associação Evangelística Palavra de Bênção",
-  "10. Instituto Jovens Promessas",
-  "11. Instituto Horizontes de Responsabilidade Social - IHRS",
-  "12. Creche Criança Cidadã de Planaltina",
-  "13. Movimento Popular do Arapoanga pela Cidadania - MPA",
-  "14. Centro Esportivo Cultural de Planaltina - DF",
-  "15. Instituto de Integração e Formação do Ser Social",
-  "16. Movimento de Assistência aos Carentes da Metropolitana",
-  "17. Grupo Força para Vencer",
-  "18. Associação Evangélica Missão Resgate",
-  "19. Academia Gamense de Letras - AGL",
-  "20. Organização Viva Vida - OVV",
-  "21. Instituto Abba Pai",
-  "22. Organização Assistencial Amor sem Fronteira",
-  "23. Organização Social Ambiental da Fauna e Flora do Brasil",
-  "24. Associação de Moradores dos Bairros Santa Luiza e Cidade Nova",
-  "25. Comunidade Terapêutica Elshadai",
-  "26. Associação de Moradores Aguaslindense - AMAG",
-  "27. Centro de Assistência Social e Espiritual",
-  "28. Instituto Esporte e Vida",
-  "29. Instituto Epuranios",
-  "30. Centro de Integração à Cultura, Esporte e Habitação de Planaltina",
-  "31. Aconchego - Grupo de Apoio à Convivência Familiar e Comunitária",
-  "32. Obras Sociais do Centro Espírita Fraternidade Jerônimo Candinho",
-  "33. Instituto Arkrealiza",
-  "34. Instituto Lar dos Velhinhos Maria Madalena",
-  "35. Comunidade Cristã Amada",
-  "36. Instituto Abraço Solidário",
-  "37. Instituto Magia dos Sonhos",
-  "38. VESP - Vila Esperança",
-  "39. Associação dos Idosos da Ceilândia",
-  "40. Associação das Artes dos Manualistas e dos Artesãos - ASSOCIAAMA",
-  "41. Casa de Ismael - Lar da Criança",
-  "42. Associação Comunitária Missão Shekinah - AMAS",
-  "43. Associação Lar Infantil Chico Xavier",
-  "44. Lar de São José",
-  "45. Instituto Nossa Missão",
-  "46. Associação Benéfica Cristã Promotora do Desenvolvimento Integral - ABC PRODEIN",
-  "47. Obra das Filhas do Amor de Jesus Cristo (Casa do Menino Jesus)",
-  "48. Obras Sociais do Centro Espírita Batuíra",
-  "49. Instituto Carisma",
-];
+const STATUS_LOCAL = ["EM ANÁLISE","AGUARDANDO ENTIDADE","AGUARDANDO APTIDÃO","CONCLUÍDO","CANCELADO"];
+// Entidades credenciadas (Edital nº 2/2024): carregadas em runtime da aba
+// Entidades_Credenciadas via useEntidades(); ENTIDADES_FALLBACK é só o padrão estático.
 const MOTIVOS_SAIDA= ["DETERIORADO","BAIXA","DOAÇÃO","ARREMATAÇÃO LPC","OUTROS"];
 
 // Campos por lista
@@ -105,6 +67,7 @@ const CAMPOS = {
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0038491-22.2024.8.07.0001" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
+    { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
     { id:"DESTINACAO",        label:"Destinação *",        type:"select",   required:true,  options:DESTINACOES },
     { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
@@ -116,6 +79,7 @@ const CAMPOS = {
     { id:"PA_PJE",            label:"PA PJE *",            type:"text",     required:true,  placeholder:"Ex: 0002341-88.2021" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
+    { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
     { id:"DATA_ENTRADA",      label:"Data de Entrada *",   type:"date",     required:true },
     { id:"PRAZO_6MESES",      label:"Prazo 6 Meses",       type:"date",     readonly:true,  hint:"Calculado automaticamente (+180 dias)" },
     { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
@@ -126,6 +90,7 @@ const CAMPOS = {
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0054812-11.2022.8.07.0003" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
+    { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
     { id:"DEPOSITO",          label:"Depósito *",          type:"select",   required:true,  options:DEPOSITOS },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
     { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
@@ -140,6 +105,7 @@ const CAMPOS = {
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0071009-44.2024.8.07.0007" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
+    { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
     { id:"DEPOSITO",          label:"Depósito *",          type:"select",   required:true,  options:DEPOSITOS },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
     { id:"PA_TJDFT",          label:"PA TJDFT",            type:"text",     placeholder:"N/C se não houver" },
@@ -154,10 +120,11 @@ const CAMPOS = {
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação..." },
   ],
   DOACOES: [
-    { id:"ENTIDADE_NOME",     label:"Entidade Credenciada *", type:"select", required:true, options:ENTIDADES },
+    { id:"ENTIDADE_NOME",     label:"Entidade Credenciada *", type:"select", required:true, options:ENTIDADES_FALLBACK },
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0038491-22.2024.8.07.0001" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
+    { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
     { id:"STATUS_LOCAL_PA",   label:"Status Local PA",     type:"select",   options:STATUS_LOCAL },
     { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Detalhes da doação..." },
@@ -267,7 +234,7 @@ export default function CadastroPage() {
   const [autoResp, setAutoResp]   = useState(null);   // { servidor, contagens }
   const [autoLoading, setAutoLoading] = useState(false);
 
-  const calcularDistribuicao = async (candidatos = SERVIDORES) => {
+  const calcularDistribuicao = async (candidatos = SERVIDORES, motivo = "") => {
     setAutoLoading(true);
     setAutoResp(null);
     try {
@@ -286,13 +253,17 @@ export default function CadastroPage() {
       );
       // Escolhe apenas entre os candidatos permitidos para este status
       const servidor = candidatos.reduce((a, b) => contagens[a] <= contagens[b] ? a : b);
-      setAutoResp({ servidor, contagens, candidatos });
+      setAutoResp({ servidor, contagens, candidatos, motivo });
     } catch {}
     setAutoLoading(false);
   };
 
   const lista = LISTAS_CONFIG.find(l => l.key === listaKey);
-  const campos = listaKey ? CAMPOS[listaKey] || [] : [];
+  const entidades = useEntidades();
+  const campos = useMemo(() => {
+    const base = listaKey ? CAMPOS[listaKey] || [] : [];
+    return base.map(c => (c.id === "ENTIDADE_NOME" ? { ...c, options: entidades } : c));
+  }, [listaKey, entidades]);
   const [proximaEntidade, setProximaEntidade] = useState(null);
   const [carregandoEntidade, setCarregandoEntidade] = useState(false);
 
@@ -370,22 +341,24 @@ export default function CadastroPage() {
 
       // Ordena as 49 entidades pelo último evento crescente
       // (sem evento = 0, fica primeiro; com evento mais antigo vem antes)
-      const ordenadas = [...ENTIDADES].sort((a, b) => {
+      const ordenadas = [...entidades].sort((a, b) => {
         const ta = ultimoEvento[a] || 0;
         const tb = ultimoEvento[b] || 0;
         if (ta !== tb) return ta - tb;
         // Desempate: posição original na lista
-        return ENTIDADES.indexOf(a) - ENTIDADES.indexOf(b);
+        return entidades.indexOf(a) - entidades.indexOf(b);
       });
 
       const proxima = ordenadas[0];
       setProximaEntidade(proxima);
       setFormData(prev => ({ ...prev, ENTIDADE_NOME: proxima }));
     }).finally(() => setCarregandoEntidade(false));
-  }, [listaKey]);
+  }, [listaKey, entidades]);
 
   // Calcula prazo 6 meses automaticamente para DPJ
   const handleChange = (id, val) => {
+    // Placa: sempre em maiúsculas e sem ponto/traço/espaço (consistência p/ busca)
+    if (id === "PLACA") val = String(val).toUpperCase().replace(/[^A-Z0-9]/g, "");
     const next = { ...formData, [id]: val };
     if (id === "DATA_ENTRADA" && listaKey === "DPJ_GC99" && val) {
       const d = new Date(val);
@@ -401,12 +374,23 @@ export default function CadastroPage() {
     }
     // Distribuição automática
     if (id === "Responsavel") {
-      if (val === "__AUTO__") {
-        const isRenajud = (next.STATUS_DILIGENCIA || "") === "RENAJUD";
-        calcularDistribuicao(isRenajud ? RENAJUD_SERVIDORES : SERVIDORES);
-      } else {
-        setAutoResp(null);
-      }
+      if (val === "__AUTO__") dispararAutoDistribuicao(next.STATUS_DILIGENCIA);
+      else setAutoResp(null);
+    }
+    // Se já está em modo automático e o status muda, recalcula (RENAJUD ⇄ normal)
+    if (id === "STATUS_DILIGENCIA" && next.Responsavel === "__AUTO__") {
+      dispararAutoDistribuicao(val);
+    }
+  };
+
+  const dispararAutoDistribuicao = (status) => {
+    if ((status || "") === "RENAJUD") {
+      calcularDistribuicao(RENAJUD_SERVIDORES, "processos RENAJUD");
+    } else {
+      calcularDistribuicao(
+        poolDistribuicao(listaKey),
+        EXCLUIR_AUTO_DISTRIBUICAO[listaKey] ? "regra de distribuição da lista" : ""
+      );
     }
   };
 
@@ -437,6 +421,8 @@ export default function CadastroPage() {
           payload[c.id] = dadosResolvidos[c.id];
         }
       });
+      // Itens cadastrados direto em HIGEIA vão sempre para reciclagem
+      if (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") payload.DESTINACAO = "RECICLAGEM";
 
       const res = await fetch(`/api/bens/${rota}`, {
         method: "POST",
@@ -573,7 +559,7 @@ export default function CadastroPage() {
                         )}
                       </div>
                       <div style={{ fontSize:10,color:"rgba(52,211,153,0.5)",textAlign:"right",flexShrink:0 }}>
-                        Edital nº 2/2024<br/>49 entidades
+                        Edital nº 2/2024<br/>{entidades.length} entidades
                       </div>
                     </div>
                   )}
@@ -617,7 +603,7 @@ export default function CadastroPage() {
                               <div style={{ fontSize:12, fontWeight:700, color:"#2563eb" }}>Distribuição automática</div>
                               <div style={{ fontSize:11, color:"#374151", marginTop:1 }}>
                                 {autoResp.candidatos?.length < SERVIDORES.length
-                                  ? `Restrito a: ${autoResp.candidatos.map(s=>s.split(" ")[0]).join(", ")} — processos RENAJUD`
+                                  ? `Restrito a: ${autoResp.candidatos.map(s=>s.split(" ")[0]).join(", ")}${autoResp.motivo ? ` — ${autoResp.motivo}` : ""}`
                                   : "Servidor com menos processos recebidos no total"}
                               </div>
                             </div>

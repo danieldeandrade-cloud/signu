@@ -95,6 +95,7 @@ const STATUS_META = {
   "BAIXADO":            { color:"#6b7280", bg:"rgba(107,114,128,0.12)" },
   "EM ANÁLISE":         { color:"#60a5fa", bg:"rgba(96,165,250,0.12)"  },
   "AGUARDANDO ENTIDADE":{ color:"#fbbf24", bg:"rgba(251,191,36,0.12)"  },
+  "AGUARDANDO APTIDÃO": { color:"#f59e0b", bg:"rgba(245,158,11,0.12)"  },
   "DILIGÊNCIA":         { color:"#22c55e", bg:"rgba(34,197,94,0.12)"   },
   "AGUARDAR RETORNO":   { color:"#fbbf24", bg:"rgba(251,191,36,0.12)"  },
   "ENCAMINHAR":         { color:"#a78bfa", bg:"rgba(167,139,250,0.12)" },
@@ -186,14 +187,35 @@ export default function GestaoPage() {
   const [filtroStatus, setFiltroStatus] = useState(new Set());
   const [filtroTipo,   setFiltroTipo]   = useState(new Set());
   const [filtroResp,   setFiltroResp]   = useState(new Set());
-  const [filtroFlags, setFiltroFlags]   = useState(new Set());
-  const [filtroSemFib, setFiltroSemFib] = useState(false);
+  const [filtroFlags,       setFiltroFlags]       = useState(new Set());
+  const [filtroSemFib,      setFiltroSemFib]      = useState(false);
+  const [filtroDestinacao,  setFiltroDestinacao]  = useState(new Set());
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [carregandoRenajud,   setCarregandoRenajud]   = useState(false);
   const [modalRenajud,        setModalRenajud]         = useState(false);
   const [renajudLinhas,       setRenajudLinhas]        = useState([]);
   const [filtroRenajudSit,    setFiltroRenajudSit]    = useState("todas"); // "todas"|"pendente"|"baixada"
   const [filtroRenajudResp,   setFiltroRenajudResp]   = useState(new Set()); // vazio = todos
+  const [syncEntidades, setSyncEntidades] = useState(false);
+
+  const atualizarEntidades = async () => {
+    setSyncEntidades(true);
+    try {
+      const res = await fetch("/api/entidades", { method: "POST" });
+      const j = await res.json();
+      if (!res.ok || !j.ok) throw new Error(j.erro || "Falha na sincronização");
+      alert(
+        "Entidades sincronizadas com a lista do TJDFT.\n\n" + j.resumo +
+        (j.adicionadas?.length ? "\n\nAdicionadas:\n- " + j.adicionadas.join("\n- ") : "") +
+        (j.atualizadas?.length ? "\n\nRenomeadas:\n- " + j.atualizadas.join("\n- ") : "") +
+        (j.extras?.length ? "\n\nNo sistema mas fora da lista oficial: " + j.extras.join(", ") : "")
+      );
+    } catch (e) {
+      alert("Erro ao atualizar entidades: " + e.message);
+    } finally {
+      setSyncEntidades(false);
+    }
+  };
 
   const abrirModalRenajud = async () => {
     setCarregandoRenajud(true);
@@ -263,7 +285,7 @@ export default function GestaoPage() {
 
   const totalFiltrosAtivos =
     filtroStatus.size + filtroTipo.size + filtroResp.size + filtroFlags.size +
-    (filtroSemFib ? 1 : 0) + (busca.trim() ? 1 : 0);
+    (filtroSemFib ? 1 : 0) + filtroDestinacao.size + (busca.trim() ? 1 : 0);
   const [ordenacao, setOrdenacao]   = useState({ campo:"_rowNumber", dir:"asc" });
   const [pag, setPag]               = useState(1);
   const POR_PAGINA = 15;
@@ -297,6 +319,7 @@ export default function GestaoPage() {
     setFiltroResp(new Set());
     setFiltroFlags(new Set());
     setFiltroSemFib(false);
+    setFiltroDestinacao(new Set());
     setPag(1);
   }, [abaAtiva, fetchAba]);
 
@@ -305,17 +328,16 @@ export default function GestaoPage() {
     let res = [...dados];
     if (busca.trim()) {
       const q = busca.toLowerCase();
-      res = res.filter(i =>
-        i.ID_PASEI?.toLowerCase().includes(q) ||
-        i.ID_LEGADO?.toLowerCase().includes(q) ||
-        i.NIV?.toLowerCase().includes(q) ||
-        (i.RESPONSAVEL || i.Responsavel || "").toLowerCase().includes(q) ||
-        i.TIPO_BEM?.toLowerCase().includes(q) ||
-        (i.ENTIDADE_NOME || i.ENTIDADE || "").toLowerCase().includes(q)
-      );
+      res = res.filter(i => {
+        const campos = Object.values(i).filter(v => typeof v === "string").join(" ").toLowerCase();
+        return campos.includes(q);
+      });
     }
     if (filtroStatus.size > 0) {
       res = res.filter(i => filtroStatus.has(getStatus(i, abaAtiva)));
+    } else if (abaAtiva === "DOACOES") {
+      // "AGUARDANDO APTIDÃO" = ainda não aptos p/ doação — vão num grupo à parte
+      res = res.filter(i => getStatus(i, abaAtiva) !== "AGUARDANDO APTIDÃO");
     }
     if (filtroTipo.size > 0) {
       res = res.filter(i => filtroTipo.has(i.TIPO_BEM));
@@ -329,6 +351,9 @@ export default function GestaoPage() {
     if (filtroSemFib) {
       res = res.filter(i => !hasFlag(i, "FIB"));
     }
+    if (filtroDestinacao.size > 0) {
+      res = res.filter(i => filtroDestinacao.has(i.DESTINACAO));
+    }
     res.sort((a, b) => {
       const va = a[ordenacao.campo] ?? "";
       const vb = b[ordenacao.campo] ?? "";
@@ -336,7 +361,7 @@ export default function GestaoPage() {
       return ordenacao.dir === "asc" ? r : -r;
     });
     return res;
-  }, [dados, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, ordenacao, abaAtiva]);
+  }, [dados, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroDestinacao, ordenacao, abaAtiva]);
 
   const totalPags = Math.ceil(filtrados.length / POR_PAGINA);
   const pagina = filtrados.slice((pag-1)*POR_PAGINA, pag*POR_PAGINA);
@@ -358,7 +383,7 @@ export default function GestaoPage() {
 
   const limparFiltros = () => {
     setBusca(""); setFiltroStatus(new Set()); setFiltroTipo(new Set());
-    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setPag(1);
+    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setFiltroDestinacao(new Set()); setPag(1);
   };
 
   // Flags disponíveis na lista ativa (só exibe pill se houver ao menos 1 item com a flag)
@@ -374,12 +399,22 @@ export default function GestaoPage() {
   };
 
   const stats = useMemo(() => {
-    const total     = dados.length;
+    const naoAptos  = abaAtiva === "DOACOES"
+      ? dados.filter(i => getStatus(i, abaAtiva) === "AGUARDANDO APTIDÃO").length
+      : 0;
+    const total     = dados.length - naoAptos;
     const atrasados = dados.filter(i => getStatus(i, abaAtiva) === "ATRASADO").length;
     const emDilig   = dados.filter(i => getStatus(i, abaAtiva) === "EM DILIGÊNCIA").length;
     const aguardando= dados.filter(i => getStatus(i, abaAtiva) === "AGUARDANDO").length;
-    return { total, atrasados, emDilig, aguardando };
+    return { total, atrasados, emDilig, aguardando, naoAptos };
   }, [dados, abaAtiva]);
+
+  const naoAptosDoacao = useMemo(
+    () => (abaAtiva === "DOACOES"
+      ? dados.filter(i => getStatus(i, abaAtiva) === "AGUARDANDO APTIDÃO")
+      : []),
+    [dados, abaAtiva]
+  );
 
   return (
     <div className="signu-layout" style={{ background:"#dde1e7", fontFamily:"'Inter',system-ui,sans-serif", color:"#111827" }}>
@@ -428,6 +463,15 @@ export default function GestaoPage() {
             style={{ padding:"5px 10px", background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.3)", borderRadius:6, color:"#f59e0b", fontSize:11, cursor:carregandoRenajud?"wait":"pointer", fontWeight:600, opacity:carregandoRenajud?0.6:1 }}>
             {carregandoRenajud ? "⏳ Carregando…" : "🔒 Rel. RENAJUD"}
           </button>
+          {abaAtiva === "DOACOES" && (
+            <button
+              onClick={atualizarEntidades}
+              disabled={syncEntidades}
+              title="Sincroniza a aba Entidades_Credenciadas com a lista oficial do TJDFT (Edital nº 2/2024)"
+              style={{ padding:"5px 10px", background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.3)", borderRadius:6, color:"#0d9488", fontSize:11, cursor:syncEntidades?"wait":"pointer", fontWeight:600, opacity:syncEntidades?0.6:1 }}>
+              {syncEntidades ? "⏳ Sincronizando…" : "🏢 Atualizar entidades (TJDFT)"}
+            </button>
+          )}
           <button onClick={() => fetchAba(abaAtiva)} title="Recarregar da planilha"
             style={{ padding:"5px 10px", background:"rgba(37,99,235,0.07)", border:"1.5px solid #b0b8c4", borderRadius:6, color:"#2563eb", fontSize:11, cursor:"pointer", fontWeight:600 }}>
             ↻ Atualizar
@@ -462,6 +506,9 @@ export default function GestaoPage() {
               { label:"Em Diligência",value:stats.emDilig,   color:"#22c55e" },
               { label:"Aguardando",   value:stats.aguardando,color:"#60a5fa" },
               { label:"Atrasados",    value:stats.atrasados, color:"#f87171" },
+              ...(abaAtiva === "DOACOES" && stats.naoAptos > 0
+                ? [{ label:"Ainda não aptos", value:stats.naoAptos, color:"#f59e0b" }]
+                : []),
             ].map(s => (
               <div key={s.label} style={{ display:"flex", alignItems:"center", gap:8, background:"#f9fafb", border:"1.5px solid #b0b8c4", borderRadius:8, padding:"7px 14px" }}>
                 <span style={{ width:6, height:6, borderRadius:"50%", background:s.color, flexShrink:0 }}/>
@@ -470,6 +517,29 @@ export default function GestaoPage() {
               </div>
             ))}
           </div>
+
+          {/* ── Grupo à parte: itens ainda não aptos para doação ── */}
+          {abaAtiva === "DOACOES" && naoAptosDoacao.length > 0 && (
+            <div style={{ marginBottom:16, background:"#fffbeb", border:"1.5px solid #fcd34d", borderRadius:8, padding:"12px 14px" }}>
+              <div style={{ fontSize:12, fontWeight:700, color:"#92400e", marginBottom:8 }}>
+                ⏳ Ainda não aptos para doação ({naoAptosDoacao.length}) — em diligência para desvinculação de débitos, fora da contagem de doações
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {naoAptosDoacao.map(item => (
+                  <div key={item._rowNumber}
+                    onClick={() => router.push(`/detalhes?lista=doacoes_diligencia&row=${item._rowNumber}`)}
+                    style={{ display:"flex", alignItems:"center", gap:10, fontSize:12, color:"#0f172a", cursor:"pointer", padding:"4px 6px", borderRadius:6 }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#fef3c7"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <span style={{ fontFamily:"'IBM Plex Mono',monospace", color:"#92400e" }}>{item.ID_PASEI || "—"}</span>
+                    <span style={{ color:"#6b7280" }}>{item.TIPO_BEM || "—"}</span>
+                    <span style={{ color:"#4b5563", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.OBSERVACOES || ""}</span>
+                    <span style={{ marginLeft:"auto", color:"#6b7280", whiteSpace:"nowrap" }}>{item.RESPONSAVEL || item.Responsavel || "—"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Painel de filtros ── */}
           <div style={{ marginBottom:14 }}>
@@ -587,6 +657,25 @@ export default function GestaoPage() {
                     </div>
                   </div>
                 )}
+                {/* Destinação */}
+                {dados.some(i => i.DESTINACAO === "CIRCULAÇÃO" || i.DESTINACAO === "RECICLAGEM") && (
+                  <div>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:7 }}>Destinação</div>
+                    <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                      {["CIRCULAÇÃO","RECICLAGEM"].map(d => {
+                        const ativo = filtroDestinacao.has(d);
+                        const count = dados.filter(i => i.DESTINACAO === d).length;
+                        const cor = d === "RECICLAGEM" ? "#22c55e" : "#60a5fa";
+                        return (
+                          <button key={d} onClick={() => { toggleSet(setFiltroDestinacao, d); setPag(1); }}
+                            style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:ativo?700:400, cursor:"pointer", border:`1px solid ${ativo?cor:"#d1d5db"}`, background:ativo?`${cor}18`:"transparent", color:ativo?cor:"#374151" }}>
+                            {ativo && "✓ "}{d} <span style={{ fontSize:10, opacity:.6 }}>({count})</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -608,6 +697,10 @@ export default function GestaoPage() {
                 {filtroSemFib && (
                   <span onClick={()=>{setFiltroSemFib(false);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(248,113,113,0.1)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:20, fontSize:11, color:"#f87171", cursor:"pointer" }}>Sem FIB ✕</span>
                 )}
+                {[...filtroDestinacao].map(d => {
+                  const cor = d === "RECICLAGEM" ? "#22c55e" : "#60a5fa";
+                  return <span key={d} onClick={()=>{toggleSet(setFiltroDestinacao,d);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:`${cor}12`, border:`1px solid ${cor}44`, borderRadius:20, fontSize:11, color:cor, cursor:"pointer" }}>{d} ✕</span>;
+                })}
               </div>
             )}
           </div>
