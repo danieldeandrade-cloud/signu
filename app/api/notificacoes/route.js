@@ -31,6 +31,13 @@ const LISTA_NOMES = LISTAS.map(l => l.nome);
 const DIAS_SEM_ANALISE     = 21;  // servidor é avisado se o item não é mexido há N dias
 const MAX_ALERTAS_SERVIDOR = 25;  // teto de linhas no e-mail individual
 
+// O e-mail INDIVIDUAL do servidor fica suspenso até esta data. Motivo: logo após a
+// migração o ULTIMA_ANALISE está vazio e o DATA_ATUALIZACAO é uniforme, então o
+// primeiro envio seria dominado por backlog herdado. Dá tempo da equipe rodar o
+// sistema ~30 dias; depois disso volta a enviar normalmente. O resumo dos gestores
+// continua saindo toda semana.
+const ALERTA_SERVIDOR_ATIVO_EM = new Date('2026-10-02T00:00:00-03:00');
+
 // Status que significam trabalho encerrado — ficam fora do relatório
 const STATUS_ENCERRADO = ['RETIRADO', 'BAIXADO', 'CONCLUÍDO', 'CONCLUIDO', 'CANCELADO', 'ARQUIVADO', 'DOAÇÃO REALIZADA'];
 const estaAtivo = (status) => {
@@ -384,16 +391,19 @@ export async function GET(request) {
       .forEach(b => { (porResponsavel[b.responsavel] ||= []).push(b); });
 
     const enviados = [];
+    const alertaServidorLiberado = Date.now() >= ALERTA_SERVIDOR_ATIVO_EM.getTime();
 
-    for (const [nomeServidor, email] of Object.entries(SERVIDORES_EMAIL)) {
-      const todos = porResponsavel[nomeServidor] || [];
-      if (todos.length === 0) continue;
-      const resultado = await enviarEmail({
-        para: email,
-        assunto: `⚠️ SIGNU — ${todos.length} item(ns) parado(s) — ${new Date().toLocaleDateString('pt-BR')}`,
-        html: htmlServidor(nomeServidor, todos.slice(0, MAX_ALERTAS_SERVIDOR), todos.length),
-      });
-      enviados.push({ para: email, itens: todos.length, ...resultado });
+    if (alertaServidorLiberado) {
+      for (const [nomeServidor, email] of Object.entries(SERVIDORES_EMAIL)) {
+        const todos = porResponsavel[nomeServidor] || [];
+        if (todos.length === 0) continue;
+        const resultado = await enviarEmail({
+          para: email,
+          assunto: `⚠️ SIGNU — ${todos.length} item(ns) parado(s) — ${new Date().toLocaleDateString('pt-BR')}`,
+          html: htmlServidor(nomeServidor, todos.slice(0, MAX_ALERTAS_SERVIDOR), todos.length),
+        });
+        enviados.push({ para: email, itens: todos.length, ...resultado });
+      }
     }
 
     for (const email of GESTORES_EMAIL) {
@@ -411,6 +421,7 @@ export async function GET(request) {
       porLista: Object.fromEntries(LISTA_NOMES.map(n => [n, porLista[n].total])),
       filaDoacao: filaDoacao.total,
       servidoresComAlerta: Object.keys(porResponsavel).length,
+      alertaIndividualSuspensoAte: alertaServidorLiberado ? null : '2026-10-02',
       enviados,
     });
   } catch (e) {
