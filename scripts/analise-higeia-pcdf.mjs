@@ -82,19 +82,44 @@ const infoRow = (r, aba) => ({
   obs: r.get('OBSERVACOES') || '',
 });
 
+const tipoBate = (nosso, pcdf) => {
+  const a = norm(nosso), b = norm(pcdf);
+  if (!a || !b) return true;
+  const auto = ['CARRO', 'CAMINHONETE', 'CAMIONETA', 'AUTOMOVEL', 'UTILITARIO', 'PICKUP'];
+  if (auto.includes(a) && auto.includes(b)) return true;
+  const moto = ['MOTO', 'MOTOCICLETA', 'MOTONETA', 'CICLOMOTOR', 'TRICICLO'];
+  if (moto.includes(a) && moto.includes(b)) return true;
+  if (a.includes('CAMINH') && b.includes('CAMINH')) return true;
+  if ((a.includes('REBOQ') || a.includes('CARRETA')) && (b.includes('REBOQ') || b.includes('CARRETA') || b.includes('SEMIRR'))) return true;
+  if (a.includes('OUTR') || b.includes('OUTR') || b.includes('DIVERSO') || b === '') return true;
+  return false;
+};
+
 const pcdfCoberto = new Set();   // índices PCDF cobertos por alguma linha do 1º
 const pcdfEm2 = new Set();        // idem, mas só por linha do 2º
-const C = [], B = [], A = [];
+const pcdfNMatch = {};            // índice PCDF -> nº de linhas do sistema que casaram
+const C = [], B = [], A = [], E = [];
 for (const r of r1) {
   const x = infoRow(r, '1H');
   const { hits, viaObs } = matchPcdf(x);
-  if (hits.length) { hits.forEach(i => pcdfCoberto.add(i)); const vo = viaObs[0]; C.push({ ...x, via: vo ? 'PROCESSO no OBS (' + vo.p + ')' : 'NIV/placa/processo', pcdf: pcdfRaw[hits[0]] }); }
+  if (hits.length) {
+    hits.forEach(i => { pcdfCoberto.add(i); pcdfNMatch[i] = (pcdfNMatch[i] || 0) + 1; });
+    const vo = viaObs[0]; const p = pcdfRaw[hits[0]];
+    C.push({ ...x, via: vo ? 'PROCESSO no OBS (' + vo.p + ')' : 'NIV/placa/processo', pcdf: p });
+    if (!tipoBate(x.tipo, p.TIPO)) E.push({ ...x, motivo: 'TIPO diverge', pcdf: p, nMatch: hits.length });
+    else if (hits.length > 1) E.push({ ...x, motivo: 'casou com ' + hits.length + ' linhas da PCDF', pcdf: p, nMatch: hits.length });
+  }
   else B.push(x);
 }
 for (const r of r2) {
   const x = infoRow(r, '2H');
   const { hits } = matchPcdf(x);
-  if (hits.length) { hits.forEach(i => pcdfEm2.add(i)); A.push({ ...x, pcdf: pcdfRaw[hits[0]] }); }
+  if (hits.length) {
+    hits.forEach(i => { pcdfEm2.add(i); pcdfNMatch[i] = (pcdfNMatch[i] || 0) + 1; });
+    const p = pcdfRaw[hits[0]];
+    A.push({ ...x, pcdf: p });
+    if (!tipoBate(x.tipo, p.TIPO)) E.push({ ...x, motivo: 'TIPO diverge', pcdf: p, nMatch: hits.length });
+  }
 }
 // D = itens PCDF distintos não cobertos por 1º nem 2º
 const D = [...pcdfDistintos.values()].filter(r => {
@@ -155,6 +180,11 @@ wcsv('A_no_2H_consta_no_1H_PCDF.csv',
   ['linha_2H', 'ID_LEGADO', 'ID_PASEI', 'tipo', 'NIV', 'responsavel', 'PROCESSO_PCDF', 'TIPO_PCDF'],
   A.map(a => [a.row, a.id, a.pasei, a.tipo, a.niv, a.resp, a.pcdf.PROCESSO_SEI, a.pcdf.TIPO]));
 
+// ── E — ambíguos / revisar ─────────────────────────────────────────────────
+const eCols = ['ABA', 'LINHA', 'ID_LEGADO', 'ID_PASEI', 'TIPO_SISTEMA', 'NIV', 'PLACA', 'RESPONSAVEL', 'MOTIVO_REVISAO', 'PROCESSO_PCDF', 'TIPO_PCDF', 'MARCA_MODELO_PCDF', 'OBSERVACOES'];
+const eRows = E.map(e => [e.aba, e.row, e.id, e.pasei, e.tipo, e.niv, e.placa, e.resp, e.motivo, e.pcdf.PROCESSO_SEI, e.pcdf.TIPO, e.pcdf.MARCA_MODELO, e.obs]);
+wcsv('E_ambiguos_revisar.csv', eCols, eRows);
+
 // D com flag "já está no 1º sob outro processo?"
 const dRows = D.map(r => {
   const outras = achaEmOutras(r);
@@ -175,14 +205,24 @@ const bBody = B.map(x => {
 });
 bBody.sort((a, b) => (a.hit ? 1 : 0) - (b.hit ? 1 : 0) || a.x.row - b.x.row);
 wcsv('B_no_1H_fora_da_lista_PCDF.csv', bCols, bBody.map(b => b.row));
-const wb = xlsx.utils.book_new();
-const ws = xlsx.utils.aoa_to_sheet([bCols, ...bBody.map(b => b.row)]);
-ws['!cols'] = bCols.map(c => ({ wch: c === 'OBSERVACOES' ? 70 : /PASEI|PROCESSO_PCDF/.test(c) ? 22 : c === 'NIV' ? 20 : c === 'CONSTA_NA_RELACAO_PCDF' ? 26 : c === 'RESPONSAVEL' ? 16 : 12 }));
-ws['!autofilter'] = { ref: xlsx.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: bBody.length, c: bCols.length - 1 } }) };
-ws['!freeze'] = { xSplit: 0, ySplit: 1 };
-xlsx.utils.book_append_sheet(wb, ws, 'B - fora da relacao PCDF');
-xlsx.writeFile(wb, OUT + '/B_no_1H_fora_da_lista_PCDF.xlsx');
+
+// helper: escreve um xlsx com autofiltro + cabeçalho congelado
+const wxlsx = (nome, aba, cols, linhas, larguras = {}) => {
+  const wb = xlsx.utils.book_new();
+  const ws = xlsx.utils.aoa_to_sheet([cols, ...linhas]);
+  ws['!cols'] = cols.map(c => ({ wch: larguras[c] || (/OBS|OBSERV|MARCA/.test(c) ? 60 : /PASEI|PROCESSO/.test(c) ? 22 : /NIV/.test(c) ? 20 : /RESPONS|CONSTA|ENCONTRADO|MOTIVO/.test(c) ? 24 : 13) }));
+  ws['!autofilter'] = { ref: xlsx.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: linhas.length, c: cols.length - 1 } }) };
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+  xlsx.utils.book_append_sheet(wb, ws, aba);
+  xlsx.writeFile(wb, OUT + '/' + nome);
+};
+
+wxlsx('B_no_1H_fora_da_lista_PCDF.xlsx', 'B - fora da relacao PCDF', bCols, bBody.map(b => b.row));
+wxlsx('D_cadastro_e_varredura.xlsx', 'D - sem cadastro no SIGNU',
+  ['PROCESSO_SEI', 'TIPO_PCDF', 'MARCA_MODELO', 'COR', 'PLACA_OSTENTADA', 'PLACA_ORIGINAL', 'NIV_OSTENTADO', 'NIV_ORIGINAL', 'PESO_KG_EST', 'PATIO', 'LEILAO', 'RESTRICAO', 'ENCONTRADO_EM'], dRows);
+wxlsx('E_ambiguos_revisar.xlsx', 'E - ambiguos revisar', eCols, eRows);
+
 const bReal = bBody.filter(b => !b.hit).length;
 console.log(`\nArquivos regravados em SIGNU_CSVs/analise_TJDFT/:`);
-console.log(`  B_no_1H_fora_da_lista_PCDF.csv / .xlsx  — ${B.length} linhas (${bReal} realmente fora, ${B.length - bReal} são divergência de nº de processo)`);
-console.log(`  C_conferem_ok.csv, A_no_2H_consta_no_1H_PCDF.csv, D_cadastro_e_varredura.csv`);
+console.log(`  B (${B.length}) / D (${D.length}) / E (${E.length}) — .csv + .xlsx`);
+console.log(`  C_conferem_ok.csv (${C.length}), A_no_2H_consta_no_1H_PCDF.csv (${A.length})`);
