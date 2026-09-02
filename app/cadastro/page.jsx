@@ -68,6 +68,7 @@ const CAMPOS = {
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
+    { id:"PESO_KG",           label:"Peso estimado (kg)",  type:"number",   placeholder:"Ex: 800", hint:"Para estatística de reciclagem" },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
     { id:"DESTINACAO",        label:"Destinação *",        type:"select",   required:true,  options:DESTINACOES },
     { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
@@ -80,6 +81,7 @@ const CAMPOS = {
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
+    { id:"PESO_KG",           label:"Peso estimado (kg)",  type:"number",   placeholder:"Ex: 800", hint:"Para estatística de reciclagem" },
     { id:"DATA_ENTRADA",      label:"Data de Entrada *",   type:"date",     required:true },
     { id:"PRAZO_6MESES",      label:"Prazo 6 Meses",       type:"date",     readonly:true,  hint:"Calculado automaticamente (+180 dias)" },
     { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
@@ -98,7 +100,7 @@ const CAMPOS = {
     { id:"CEB_TEP_TIV",       label:"CEB/TEP/TIV Emitido", type:"toggle" },
     { id:"OFICIO_BAIXA",      label:"Ofício de Baixa",     type:"toggle" },
     { id:"INUTILIZADO",       label:"Inutilizado",         type:"toggle" },
-    { id:"PESO_KG",           label:"Peso (kg)",           type:"number",   placeholder:"Ex: 1250" },
+    { id:"PESO_KG",           label:"Peso estimado (kg)",  type:"number",   placeholder:"Ex: 1250" },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação..." },
   ],
   PCDF_2HIGEIA: [
@@ -116,7 +118,7 @@ const CAMPOS = {
     { id:"OFICIO_BAIXA",      label:"Ofício de Baixa",     type:"toggle" },
     { id:"INUTILIZADO",       label:"Inutilizado",         type:"toggle" },
     { id:"RESTRICAO_ROUBO",   label:"Restrição Roubo/Furto", type:"toggle" },
-    { id:"PESO_KG",           label:"Peso (kg)",           type:"number",   placeholder:"Ex: 8500" },
+    { id:"PESO_KG",           label:"Peso estimado (kg)",  type:"number",   placeholder:"Ex: 8500" },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação..." },
   ],
   DOACOES: [

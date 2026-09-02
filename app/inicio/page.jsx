@@ -295,7 +295,7 @@ export default function InicioPage() {
   const [filtroLista,    setFiltroLista]    = useState("TODAS");
   const [abaRelatorio,   setAbaRelatorio]   = useState("barras");
   const [listas,         setListas]         = useState(
-    LISTAS_CONFIG.map(c => ({ ...c, total:0, atrasados:0, em_diligencia:0, aguardando:0, carregando:true }))
+    LISTAS_CONFIG.map(c => ({ ...c, total:0, atrasados:0, em_diligencia:0, aguardando:0, pesoKg:0, carregando:true }))
   );
   const [tiposPorLista,  setTiposPorLista]  = useState(TIPOS_POR_LISTA);
   const [filaItens,      setFilaItens]      = useState([]);
@@ -326,7 +326,7 @@ export default function InicioPage() {
   useEffect(() => {
     if (!sessionResolvida) return;
     const qs = filtroServidor ? `?atribuidoA=${encodeURIComponent(filtroServidor)}` : "";
-    setListas(LISTAS_CONFIG.map(c => ({ ...c, total:0, atrasados:0, em_diligencia:0, aguardando:0, carregando:true })));
+    setListas(LISTAS_CONFIG.map(c => ({ ...c, total:0, atrasados:0, em_diligencia:0, aguardando:0, pesoKg:0, carregando:true })));
     setTiposPorLista({ CEGOC:{}, PCDF_1HIGEIA:{}, PCDF_2HIGEIA:{}, DPJ_GC99:{}, DOACOES:{}, CAIXA_SEI:{} });
     setFilaItens([]);
 
@@ -344,8 +344,13 @@ export default function InicioPage() {
         const tipos = {};
         dados.forEach(r => { const t = r.TIPO_BEM || "OUTROS"; tipos[t] = (tipos[t]||0)+1; });
 
+        const pesoKg = dados.reduce((a, r) => {
+          const n = parseFloat(String(r.PESO_KG ?? "").replace(",", "."));
+          return a + (isNaN(n) ? 0 : n);
+        }, 0);
+
         setListas(prev => prev.map(l => l.key === cfg.key
-          ? { ...l, total, atrasados, em_diligencia, aguardando, carregando:false }
+          ? { ...l, total, atrasados, em_diligencia, aguardando, pesoKg, carregando:false }
           : l
         ));
         setTiposPorLista(prev => ({ ...prev, [cfg.key]: tipos }));
@@ -374,6 +379,10 @@ export default function InicioPage() {
   const totalAtrasados = LISTAS.reduce((a, l) => a + l.atrasados, 0);
   const totalEmDiligencia = LISTAS.reduce((a, l) => a + l.em_diligencia, 0);
   const taxaExecucao = totalGeral > 0 ? Math.round((totalEmDiligencia / totalGeral) * 100) : 0;
+  const totalPesoKg = LISTAS.reduce((a, l) => a + (l.pesoKg || 0), 0);
+  const pesoDisplay = totalPesoKg >= 1000
+    ? `${(totalPesoKg / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} t`
+    : `${Math.round(totalPesoKg).toLocaleString("pt-BR")} kg`;
 
   return (
     <div className="signu-layout" style={{ background:"#dde1e7", fontFamily:"'Inter',system-ui,sans-serif", color:"#111827" }}>
@@ -434,11 +443,12 @@ export default function InicioPage() {
           </div>
 
           {/* KPI CARDS */}
-          <div className="signu-grid-4" style={{ marginBottom:24 }}>
+          <div className="signu-grid-5" style={{ marginBottom:24 }}>
             {[
               { label:"Total de Bens",   value:totalGeral,        icon:"📦", color:"#2563eb", sub:"em 6 listas operacionais" },
               { label:"Em Diligência",   value:totalEmDiligencia, icon:"⚡", color:"#22c55e", sub:`${taxaExecucao}% taxa de execução` },
               { label:"Bens Atrasados",  value:totalAtrasados,    icon:"⚠️", color:"#f87171", sub:"+30 dias sem atualização" },
+              { label:"Peso estimado",   value:pesoDisplay,       icon:"⚖️", color:"#7c3aed", sub:"total nas listas (reciclagem)" },
               { label: filtroServidor ? "Fila do servidor" : "Total na fila", value:filaItens.length, icon:"📋", color:"#60a5fa", sub: filtroServidor ? `itens de ${filtroServidor.split(" ")[0]}` : isGestor ? "todos os servidores" : "itens atribuídos a você" },
             ].map(({ label,value,icon,color,sub }) => {
               const ainda = listas.some(l => l.carregando);

@@ -966,7 +966,23 @@ function DetalhesContent() {
                   {/* Campos condicionais CEGOC */}
                   {listaKey==="CEGOC" && (
                     <Section title="Campos CEGOC">
+                      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:12 }}>
+                        {editMode
+                          ? <FieldEdit label="Peso estimado (kg)" value={editData?.PESO_KG} onChange={v=>upd("PESO_KG",v)} type="number"/>
+                          : <FieldView label="Peso estimado (kg)" value={current?.PESO_KG ? `${current.PESO_KG} kg` : null}/>}
+                      </div>
                       <Toggle label="FIB Expedida" value={editMode?editData?.FIB:current?.FIB} onChange={v=>upd("FIB",v)} editMode={editMode}/>
+                    </Section>
+                  )}
+
+                  {/* Campos condicionais PCDF 1ª */}
+                  {listaKey==="PCDF_1HIGEIA" && (
+                    <Section title="Campos PCDF 1ª HIGEIA">
+                      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
+                        {editMode
+                          ? <FieldEdit label="Peso estimado (kg)" value={editData?.PESO_KG} onChange={v=>upd("PESO_KG",v)} type="number"/>
+                          : <FieldView label="Peso estimado (kg)" value={current?.PESO_KG ? `${current.PESO_KG} kg` : null}/>}
+                      </div>
                     </Section>
                   )}
 
@@ -1077,8 +1093,8 @@ function DetalhesContent() {
                           : <FieldView label="PA TJDFT" value={current?.PA_TJDFT}/>}
                         <FieldView label="Origem CEGOC ID" value={current?.ORIGEM_CEGOC_ID} mono/>
                         {editMode
-                          ? <FieldEdit label="Peso (kg)" value={editData?.PESO_KG} onChange={v=>upd("PESO_KG",v)} type="number"/>
-                          : <FieldView label="Peso (kg)" value={current?.PESO_KG?`${current.PESO_KG} kg`:null}/>}
+                          ? <FieldEdit label="Peso estimado (kg)" value={editData?.PESO_KG} onChange={v=>upd("PESO_KG",v)} type="number"/>
+                          : <FieldView label="Peso estimado (kg)" value={current?.PESO_KG?`${current.PESO_KG} kg`:null}/>}
 
                         {/* TEP */}
                         {editMode
