@@ -575,6 +575,32 @@ export default function InicioPage() {
               </div>
             </div>
 
+            {/* Peso estimado por lista */}
+            {(() => {
+              const fmt = (kg) => kg >= 1000
+                ? `${(kg / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} t`
+                : `${Math.round(kg).toLocaleString("pt-BR")} kg`;
+              const alvo = filtroLista === "TODAS" ? LISTAS : LISTAS.filter(l => l.key === filtroLista);
+              const comPeso = alvo.filter(l => (l.pesoKg || 0) > 0);
+              if (comPeso.length === 0) return null;
+              const total = comPeso.reduce((a, l) => a + (l.pesoKg || 0), 0);
+              return (
+                <div style={{ display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:18,padding:"12px 14px",background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:10 }}>
+                  <span style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.06em" }}>⚖️ Peso estimado</span>
+                  {comPeso.map(l => (
+                    <span key={l.key} style={{ display:"flex",alignItems:"center",gap:6,fontSize:12,background:"#fff",border:`1px solid ${l.color}33`,borderRadius:8,padding:"4px 10px" }}>
+                      <span style={{ width:6,height:6,borderRadius:"50%",background:l.color }}/>
+                      <span style={{ color:"#4b5563" }}>{l.label}</span>
+                      <strong style={{ color:"#0f172a" }}>{fmt(l.pesoKg)}</strong>
+                    </span>
+                  ))}
+                  {comPeso.length > 1 && (
+                    <span style={{ marginLeft:"auto",fontSize:12,color:"#4b5563" }}>Total&nbsp;<strong style={{ color:"#7c3aed" }}>{fmt(total)}</strong></span>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Conteúdo dinâmico */}
             {abaRelatorio === "barras" && (
               <div>
