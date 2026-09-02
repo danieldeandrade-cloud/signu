@@ -420,7 +420,8 @@ export default function GestaoPage() {
     }
     res.sort((a, b) => {
       if (ordenacao.campo === "_recencia") {
-        const r = tsRecencia(a) - tsRecencia(b);
+        // desempate por ordem de linha (novos são acrescentados no fim da planilha)
+        const r = (tsRecencia(a) - tsRecencia(b)) || ((a._rowNumber || 0) - (b._rowNumber || 0));
         return ordenacao.dir === "asc" ? r : -r;
       }
       const va = a[ordenacao.campo] ?? "";
