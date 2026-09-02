@@ -57,6 +57,7 @@ export async function POST(request) {
         ORIGEM_CEGOC_ID: item.ID_LEGADO || String(item._rowNumber),
         STATUS_DILIGENCIA: item.STATUS_DILIGENCIA || 'EM DILIGÊNCIA',
         DEPOSITO: item.DEPOSITO || 'SELAB/PCDF',
+        DESTINACAO: 'RECICLAGEM',
         OBSERVACOES: `${item.OBSERVACOES || ''}\n[${timestamp}] ${observacao || ''}`.trim(),
       });
 

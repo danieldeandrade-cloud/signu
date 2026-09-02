@@ -201,6 +201,8 @@ export default function GestaoPage() {
   const [filtroRenajudSit,    setFiltroRenajudSit]    = useState("todas"); // "todas"|"pendente"|"baixada"
   const [filtroRenajudResp,   setFiltroRenajudResp]   = useState(new Set()); // vazio = todos
   const [syncEntidades, setSyncEntidades] = useState(false);
+  const [selecao, setSelecao]         = useState(new Set());   // _rowNumber selecionados (só CEGOC)
+  const [migrandoLote, setMigrandoLote] = useState(false);
 
   const atualizarEntidades = async () => {
     setSyncEntidades(true);
@@ -325,11 +327,43 @@ export default function GestaoPage() {
     setFiltroSemFib(false);
     setFiltroDestinacao(new Set());
     setPag(1);
+    setSelecao(new Set());
     // Doações: fila ordenada pela data da decisão (mais antiga primeiro)
     setOrdenacao(abaAtiva === "DOACOES"
       ? { campo:"DATA_DECISAO", dir:"asc" }
       : { campo:"_rowNumber", dir:"asc" });
   }, [abaAtiva, fetchAba]);
+
+  // Migração em lote CEGOC -> 2ª HIGEIA (justificativa fixa: FIB enviada)
+  const migrarLoteHigeia2 = async () => {
+    const ids = [...selecao];
+    if (ids.length === 0) return;
+    if (!window.confirm(
+      `Migrar ${ids.length} item(ns) da CEGOC para a 2ª HIGEIA?\n\n` +
+      `Justificativa registrada: "FIB enviada".\n` +
+      `Os itens saem da CEGOC e passam a constar na 2ª HIGEIA.`
+    )) return;
+    setMigrandoLote(true);
+    try {
+      const res = await fetch("/api/bens/transicao-lote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origem: "cegoc", rowNumbers: ids, destino: "pcdf2", observacao: "FIB enviada" }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.ok) throw new Error(j.erro || "Falha na migração");
+      alert(
+        `${j.migrados} de ${j.total} item(ns) migrado(s) para a 2ª HIGEIA.` +
+        (j.falhas?.length ? `\n\nFalhas (${j.falhas.length}):\n- ` + j.falhas.map(f => `linha ${f.rowNumber}: ${f.erro}`).join("\n- ") : "")
+      );
+      setSelecao(new Set());
+      fetchAba("CEGOC");
+    } catch (e) {
+      alert("Erro na migração em lote: " + e.message);
+    } finally {
+      setMigrandoLote(false);
+    }
+  };
 
   // Filtragem e ordenação
   const filtrados = useMemo(() => {
@@ -728,6 +762,23 @@ export default function GestaoPage() {
             </div>
           )}
 
+          {/* Barra de ação em lote — CEGOC */}
+          {abaAtiva === "CEGOC" && selecao.size > 0 && (
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, padding:"10px 16px", background:"rgba(192,132,252,0.1)", border:"1.5px solid rgba(192,132,252,0.4)", borderRadius:10 }}>
+              <span style={{ fontSize:12, fontWeight:700, color:"#7c3aed" }}>{selecao.size} selecionado{selecao.size!==1?"s":""}</span>
+              <button
+                onClick={migrarLoteHigeia2}
+                disabled={migrandoLote}
+                style={{ padding:"6px 14px", background:"#7c3aed", border:"none", borderRadius:6, color:"#fff", fontSize:12, fontWeight:700, cursor:migrandoLote?"wait":"pointer", opacity:migrandoLote?0.6:1 }}>
+                {migrandoLote ? "⏳ Migrando…" : "→ Migrar para 2ª HIGEIA (FIB enviada)"}
+              </button>
+              <button onClick={() => setSelecao(new Set())} disabled={migrandoLote}
+                style={{ padding:"6px 10px", background:"transparent", border:"1px solid #c4b5fd", borderRadius:6, color:"#7c3aed", fontSize:11, cursor:"pointer" }}>
+                limpar seleção
+              </button>
+            </div>
+          )}
+
           {/* TABELA */}
           <div style={{ background:"#fff", border:"1.5px solid #b0b8c4", borderRadius:12, overflow:"hidden" }}>
             {loading ? (
@@ -737,6 +788,22 @@ export default function GestaoPage() {
                 <table style={{ width:"100%", borderCollapse:"collapse" }}>
                   <thead>
                     <tr style={{ background:"#f9fafb" }}>
+                      {abaAtiva==="CEGOC" && (
+                        <th style={{ padding:"10px 8px 10px 14px", borderBottom:"1px solid #e5e7eb", width:34 }}>
+                          <input
+                            type="checkbox"
+                            title="Selecionar itens desta página"
+                            checked={pagina.length > 0 && pagina.every(i => selecao.has(i._rowNumber))}
+                            onChange={e => setSelecao(prev => {
+                              const n = new Set(prev);
+                              if (e.target.checked) pagina.forEach(i => n.add(i._rowNumber));
+                              else pagina.forEach(i => n.delete(i._rowNumber));
+                              return n;
+                            })}
+                            style={{ cursor:"pointer" }}
+                          />
+                        </th>
+                      )}
                       {abaAtiva==="DOACOES" && <th style={{ padding:"10px 14px", fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:600, textAlign:"right", whiteSpace:"nowrap", borderBottom:"1px solid #e5e7eb" }}>Fila</th>}
                       <ThSort campo="_rowNumber">ID</ThSort>
                       <ThSort campo="ID_PASEI">ID_PASEI</ThSort>
@@ -765,7 +832,21 @@ export default function GestaoPage() {
                       return (
                         <tr key={item._rowNumber}
                           onClick={() => router.push(`/detalhes?lista=${LISTA_API_MAP[abaAtiva]}&row=${item._rowNumber}`)}
-                          style={{ cursor:"pointer", background: ri%2===0?"transparent":"#fafafa" }}>
+                          style={{ cursor:"pointer", background: selecao.has(item._rowNumber) ? "rgba(192,132,252,0.12)" : ri%2===0?"transparent":"#fafafa" }}>
+                          {abaAtiva==="CEGOC" && (
+                            <td onClick={e => e.stopPropagation()} style={{ padding:"11px 8px 11px 14px", borderBottom:"1px solid #f3f4f6", width:34 }}>
+                              <input
+                                type="checkbox"
+                                checked={selecao.has(item._rowNumber)}
+                                onChange={() => setSelecao(prev => {
+                                  const n = new Set(prev);
+                                  n.has(item._rowNumber) ? n.delete(item._rowNumber) : n.add(item._rowNumber);
+                                  return n;
+                                })}
+                                style={{ cursor:"pointer" }}
+                              />
+                            </td>
+                          )}
                           {abaAtiva==="DOACOES" && <Cell right><span style={{ fontWeight:700, color:tab.color }}>{(pag-1)*POR_PAGINA + ri + 1}º</span></Cell>}
                           <Cell mono><span style={{ color:tab.color, fontWeight:700 }}>{idDisplay}</span></Cell>
                           <Cell mono muted>{item.ID_PASEI ? item.ID_PASEI.substring(0,22)+"…" : "—"}</Cell>
