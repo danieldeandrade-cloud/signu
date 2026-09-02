@@ -27,6 +27,8 @@ const TODAS_LISTAS_ROTA = [
 ];
 
 const TIPOS_BEM   = ["CARRO","MOTO","CAMINHÃO","CAMINHONETE","REBOQUE","OUTROS"];
+// DPJ guarda bens variados (não só veículos); "" = sem informação
+const TIPOS_BEM_DPJ = ["","CARRO","MOTO","CAMINHÃO","CAMINHONETE","REBOQUE","VEÍCULO","ELETRÔNICO","ELETRODOMÉSTICO","INFORMÁTICA","MÓVEIS","FERRAMENTAS","DIVERSOS","OUTROS"];
 const DESTINACOES = ["CIRCULAÇÃO","RECICLAGEM"];
 const DEPOSITOS   = ["SELAB/PCDF","CPA/PCDF","CPA","CEGOC","5ªDP","23ªDP","30ªDP","33ªDP"];
 
@@ -1121,6 +1123,10 @@ function DetalhesContent() {
                   {listaKey==="DPJ_GC99" && (
                     <Section title="Campos DPJ-GC99">
                       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
+                        {editMode
+                          ? <FieldEdit label="Tipo de Bem" value={editData?.TIPO_BEM||""} onChange={v=>upd("TIPO_BEM",v)}
+                              options={TIPOS_BEM_DPJ.includes(editData?.TIPO_BEM||"") ? TIPOS_BEM_DPJ : [editData.TIPO_BEM, ...TIPOS_BEM_DPJ]}/>
+                          : <FieldView label="Tipo de Bem" value={current?.TIPO_BEM}/>}
                         <FieldView label="Lote" value={current?.LOTE?`#${current.LOTE}`:null}/>
                         <FieldView label="PA PJE" value={current?.PA_PJE} mono/>
                         <FieldView label="Data de Entrada" value={current?.DATA_ENTRADA}/>
