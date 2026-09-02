@@ -521,18 +521,21 @@ export default function GestaoPage() {
               {filtrados.length} registro{filtrados.length!==1?"s":""}
             </span>
           )}
-          <button
-            onClick={() => setOrdenacao(o =>
-              o.campo === "_recencia"
-                ? { campo:"_recencia", dir: o.dir === "desc" ? "asc" : "desc" }
-                : { campo:"_recencia", dir:"desc" }
-            )}
-            title="Ordenar pela data da última atualização"
-            style={{ padding:"5px 10px", background: ordenacao.campo==="_recencia" ? "rgba(37,99,235,0.18)" : "rgba(37,99,235,0.07)", border:`1px solid ${ordenacao.campo==="_recencia" ? "#2563eb" : "#b0b8c4"}`, borderRadius:6, color:"#2563eb", fontSize:11, cursor:"pointer", fontWeight:600 }}>
-            {ordenacao.campo==="_recencia"
-              ? (ordenacao.dir==="desc" ? "↓ Mais recentes" : "↑ Mais antigos")
-              : "↕ Data"}
-          </button>
+          {/* Doações tem fila fixa pela data da decisão — sem ordenação por recência */}
+          {abaAtiva !== "DOACOES" && (
+            <button
+              onClick={() => setOrdenacao(o =>
+                o.campo === "_recencia"
+                  ? { campo:"_recencia", dir: o.dir === "desc" ? "asc" : "desc" }
+                  : { campo:"_recencia", dir:"desc" }
+              )}
+              title="Ordenar pela data da última atualização"
+              style={{ padding:"5px 10px", background: ordenacao.campo==="_recencia" ? "rgba(37,99,235,0.18)" : "rgba(37,99,235,0.07)", border:`1px solid ${ordenacao.campo==="_recencia" ? "#2563eb" : "#b0b8c4"}`, borderRadius:6, color:"#2563eb", fontSize:11, cursor:"pointer", fontWeight:600 }}>
+              {ordenacao.campo==="_recencia"
+                ? (ordenacao.dir==="desc" ? "↓ Mais recentes" : "↑ Mais antigos")
+                : "↕ Data"}
+            </button>
+          )}
           <button
             onClick={() => exportarListaParaExcel(filtrados, `${tab.label}${filtroSemFib?"_SemFIB":""}`)}
             disabled={filtrados.length === 0}
