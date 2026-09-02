@@ -142,6 +142,28 @@ function getStatus(item, listaKey) {
   return item.STATUS_DILIGENCIA;
 }
 
+// Converte data em ms — aceita ISO, yyyy-mm-dd e dd/mm/yyyy
+function parseData(v) {
+  if (!v) return 0;
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+  m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+  const d = new Date(s);
+  return isNaN(d) ? 0 : d.getTime();
+}
+
+// Timestamp de recência do item (última mexida conhecida)
+function tsRecencia(item) {
+  return (
+    parseData(item.ULTIMA_ANALISE) ||
+    parseData(item.DATA_ATUALIZACAO) ||
+    parseData(item.DATA_CADASTRO) ||
+    (item._rowNumber || 0)
+  );
+}
+
 // Gera um ID de exibição caso o campo não exista na planilha
 function displayId(item, listaKey) {
   if (item.ID_LEGADO) return item.ID_LEGADO;
@@ -397,6 +419,10 @@ export default function GestaoPage() {
       res = res.filter(i => filtroDestinacao.has(i.DESTINACAO));
     }
     res.sort((a, b) => {
+      if (ordenacao.campo === "_recencia") {
+        const r = tsRecencia(a) - tsRecencia(b);
+        return ordenacao.dir === "asc" ? r : -r;
+      }
       const va = a[ordenacao.campo] ?? "";
       const vb = b[ordenacao.campo] ?? "";
       // valores vazios sempre no fim, independente da direção
@@ -494,6 +520,18 @@ export default function GestaoPage() {
               {filtrados.length} registro{filtrados.length!==1?"s":""}
             </span>
           )}
+          <button
+            onClick={() => setOrdenacao(o =>
+              o.campo === "_recencia"
+                ? { campo:"_recencia", dir: o.dir === "desc" ? "asc" : "desc" }
+                : { campo:"_recencia", dir:"desc" }
+            )}
+            title="Ordenar pela data da última atualização"
+            style={{ padding:"5px 10px", background: ordenacao.campo==="_recencia" ? "rgba(37,99,235,0.18)" : "rgba(37,99,235,0.07)", border:`1px solid ${ordenacao.campo==="_recencia" ? "#2563eb" : "#b0b8c4"}`, borderRadius:6, color:"#2563eb", fontSize:11, cursor:"pointer", fontWeight:600 }}>
+            {ordenacao.campo==="_recencia"
+              ? (ordenacao.dir==="desc" ? "↓ Mais recentes" : "↑ Mais antigos")
+              : "↕ Data"}
+          </button>
           <button
             onClick={() => exportarListaParaExcel(filtrados, `${tab.label}${filtroSemFib?"_SemFIB":""}`)}
             disabled={filtrados.length === 0}
