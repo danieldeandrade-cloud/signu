@@ -112,7 +112,6 @@ const FLAGS_CONFIG = [
   { key:"CEB_TEP_TIV",   label:"CEB/TEP/TIV",          color:"#60a5fa", bg:"rgba(96,165,250,0.15)"   },
   { key:"RESTRICAO_ROUBO",label:"🔒 Roubo/Furto",      color:"#f87171", bg:"rgba(248,113,113,0.15)"  },
   { key:"OFICIO_BAIXA",  label:"Ofício Baixa",          color:"#a78bfa", bg:"rgba(167,139,250,0.15)"  },
-  { key:"INUTILIZADO",   label:"Inutilizado",           color:"#fbbf24", bg:"rgba(251,191,36,0.15)"   },
   { key:"RENAJUD_ANY",   label:"🔒 RENAJUD",            color:"#f59e0b", bg:"rgba(245,158,11,0.15)"   },
   { key:"RENAJUD_PEND",  label:"🔒 RENAJUD Pendente",  color:"#f87171", bg:"rgba(248,113,113,0.15)"  },
 ];

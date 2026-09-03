@@ -522,7 +522,7 @@ export default function SIGNUMinhaFila() {
       // Não sobrescrever OBSERVACOES — gerenciado separadamente
       delete payload.OBSERVACOES;
       // Serializa booleanos
-      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","INUTILIZADO","RESTRICAO_ROUBO"].forEach(k => {
+      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO"].forEach(k => {
         if (k in payload) payload[k] = boolStr(payload[k]);
       });
       const res  = await fetch(`/api/bens/${rota}/${row}`, {
@@ -1022,7 +1022,6 @@ export default function SIGNUMinhaFila() {
                           { field:"FIB",          label:"FIB Expedida",     cor:"#22c55e" },
                           { field:"CEB_TEP_TIV",  label:"CEB/TEP/TIV",      cor:"#60a5fa" },
                           { field:"OFICIO_BAIXA",  label:"Ofício de Baixa",  cor:"#f472b6" },
-                          { field:"INUTILIZADO",   label:"Inutilizado",       cor:"#f87171" },
                           { field:"RESTRICAO_ROUBO",label:"Restrição Roubo", cor:"#fbbf24" },
                         ].map(({field,label,cor}) => {
                           const on = selectedItem[field]==="TRUE"||selectedItem[field]===true;
@@ -1097,7 +1096,6 @@ export default function SIGNUMinhaFila() {
                       {tog("FIB Expedida",       "FIB",           "#22c55e")}
                       {tog("CEB/TEP/TIV Emitido","CEB_TEP_TIV",   "#60a5fa")}
                       {tog("Ofício de Baixa DETRAN","OFICIO_BAIXA","#f472b6")}
-                      {tog("Inutilizado",         "INUTILIZADO",   "#f87171")}
                       {tog("Restrição Roubo/Furto","RESTRICAO_ROUBO","#fbbf24")}
                     </div>
                   </div>

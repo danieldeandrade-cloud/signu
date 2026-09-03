@@ -592,8 +592,10 @@ function DetalhesContent() {
       delete payload.OBSERVACOES;
       // RENAJUDS também é gerenciado pelo checklist separado
       delete payload.RENAJUDS;
-      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","INUTILIZADO","RESTRICAO_ROUBO"].forEach(k => {
-        if (k in payload) payload[k] = boolStr(payload[k]);
+      // Normaliza toggles: a string "FALSE" do Sheets é truthy em JS — usa boolVal
+      // antes de reserializar, senão qualquer save religava os flags não mexidos.
+      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO"].forEach(k => {
+        if (k in payload) payload[k] = boolVal(payload[k]) ? "TRUE" : "FALSE";
       });
       const res = await fetch(`/api/bens/${lista}/${row}`, {
         method:"PATCH",
@@ -1113,7 +1115,7 @@ function DetalhesContent() {
                         {current?.DATA_TAP && <FieldView label="Data TAP" value={current.DATA_TAP}/>}
                       </div>
 
-                      {[["FIB Expedida","FIB"],["CEB/TEP/TIV Emitido","CEB_TEP_TIV"],["Ofício de Baixa","OFICIO_BAIXA"],["Inutilizado","INUTILIZADO"],["Restrição Roubo/Furto","RESTRICAO_ROUBO"]].map(([label,field])=>(
+                      {[["FIB Expedida","FIB"],["CEB/TEP/TIV Emitido","CEB_TEP_TIV"],["Ofício de Baixa","OFICIO_BAIXA"],["Restrição Roubo/Furto","RESTRICAO_ROUBO"]].map(([label,field])=>(
                         <Toggle key={field} label={label} value={editMode?editData?.[field]:current?.[field]} onChange={v=>upd(field,v)} editMode={editMode}/>
                       ))}
                     </Section>
