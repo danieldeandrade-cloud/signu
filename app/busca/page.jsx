@@ -2,6 +2,7 @@
 import Sidebar from "@/components/Sidebar";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ultimaObs } from "@/lib/observacoes";
 
 // ─── CONFIG DAS LISTAS PARA BUSCA ────────────────────────────────────────────
 const LISTAS_BUSCA = [
@@ -158,7 +159,7 @@ function ResultCard({ item, termo, onOpen }) {
           )}
           {item.OBSERVACOES && (
             <div style={{ width:"100%" }}>
-              <span style={{ fontSize:11,color:"#6b7280",fontStyle:"italic" }}>{item.OBSERVACOES.substring(0,80)}…</span>
+              <span style={{ fontSize:11,color:"#6b7280",fontStyle:"italic" }}>{ultimaObs(item.OBSERVACOES, 90)}</span>
             </div>
           )}
         </div>

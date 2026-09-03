@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEntidades } from "@/lib/useEntidades";
+import { parseNotas, tsToMs } from "@/lib/observacoes";
 
 // Mapa rota API → chave interna de lista
 const ROTA_TO_KEY = {
@@ -81,7 +82,7 @@ function parseHistorico(bem, listaKey) {
 
   if (bem?.DATA_CADASTRO) {
     entries.push({
-      data: bem.DATA_CADASTRO, icon: "📥", cor: "#a78bfa",
+      data: bem.DATA_CADASTRO, _t: tsToMs(bem.DATA_CADASTRO), icon: "📥", cor: "#a78bfa",
       acao: "Bem cadastrado no SIGNU",
       detalhe: `Lista: ${LISTA_META[listaKey]?.label || listaKey}`,
     });
@@ -90,13 +91,13 @@ function parseHistorico(bem, listaKey) {
   // Extrai blocos [timestamp] do campo OBSERVACOES
   const obs = bem?.OBSERVACOES || "";
   const regex = /\[([^\]]+)\]([\s\S]*?)(?=\[[^\]]+\]|$)/g;
-  let m;
+  let m, ordem = 0;
   while ((m = regex.exec(obs)) !== null) {
     const texto = m[2].trim();
     if (!texto) continue;
     const isTransicao = /transição|migra|CATÁLOGO|HIGEIA/i.test(texto);
     entries.push({
-      data: m[1].trim(), icon: isTransicao ? "🔄" : "✏️",
+      data: m[1].trim(), _t: tsToMs(m[1]), _i: ordem++, icon: isTransicao ? "🔄" : "✏️",
       cor: isTransicao ? "#fbbf24" : "#60a5fa",
       acao: texto.length > 120 ? texto.slice(0, 117) + "…" : texto,
       detalhe: "",
@@ -105,12 +106,19 @@ function parseHistorico(bem, listaKey) {
 
   if (bem?.DATA_ATUALIZACAO && bem.DATA_ATUALIZACAO !== bem.DATA_CADASTRO) {
     entries.push({
-      data: bem.DATA_ATUALIZACAO, icon: "🔄", cor: "#22c55e",
+      data: bem.DATA_ATUALIZACAO, _t: tsToMs(bem.DATA_ATUALIZACAO), _i: -1, icon: "🔄", cor: "#22c55e",
       acao: `Status atual: ${bem.STATUS_DILIGENCIA || "—"}`,
       detalhe: `Responsável: ${nomeResp(bem) || "—"}`,
     });
   }
 
+  // Mais recente primeiro; entradas sem data legível vão para o fim
+  entries.sort((a, b) => {
+    const ha = !isNaN(a._t), hb = !isNaN(b._t);
+    if (ha && hb) return b._t - a._t || (b._i ?? 0) - (a._i ?? 0);
+    if (ha !== hb) return ha ? -1 : 1;
+    return (a._i ?? 0) - (b._i ?? 0);
+  });
   return entries;
 }
 
@@ -258,29 +266,7 @@ function Toast({ msg, type }) {
 }
 
 // ─── TIMELINE DE OBSERVAÇÕES ─────────────────────────────────────────────────
-function parseNotas(obsStr) {
-  const raw = (obsStr || "").trim();
-  if (!raw) return [];
-  const regex = /\[([^\]]+)\]([\s\S]*?)(?=\[[^\]]+\]|$)/g;
-  const entries = [];
-  let m;
-  while ((m = regex.exec(raw)) !== null) {
-    const texto = m[2].trim();
-    if (!texto) continue;
-    // Formato esperado: "26/06/2026 14:30 | Daniel" ou timestamp livre
-    const partes = m[1].split("|");
-    entries.push({
-      ts:    partes[0]?.trim() || m[1].trim(),
-      autor: partes[1]?.trim() || "",
-      texto,
-    });
-  }
-  // Fallback: texto sem marcação → entrada única sem metadados
-  if (entries.length === 0 && raw) {
-    entries.push({ ts: "", autor: "", texto: raw });
-  }
-  return entries.reverse(); // mais recente primeiro
-}
+// parseNotas vem de @/lib/observacoes (ordena sempre com a mais recente primeiro)
 
 function formatarNovaEntrada(texto, nomeUsuario) {
   const agora = new Date();

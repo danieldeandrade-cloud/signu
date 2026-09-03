@@ -3,6 +3,7 @@ import Sidebar from "@/components/Sidebar";
 import { useSession } from "next-auth/react";
 
 import { useState, useEffect, useCallback } from "react";
+import { parseNotas, ultimaObs } from "@/lib/observacoes";
 
 // Lista de servidores (exibida no seletor manual de fallback)
 const SERVIDORES = [
@@ -366,7 +367,7 @@ function BemCard({ item, onClick }) {
         WebkitLineClamp: 2,
         WebkitBoxOrient: "vertical",
         overflow: "hidden",
-      }}>{item.OBSERVACOES}</div>
+      }}>{ultimaObs(item.OBSERVACOES)}</div>
 
       {/* Footer */}
       <div style={{
@@ -895,10 +896,11 @@ export default function SIGNUMinhaFila() {
                       { col:"listaOrigem",       label:"Lista",        w:90  },
                       { col:"NIV",               label:"NIV / Chassi", w:160 },
                       { col:"ULTIMA_ANALISE",    label:"Última atualiz.", w:130 },
+                      { col:"obs",               label:"Observações",  w:260 },
                       { col:"flags",             label:"Flags",        w:110 },
                     ].map(({col,label,w}) => (
-                      <th key={col} onClick={col!=="flags"?()=>toggleSort(col):undefined}
-                        style={{ padding:"9px 12px", textAlign:"left", fontSize:10, fontWeight:700, color: sortCol===col?"#2563eb":"#4b5563", textTransform:"uppercase", letterSpacing:".07em", cursor:col!=="flags"?"pointer":"default", userSelect:"none", width:w, whiteSpace:"nowrap" }}>
+                      <th key={col} onClick={!["flags","obs"].includes(col)?()=>toggleSort(col):undefined}
+                        style={{ padding:"9px 12px", textAlign:"left", fontSize:10, fontWeight:700, color: sortCol===col?"#2563eb":"#4b5563", textTransform:"uppercase", letterSpacing:".07em", cursor:!["flags","obs"].includes(col)?"pointer":"default", userSelect:"none", width:w, whiteSpace:"nowrap" }}>
                         {label}{sortCol===col ? (sortDir==="asc"?" ↑":" ↓") : ""}
                       </th>
                     ))}
@@ -938,6 +940,11 @@ export default function SIGNUMinhaFila() {
                         </td>
                         <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#374151" }}>{item.NIV||"—"}</td>
                         <td style={{ padding:"9px 12px", fontSize:11, color:"#4b5563", whiteSpace:"pre-line", lineHeight:1.3 }}>{ultimaStr}</td>
+                        <td style={{ padding:"9px 12px", fontSize:11, color:"#4b5563", lineHeight:1.35, maxWidth:260 }} title={ultimaObs(item.OBSERVACOES)}>
+                          <div style={{ display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>
+                            {ultimaObs(item.OBSERVACOES) || "—"}
+                          </div>
+                        </td>
                         <td style={{ padding:"9px 12px" }}>
                           <div style={{ display:"flex", gap:4, flexWrap:"wrap", alignItems:"center" }}>
                             {isSEI && item.STATUS_DILIGENCIA !== "ARQUIVADO" && (
@@ -1034,12 +1041,21 @@ export default function SIGNUMinhaFila() {
                       </div>
                     </div>
 
-                    {/* Observações */}
+                    {/* Observações — mais recente primeiro */}
                     {selectedItem.OBSERVACOES && (
                       <div style={{ marginBottom:20 }}>
                         <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:8 }}>Observações</div>
-                        <div style={{ background:"#f9fafb", border:"1.5px solid #b0b8c4", borderRadius:8, padding:"10px 12px", fontSize:12, color:"#1f2937", lineHeight:1.7, maxHeight:140, overflow:"auto", whiteSpace:"pre-wrap" }}>
-                          {selectedItem.OBSERVACOES}
+                        <div style={{ background:"#f9fafb", border:"1.5px solid #b0b8c4", borderRadius:8, padding:"6px 12px", maxHeight:200, overflow:"auto" }}>
+                          {parseNotas(selectedItem.OBSERVACOES).map((n, i) => (
+                            <div key={i} style={{ padding:"7px 0", borderBottom: i < parseNotas(selectedItem.OBSERVACOES).length-1 ? "1px solid #eef0f2" : "none" }}>
+                              {(n.ts || n.autor) && (
+                                <div style={{ fontSize:10, color:"#6b7280", marginBottom:2 }}>
+                                  {n.autor && <b style={{ color:"#2563eb" }}>{n.autor}</b>}{n.autor && n.ts ? " · " : ""}{n.ts}
+                                </div>
+                              )}
+                              <div style={{ fontSize:12, color:"#1f2937", lineHeight:1.5, whiteSpace:"pre-wrap" }}>{n.texto}</div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}

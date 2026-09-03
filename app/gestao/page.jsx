@@ -3,6 +3,7 @@ import Sidebar from "@/components/Sidebar";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { exportarListaParaExcel, exportarTodasAsListasParaExcel } from "@/lib/exportarExcel";
+import { ultimaObs } from "@/lib/observacoes";
 
 // Exportação HTML formatada para o relatório RENAJUD (abre no Excel com colunas e cores)
 function exportarRelatorioRenajudHTML(linhas, nomeArquivo) {
@@ -904,8 +905,8 @@ export default function GestaoPage() {
                             <StatusBadge status={status}/>
                           </td>
                           <Cell muted>{(item.RESPONSAVEL || item.Responsavel || "").split(" ")[0] || "—"}</Cell>
-                          <td style={{ padding:"11px 14px", fontSize:11, color:"#4b5563", borderBottom:"1px solid #f3f4f6", maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={item.OBSERVACOES || ""}>
-                            {item.OBSERVACOES ? item.OBSERVACOES.substring(0,40)+(item.OBSERVACOES.length>40?"…":"") : "—"}
+                          <td style={{ padding:"11px 14px", fontSize:11, color:"#4b5563", borderBottom:"1px solid #f3f4f6", maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={ultimaObs(item.OBSERVACOES)}>
+                            {ultimaObs(item.OBSERVACOES, 42) || "—"}
                           </td>
                           <td style={{ padding:"11px 14px", borderBottom:"1px solid #f3f4f6" }}>
                             <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
