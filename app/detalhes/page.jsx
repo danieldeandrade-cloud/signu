@@ -674,6 +674,33 @@ function DetalhesContent() {
   };
 
   const upd = (field, val) => setEditData(prev=>({ ...prev, [field]:val }));
+
+  // CEB/TEP/TIV é emitido em conjunto pela PCDF (um documento só) — marcar o
+  // flag na mão também avança a etapa do fluxo de TEP, pra não ficar
+  // dessincronizado do botão "Registrar CEB/TEP/TIV".
+  const handleCebTepTiv = (v) => {
+    setEditData(prev => {
+      const next = { ...prev, CEB_TEP_TIV: v };
+      if (v && (!prev.STATUS_2HIGEIA || prev.STATUS_2HIGEIA === "EM PROCESSAMENTO")) {
+        next.STATUS_2HIGEIA = "TEP REGISTRADO";
+        if (!prev.DATA_TEP) next.DATA_TEP = new Date().toISOString().split("T")[0];
+      }
+      return next;
+    });
+  };
+
+  // Mesma lógica no sentido inverso: avançar a Etapa HIGEIA na mão (dropdown)
+  // passando de "EM PROCESSAMENTO" também liga o CEB/TEP/TIV.
+  const handleEtapaHigeia = (v) => {
+    setEditData(prev => {
+      const next = { ...prev, STATUS_2HIGEIA: v };
+      if (v && v !== "EM PROCESSAMENTO") {
+        next.CEB_TEP_TIV = "TRUE";
+        if (!prev.DATA_TEP) next.DATA_TEP = new Date().toISOString().split("T")[0];
+      }
+      return next;
+    });
+  };
   const current = editMode ? editData : bem;
 
   const idDisplay = displayId(current, listaKey);
@@ -859,7 +886,7 @@ function DetalhesContent() {
                           : <FieldView label="Status" value={current?.STATUS_DILIGENCIA}/>
                       )}
                       {listaKey === "PCDF_2HIGEIA" && (editMode
-                        ? <FieldEdit label="Etapa HIGEIA" value={editData?.STATUS_2HIGEIA||"EM PROCESSAMENTO"} onChange={v=>upd("STATUS_2HIGEIA",v)} options={STATUS_2HIGEIA}/>
+                        ? <FieldEdit label="Etapa HIGEIA" value={editData?.STATUS_2HIGEIA||"EM PROCESSAMENTO"} onChange={handleEtapaHigeia} options={STATUS_2HIGEIA}/>
                         : <FieldView label="Etapa HIGEIA" value={current?.STATUS_2HIGEIA||"EM PROCESSAMENTO"} highlight={current?.STATUS_2HIGEIA==="FINALIZADO"?"#22c55e":"#2563eb"}/>
                       )}
                       {editMode
@@ -1039,9 +1066,9 @@ function DetalhesContent() {
                             {/* Botões de avanço conforme etapa atual */}
                             <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                               {s2 === "EM PROCESSAMENTO" && (
-                                <button onClick={()=>avancarFluxo2Higeia("TEP REGISTRADO", { DATA_TEP: new Date().toISOString().split("T")[0] })}
+                                <button onClick={()=>avancarFluxo2Higeia("TEP REGISTRADO", { DATA_TEP: new Date().toISOString().split("T")[0], CEB_TEP_TIV: "TRUE" })}
                                   style={{ padding:"8px 16px", borderRadius:8, background:"rgba(37,99,235,0.1)", border:"1.5px solid #93c5fd", color:"#2563eb", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                                  📄 Registrar TEP
+                                  📄 Registrar CEB/TEP/TIV
                                 </button>
                               )}
                               {s2 === "TEP REGISTRADO" && (
@@ -1102,7 +1129,8 @@ function DetalhesContent() {
                       </div>
 
                       {[["FIB Expedida","FIB"],["CEB/TEP/TIV Emitido","CEB_TEP_TIV"],["Ofício de Baixa","OFICIO_BAIXA"],["Restrição Roubo/Furto","RESTRICAO_ROUBO"]].map(([label,field])=>(
-                        <Toggle key={field} label={label} value={editMode?editData?.[field]:current?.[field]} onChange={v=>upd(field,v)} editMode={editMode}/>
+                        <Toggle key={field} label={label} value={editMode?editData?.[field]:current?.[field]}
+                          onChange={v => field === "CEB_TEP_TIV" ? handleCebTepTiv(v) : upd(field,v)} editMode={editMode}/>
                       ))}
                     </Section>
                   )}
