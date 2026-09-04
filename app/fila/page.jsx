@@ -1105,8 +1105,8 @@ export default function SIGNUMinhaFila() {
                     {inp("Status", "STATUS_DILIGENCIA", statusOptions)}
                     {inp("Destinação", "DESTINACAO", DESTINACOES_OPT)}
                     {inp("NIV / Chassi", "NIV")}
-                    {selectedItem.listaOrigem==="PCDF_2HIGEIA" && inp("Nº SEI do TEP","TEP_SEI")}
-                    {selectedItem.listaOrigem==="PCDF_2HIGEIA" && inp("Valor TEP (R$)","TEP_VALOR")}
+                    {(selectedItem.listaOrigem==="PCDF_1HIGEIA"||selectedItem.listaOrigem==="PCDF_2HIGEIA") && inp("Nº SEI do TEP","TEP_SEI")}
+                    {(selectedItem.listaOrigem==="PCDF_1HIGEIA"||selectedItem.listaOrigem==="PCDF_2HIGEIA") && inp("Valor TEP (R$)","TEP_VALOR")}
                     <div style={{ borderTop:"1px solid #e5e7eb", paddingTop:8, display:"flex", flexDirection:"column", gap:8 }}>
                       <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:2 }}>Flags</div>
                       {tog("FIB Expedida",       "FIB",           "#22c55e")}

@@ -206,6 +206,78 @@ function Section({ title, children }) {
   );
 }
 
+// ─── FLUXO DE ETAPAS HIGEIA (1ª e 2ª) ──────────────────────────────────────────
+// Barra de progresso + botão de avanço conforme a etapa atual. Usado igual nas
+// duas listas — só muda o campo de status que é lido/gravado (STATUS_1HIGEIA
+// ou STATUS_2HIGEIA), resolvido pelo componente pai via onAvancar.
+function StepperHigeia({ status, onAvancar }) {
+  const s2 = status || "EM PROCESSAMENTO";
+  const etapas = STATUS_2HIGEIA;
+  const idx = etapas.indexOf(s2);
+  const finalizado = s2 === "FINALIZADO";
+  return (
+    <div style={{ marginBottom:16 }}>
+      {/* Barra de progresso */}
+      <div style={{ display:"flex", alignItems:"center", gap:0, marginBottom:14 }}>
+        {etapas.map((e, i) => {
+          const done   = i < idx;
+          const active = i === idx;
+          return (
+            <div key={e} style={{ display:"flex", alignItems:"center", flex: i < etapas.length-1 ? 1 : "none" }}>
+              <div title={e} style={{ width:28, height:28, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:800,
+                background: done ? "#22c55e" : active ? "#2563eb" : "#e5e7eb",
+                border: `2px solid ${done ? "#22c55e" : active ? "#2563eb" : "#d1d5db"}`,
+                color: done||active ? "#fff" : "#6b7280" }}>
+                {done ? "✓" : i+1}
+              </div>
+              {i < etapas.length-1 && (
+                <div style={{ flex:1, height:2, background: done ? "#22c55e" : "#e5e7eb" }}/>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ fontSize:12, fontWeight:700, color: finalizado?"#22c55e":"#2563eb", marginBottom:12 }}>
+        {finalizado?"✅":"📍"} {s2}
+      </div>
+
+      {/* Botões de avanço conforme etapa atual */}
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+        {s2 === "EM PROCESSAMENTO" && (
+          <button onClick={()=>onAvancar("TEP REGISTRADO", { DATA_TEP: new Date().toISOString().split("T")[0], CEB_TEP_TIV: "TRUE" })}
+            style={{ padding:"8px 16px", borderRadius:8, background:"rgba(37,99,235,0.1)", border:"1.5px solid #93c5fd", color:"#2563eb", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            📄 Registrar CEB/TEP/TIV
+          </button>
+        )}
+        {s2 === "TEP REGISTRADO" && (
+          <button onClick={()=>onAvancar("ENVIAR OFÍCIO DETRAN")}
+            style={{ padding:"8px 16px", borderRadius:8, background:"rgba(96,165,250,0.12)", border:"1px solid rgba(96,165,250,0.4)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            📤 Pronto para enviar ofício DETRAN
+          </button>
+        )}
+        {s2 === "ENVIAR OFÍCIO DETRAN" && (
+          <button onClick={()=>onAvancar("AGUARDAR RESPOSTA DETRAN", { DATA_OFICIO_DETRAN: new Date().toISOString().split("T")[0] })}
+            style={{ padding:"8px 16px", borderRadius:8, background:"rgba(96,165,250,0.15)", border:"1px solid rgba(96,165,250,0.5)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            ✉️ Ofício enviado → Aguardar DETRAN
+          </button>
+        )}
+        {s2 === "AGUARDAR RESPOSTA DETRAN" && (
+          <button onClick={()=>onAvancar("GERAR TAP", { DATA_RESPOSTA_DETRAN: new Date().toISOString().split("T")[0] })}
+            style={{ padding:"8px 16px", borderRadius:8, background:"rgba(167,139,250,0.12)", border:"1px solid rgba(167,139,250,0.4)", color:"#a78bfa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            📩 Resposta recebida → Gerar TAP
+          </button>
+        )}
+        {s2 === "GERAR TAP" && (
+          <button onClick={()=>onAvancar("FINALIZADO", { DATA_TAP: new Date().toISOString().split("T")[0] })}
+            style={{ padding:"8px 16px", borderRadius:8, background:"rgba(34,197,94,0.12)", border:"1px solid rgba(34,197,94,0.5)", color:"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            ✅ TAP gerado → Finalizar
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── TRANSIÇÃO MODAL ──────────────────────────────────────────────────────────
 function TransicaoModal({ tipo, bem, onClose, onConfirm, salvando }) {
   const [obs, setObs] = useState("");
@@ -653,14 +725,15 @@ function DetalhesContent() {
     setAutoLoading(false);
   };
 
-  // Avança o fluxo PCDF 2ª HIGEIA para o próximo status
-  const avancarFluxo2Higeia = async (novoStatus, camposExtras = {}) => {
+  // Avança o fluxo de HIGEIA (1ª ou 2ª — campoStatus = "STATUS_1HIGEIA" | "STATUS_2HIGEIA")
+  // para o próximo status.
+  const avancarFluxoHigeia = async (campoStatus, novoStatus, camposExtras = {}) => {
     setSalvando(true);
     try {
       const res = await fetch(`/api/bens/${lista}/${row}`, {
         method:"PATCH",
         headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ STATUS_2HIGEIA: novoStatus, ...camposExtras }),
+        body: JSON.stringify({ [campoStatus]: novoStatus, ...camposExtras }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.erro || "Erro ao atualizar");
@@ -676,13 +749,13 @@ function DetalhesContent() {
   const upd = (field, val) => setEditData(prev=>({ ...prev, [field]:val }));
 
   // CEB/TEP/TIV é emitido em conjunto pela PCDF (um documento só) — marcar o
-  // flag na mão também avança a etapa do fluxo de TEP, pra não ficar
-  // dessincronizado do botão "Registrar CEB/TEP/TIV".
-  const handleCebTepTiv = (v) => {
+  // flag na mão também avança a etapa do fluxo de TEP (1ª ou 2ª HIGEIA), pra
+  // não ficar dessincronizado do botão "Registrar CEB/TEP/TIV".
+  const handleCebTepTiv = (campoStatus, v) => {
     setEditData(prev => {
       const next = { ...prev, CEB_TEP_TIV: v };
-      if (v && (!prev.STATUS_2HIGEIA || prev.STATUS_2HIGEIA === "EM PROCESSAMENTO")) {
-        next.STATUS_2HIGEIA = "TEP REGISTRADO";
+      if (v && (!prev[campoStatus] || prev[campoStatus] === "EM PROCESSAMENTO")) {
+        next[campoStatus] = "TEP REGISTRADO";
         if (!prev.DATA_TEP) next.DATA_TEP = new Date().toISOString().split("T")[0];
       }
       return next;
@@ -691,9 +764,9 @@ function DetalhesContent() {
 
   // Mesma lógica no sentido inverso: avançar a Etapa HIGEIA na mão (dropdown)
   // passando de "EM PROCESSAMENTO" também liga o CEB/TEP/TIV.
-  const handleEtapaHigeia = (v) => {
+  const handleEtapaHigeia = (campoStatus, v) => {
     setEditData(prev => {
-      const next = { ...prev, STATUS_2HIGEIA: v };
+      const next = { ...prev, [campoStatus]: v };
       if (v && v !== "EM PROCESSAMENTO") {
         next.CEB_TEP_TIV = "TRUE";
         if (!prev.DATA_TEP) next.DATA_TEP = new Date().toISOString().split("T")[0];
@@ -885,10 +958,12 @@ function DetalhesContent() {
                           ? <FieldEdit label="Status" value={editData?.STATUS_DILIGENCIA} onChange={v=>upd("STATUS_DILIGENCIA",v)} options={STATUS_OPTIONS}/>
                           : <FieldView label="Status" value={current?.STATUS_DILIGENCIA}/>
                       )}
-                      {listaKey === "PCDF_2HIGEIA" && (editMode
-                        ? <FieldEdit label="Etapa HIGEIA" value={editData?.STATUS_2HIGEIA||"EM PROCESSAMENTO"} onChange={handleEtapaHigeia} options={STATUS_2HIGEIA}/>
-                        : <FieldView label="Etapa HIGEIA" value={current?.STATUS_2HIGEIA||"EM PROCESSAMENTO"} highlight={current?.STATUS_2HIGEIA==="FINALIZADO"?"#22c55e":"#2563eb"}/>
-                      )}
+                      {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") && (() => {
+                        const campoStatus = listaKey === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA";
+                        return editMode
+                          ? <FieldEdit label="Etapa HIGEIA" value={editData?.[campoStatus]||"EM PROCESSAMENTO"} onChange={v=>handleEtapaHigeia(campoStatus,v)} options={STATUS_2HIGEIA}/>
+                          : <FieldView label="Etapa HIGEIA" value={current?.[campoStatus]||"EM PROCESSAMENTO"} highlight={current?.[campoStatus]==="FINALIZADO"?"#22c55e":"#2563eb"}/>;
+                      })()}
                       {editMode
                         ? <FieldEdit label="NIV / Chassi" value={editData?.NIV} onChange={v=>upd("NIV",v)} mono/>
                         : <FieldView label="NIV / Chassi" value={current?.NIV} mono/>}
@@ -995,11 +1070,34 @@ function DetalhesContent() {
                   {/* Campos condicionais PCDF 1ª */}
                   {listaKey==="PCDF_1HIGEIA" && (
                     <Section title="Campos PCDF 1ª HIGEIA">
-                      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
+                      {!editMode && (
+                        <StepperHigeia status={bem?.STATUS_1HIGEIA} onAvancar={(s,c)=>avancarFluxoHigeia("STATUS_1HIGEIA", s, c)}/>
+                      )}
+
+                      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:8 }}>
                         {editMode
                           ? <FieldEdit label="Peso estimado (kg)" value={editData?.PESO_KG} onChange={v=>upd("PESO_KG",v)} type="number"/>
                           : <FieldView label="Peso estimado (kg)" value={current?.PESO_KG ? `${current.PESO_KG} kg` : null}/>}
+
+                        {/* TEP */}
+                        {editMode
+                          ? <FieldEdit label="Nº SEI do TEP" value={editData?.TEP_SEI} onChange={v=>upd("TEP_SEI",v)}/>
+                          : <FieldView label="Nº SEI do TEP" value={current?.TEP_SEI} mono/>}
+                        {editMode
+                          ? <FieldEdit label="Valor TEP (R$)" value={editData?.TEP_VALOR} onChange={v=>upd("TEP_VALOR",v)}/>
+                          : <FieldView label="Valor TEP (R$)" value={current?.TEP_VALOR ? `R$ ${current.TEP_VALOR}` : null}/>}
+                        <FieldView label="Data TEP" value={current?.DATA_TEP}/>
+
+                        {/* Datas do fluxo */}
+                        {current?.DATA_OFICIO_DETRAN && <FieldView label="Ofício DETRAN enviado" value={current.DATA_OFICIO_DETRAN}/>}
+                        {current?.DATA_RESPOSTA_DETRAN && <FieldView label="Resposta DETRAN" value={current.DATA_RESPOSTA_DETRAN}/>}
+                        {current?.DATA_TAP && <FieldView label="Data TAP" value={current.DATA_TAP}/>}
                       </div>
+
+                      {[["FIB Expedida","FIB"],["CEB/TEP/TIV Emitido","CEB_TEP_TIV"],["Ofício de Baixa","OFICIO_BAIXA"],["Restrição Roubo/Furto","RESTRICAO_ROUBO"]].map(([label,field])=>(
+                        <Toggle key={field} label={label} value={editMode?editData?.[field]:current?.[field]}
+                          onChange={v => field === "CEB_TEP_TIV" ? handleCebTepTiv("STATUS_1HIGEIA", v) : upd(field,v)} editMode={editMode}/>
+                      ))}
                     </Section>
                   )}
 
@@ -1032,73 +1130,9 @@ function DetalhesContent() {
                   {listaKey==="PCDF_2HIGEIA" && (
                     <Section title="Campos PCDF 2ª HIGEIA">
                       {/* ── Fluxo de status ── */}
-                      {!editMode && (() => {
-                        const s2 = bem?.STATUS_2HIGEIA || "EM PROCESSAMENTO";
-                        const etapas = STATUS_2HIGEIA;
-                        const idx = etapas.indexOf(s2);
-                        const finalizado = s2 === "FINALIZADO";
-                        return (
-                          <div style={{ marginBottom:16 }}>
-                            {/* Barra de progresso */}
-                            <div style={{ display:"flex", alignItems:"center", gap:0, marginBottom:14 }}>
-                              {etapas.map((e, i) => {
-                                const done   = i < idx;
-                                const active = i === idx;
-                                return (
-                                  <div key={e} style={{ display:"flex", alignItems:"center", flex: i < etapas.length-1 ? 1 : "none" }}>
-                                    <div title={e} style={{ width:28, height:28, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:800,
-                                      background: done ? "#22c55e" : active ? "#2563eb" : "#e5e7eb",
-                                      border: `2px solid ${done ? "#22c55e" : active ? "#2563eb" : "#d1d5db"}`,
-                                      color: done||active ? "#fff" : "#6b7280" }}>
-                                      {done ? "✓" : i+1}
-                                    </div>
-                                    {i < etapas.length-1 && (
-                                      <div style={{ flex:1, height:2, background: done ? "#22c55e" : "#e5e7eb" }}/>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <div style={{ fontSize:12, fontWeight:700, color: finalizado?"#22c55e":"#2563eb", marginBottom:12 }}>
-                              {finalizado?"✅":"📍"} {s2}
-                            </div>
-
-                            {/* Botões de avanço conforme etapa atual */}
-                            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                              {s2 === "EM PROCESSAMENTO" && (
-                                <button onClick={()=>avancarFluxo2Higeia("TEP REGISTRADO", { DATA_TEP: new Date().toISOString().split("T")[0], CEB_TEP_TIV: "TRUE" })}
-                                  style={{ padding:"8px 16px", borderRadius:8, background:"rgba(37,99,235,0.1)", border:"1.5px solid #93c5fd", color:"#2563eb", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                                  📄 Registrar CEB/TEP/TIV
-                                </button>
-                              )}
-                              {s2 === "TEP REGISTRADO" && (
-                                <button onClick={()=>avancarFluxo2Higeia("ENVIAR OFÍCIO DETRAN")}
-                                  style={{ padding:"8px 16px", borderRadius:8, background:"rgba(96,165,250,0.12)", border:"1px solid rgba(96,165,250,0.4)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                                  📤 Pronto para enviar ofício DETRAN
-                                </button>
-                              )}
-                              {s2 === "ENVIAR OFÍCIO DETRAN" && (
-                                <button onClick={()=>avancarFluxo2Higeia("AGUARDAR RESPOSTA DETRAN", { DATA_OFICIO_DETRAN: new Date().toISOString().split("T")[0] })}
-                                  style={{ padding:"8px 16px", borderRadius:8, background:"rgba(96,165,250,0.15)", border:"1px solid rgba(96,165,250,0.5)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                                  ✉️ Ofício enviado → Aguardar DETRAN
-                                </button>
-                              )}
-                              {s2 === "AGUARDAR RESPOSTA DETRAN" && (
-                                <button onClick={()=>avancarFluxo2Higeia("GERAR TAP", { DATA_RESPOSTA_DETRAN: new Date().toISOString().split("T")[0] })}
-                                  style={{ padding:"8px 16px", borderRadius:8, background:"rgba(167,139,250,0.12)", border:"1px solid rgba(167,139,250,0.4)", color:"#a78bfa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                                  📩 Resposta recebida → Gerar TAP
-                                </button>
-                              )}
-                              {s2 === "GERAR TAP" && (
-                                <button onClick={()=>avancarFluxo2Higeia("FINALIZADO", { DATA_TAP: new Date().toISOString().split("T")[0] })}
-                                  style={{ padding:"8px 16px", borderRadius:8, background:"rgba(34,197,94,0.12)", border:"1px solid rgba(34,197,94,0.5)", color:"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                                  ✅ TAP gerado → Finalizar
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })()}
+                      {!editMode && (
+                        <StepperHigeia status={bem?.STATUS_2HIGEIA} onAvancar={(s,c)=>avancarFluxoHigeia("STATUS_2HIGEIA", s, c)}/>
+                      )}
 
                       {/* ── Campos ── */}
                       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:8 }}>
@@ -1130,7 +1164,7 @@ function DetalhesContent() {
 
                       {[["FIB Expedida","FIB"],["CEB/TEP/TIV Emitido","CEB_TEP_TIV"],["Ofício de Baixa","OFICIO_BAIXA"],["Restrição Roubo/Furto","RESTRICAO_ROUBO"]].map(([label,field])=>(
                         <Toggle key={field} label={label} value={editMode?editData?.[field]:current?.[field]}
-                          onChange={v => field === "CEB_TEP_TIV" ? handleCebTepTiv(v) : upd(field,v)} editMode={editMode}/>
+                          onChange={v => field === "CEB_TEP_TIV" ? handleCebTepTiv("STATUS_2HIGEIA", v) : upd(field,v)} editMode={editMode}/>
                       ))}
                     </Section>
                   )}
