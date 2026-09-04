@@ -210,8 +210,10 @@ function Section({ title, children }) {
 // Barra de progresso + botão de avanço conforme a etapa atual. Usado igual nas
 // duas listas — só muda o campo de status que é lido/gravado (STATUS_1HIGEIA
 // ou STATUS_2HIGEIA), resolvido pelo componente pai via onAvancar.
-function StepperHigeia({ status, onAvancar }) {
-  const s2 = status || "EM PROCESSAMENTO";
+function StepperHigeia({ status, baixado, onAvancar }) {
+  // Bem já baixado (ou NIV íntegro/N-A) não passa por ofício ao DETRAN —
+  // o fluxo é tratado como concluído direto.
+  const s2 = baixado ? "FINALIZADO" : (status || "EM PROCESSAMENTO");
   const etapas = STATUS_2HIGEIA;
   const idx = etapas.indexOf(s2);
   const finalizado = s2 === "FINALIZADO";
@@ -240,6 +242,11 @@ function StepperHigeia({ status, onAvancar }) {
       <div style={{ fontSize:12, fontWeight:700, color: finalizado?"#22c55e":"#2563eb", marginBottom:12 }}>
         {finalizado?"✅":"📍"} {s2}
       </div>
+      {baixado && (
+        <div style={{ fontSize:11, color:"#6b7280", fontStyle:"italic", marginBottom:8 }}>
+          Bem já baixado — não é necessário enviar ofício ao DETRAN.
+        </div>
+      )}
 
       {/* Botões de avanço conforme etapa atual */}
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
@@ -774,6 +781,21 @@ function DetalhesContent() {
       return next;
     });
   };
+
+  // Bem marcado como BAIXADO (já baixado ou NIV íntegro/N-A) não passa pelo
+  // trâmite de ofício ao DETRAN — fecha a etapa HIGEIA direto e dispensa o
+  // Ofício de Baixa.
+  const handleStatusDiligencia = (v) => {
+    setEditData(prev => {
+      const next = { ...prev, STATUS_DILIGENCIA: v };
+      if (v === "BAIXADO" && (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA")) {
+        const campoStatus = listaKey === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA";
+        next[campoStatus] = "FINALIZADO";
+        next.OFICIO_BAIXA = "FALSE";
+      }
+      return next;
+    });
+  };
   const current = editMode ? editData : bem;
 
   const idDisplay = displayId(current, listaKey);
@@ -955,7 +977,7 @@ function DetalhesContent() {
                           : <FieldView label="Ação SEI" value={current?.ACAO || current?.STATUS_DILIGENCIA}/>
                       ) : (
                         editMode
-                          ? <FieldEdit label="Status" value={editData?.STATUS_DILIGENCIA} onChange={v=>upd("STATUS_DILIGENCIA",v)} options={STATUS_OPTIONS}/>
+                          ? <FieldEdit label="Status" value={editData?.STATUS_DILIGENCIA} onChange={handleStatusDiligencia} options={STATUS_OPTIONS}/>
                           : <FieldView label="Status" value={current?.STATUS_DILIGENCIA}/>
                       )}
                       {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") && (() => {
@@ -1071,7 +1093,7 @@ function DetalhesContent() {
                   {listaKey==="PCDF_1HIGEIA" && (
                     <Section title="Campos PCDF 1ª HIGEIA">
                       {!editMode && (
-                        <StepperHigeia status={bem?.STATUS_1HIGEIA} onAvancar={(s,c)=>avancarFluxoHigeia("STATUS_1HIGEIA", s, c)}/>
+                        <StepperHigeia status={bem?.STATUS_1HIGEIA} baixado={bem?.STATUS_DILIGENCIA==="BAIXADO"} onAvancar={(s,c)=>avancarFluxoHigeia("STATUS_1HIGEIA", s, c)}/>
                       )}
 
                       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:8 }}>
@@ -1131,7 +1153,7 @@ function DetalhesContent() {
                     <Section title="Campos PCDF 2ª HIGEIA">
                       {/* ── Fluxo de status ── */}
                       {!editMode && (
-                        <StepperHigeia status={bem?.STATUS_2HIGEIA} onAvancar={(s,c)=>avancarFluxoHigeia("STATUS_2HIGEIA", s, c)}/>
+                        <StepperHigeia status={bem?.STATUS_2HIGEIA} baixado={bem?.STATUS_DILIGENCIA==="BAIXADO"} onAvancar={(s,c)=>avancarFluxoHigeia("STATUS_2HIGEIA", s, c)}/>
                       )}
 
                       {/* ── Campos ── */}
