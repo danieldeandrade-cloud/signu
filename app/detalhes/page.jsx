@@ -256,17 +256,10 @@ function StepperHigeia({ status, baixado, onAvancar }) {
             📄 Registrar CEB/TEP/TIV
           </button>
         )}
-        {s2 === "TEP REGISTRADO" && (
-          <button onClick={()=>onAvancar("ENVIAR OFÍCIO DETRAN")}
-            style={{ padding:"8px 16px", borderRadius:8, background:"rgba(96,165,250,0.12)", border:"1px solid rgba(96,165,250,0.4)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-            📤 Pronto para enviar ofício DETRAN
-          </button>
-        )}
-        {s2 === "ENVIAR OFÍCIO DETRAN" && (
-          <button onClick={()=>onAvancar("AGUARDAR RESPOSTA DETRAN", { DATA_OFICIO_DETRAN: new Date().toISOString().split("T")[0] })}
-            style={{ padding:"8px 16px", borderRadius:8, background:"rgba(96,165,250,0.15)", border:"1px solid rgba(96,165,250,0.5)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-            ✉️ Ofício enviado → Aguardar DETRAN
-          </button>
+        {(s2 === "TEP REGISTRADO" || s2 === "ENVIAR OFÍCIO DETRAN") && (
+          <div style={{ fontSize:11, color:"#60a5fa", fontStyle:"italic", padding:"6px 0" }}>
+            📤 Pronto para enviar o ofício de baixa ao DETRAN. A etapa avança quando o servidor marcar a flag <b>"Ofício de baixa enviado"</b>.
+          </div>
         )}
         {s2 === "AGUARDAR RESPOSTA DETRAN" && (
           <button onClick={()=>onAvancar("GERAR TAP", { DATA_RESPOSTA_DETRAN: new Date().toISOString().split("T")[0] })}
@@ -846,6 +839,19 @@ function DetalhesContent() {
     });
   };
 
+  // "Ofício de baixa enviado" = o ofício ao DETRAN realmente saiu — só aí a
+  // etapa HIGEIA anda (não é mais um botão no fluxo).
+  const handleOficioBaixa = (campoStatus, v) => {
+    setEditData(prev => {
+      const next = { ...prev, OFICIO_BAIXA: v };
+      if (v && ["TEP REGISTRADO", "ENVIAR OFÍCIO DETRAN"].includes(prev[campoStatus])) {
+        next[campoStatus] = "AGUARDAR RESPOSTA DETRAN";
+        if (!prev.DATA_OFICIO_DETRAN) next.DATA_OFICIO_DETRAN = new Date().toISOString().split("T")[0];
+      }
+      return next;
+    });
+  };
+
   // Bem marcado como BAIXADO (já baixado ou NIV íntegro/N-A) não passa pelo
   // trâmite de ofício ao DETRAN — fecha a etapa HIGEIA direto e dispensa o
   // Ofício de Baixa.
@@ -1271,9 +1277,9 @@ function DetalhesContent() {
                         {current?.DATA_TAP && <FieldView label="Data TAP" value={current.DATA_TAP}/>}
                       </div>
 
-                      {[["FIB Expedida","FIB"],["CEB/TEP/TIV Emitido","CEB_TEP_TIV"],["Ofício de Baixa","OFICIO_BAIXA"],["Restrição Roubo/Furto","RESTRICAO_ROUBO"]].map(([label,field])=>(
+                      {[["FIB Expedida","FIB"],["CEB/TEP/TIV Emitido","CEB_TEP_TIV"],["Ofício de baixa enviado","OFICIO_BAIXA"],["Restrição Roubo/Furto","RESTRICAO_ROUBO"]].map(([label,field])=>(
                         <Toggle key={field} label={label} value={editMode?editData?.[field]:current?.[field]}
-                          onChange={v => field === "CEB_TEP_TIV" ? handleCebTepTiv("STATUS_1HIGEIA", v) : upd(field,v)} editMode={editMode}/>
+                          onChange={v => field === "CEB_TEP_TIV" ? handleCebTepTiv("STATUS_1HIGEIA", v) : field === "OFICIO_BAIXA" ? handleOficioBaixa("STATUS_1HIGEIA", v) : upd(field,v)} editMode={editMode}/>
                       ))}
                     </Section>
                   )}
@@ -1339,9 +1345,9 @@ function DetalhesContent() {
                         {current?.DATA_TAP && <FieldView label="Data TAP" value={current.DATA_TAP}/>}
                       </div>
 
-                      {[["FIB Expedida","FIB"],["CEB/TEP/TIV Emitido","CEB_TEP_TIV"],["Ofício de Baixa","OFICIO_BAIXA"],["Restrição Roubo/Furto","RESTRICAO_ROUBO"]].map(([label,field])=>(
+                      {[["FIB Expedida","FIB"],["CEB/TEP/TIV Emitido","CEB_TEP_TIV"],["Ofício de baixa enviado","OFICIO_BAIXA"],["Restrição Roubo/Furto","RESTRICAO_ROUBO"]].map(([label,field])=>(
                         <Toggle key={field} label={label} value={editMode?editData?.[field]:current?.[field]}
-                          onChange={v => field === "CEB_TEP_TIV" ? handleCebTepTiv("STATUS_2HIGEIA", v) : upd(field,v)} editMode={editMode}/>
+                          onChange={v => field === "CEB_TEP_TIV" ? handleCebTepTiv("STATUS_2HIGEIA", v) : field === "OFICIO_BAIXA" ? handleOficioBaixa("STATUS_2HIGEIA", v) : upd(field,v)} editMode={editMode}/>
                       ))}
                     </Section>
                   )}
