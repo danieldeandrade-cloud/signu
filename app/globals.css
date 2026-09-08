@@ -9,7 +9,7 @@
   --card-border: #b0b8c4;
   --accent: #2563eb;
   /* Escala global da interface — sobe/desce tudo (fonte, espaçamentos, ícones) */
-  --ui-zoom: 1.1;
+  --ui-zoom: 1.2;
 }
 
 * { box-sizing: border-box; }
