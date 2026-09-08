@@ -263,8 +263,20 @@ export default function CadastroPage() {
   const entidades = useEntidades();
   // Item "aguardando aptidão" ainda não tem entidade definida
   const aguardandoAptidao = listaKey === "DOACOES" && formData.STATUS_LOCAL_PA === "AGUARDANDO APTIDÃO";
+  const cegocCirculacao = listaKey === "CEGOC" && formData.DESTINACAO === "CIRCULAÇÃO";
   const campos = useMemo(() => {
-    const base = listaKey ? CAMPOS[listaKey] || [] : [];
+    let base = listaKey ? CAMPOS[listaKey] || [] : [];
+    // CEGOC destinado a circulação: restrições + multas pendentes
+    if (cegocCirculacao) {
+      const restr = [
+        { id:"RESTRICAO_ROUBO",       label:"Restrição de Roubo/Furto", type:"toggle" },
+        { id:"RESTRICAO_ALIEN_FIDUC", label:"Alienação Fiduciária",     type:"toggle" },
+        { id:"RESTRICAO_ADMIN",       label:"Restrição Administrativa",  type:"toggle" },
+        { id:"MULTAS_INI",            label:"Multas pendentes (órgãos, separados por vírgula)", type:"text", placeholder:"Ex: DER, DETRAN", hint:"A baixa individual é feita depois, na edição" },
+      ];
+      const i = base.findIndex(c => c.id === "OBSERVACOES");
+      base = i >= 0 ? [...base.slice(0, i), ...restr, ...base.slice(i)] : [...base, ...restr];
+    }
     return base.map(c => {
       if (c.id === "ENTIDADE_NOME") {
         return {
@@ -280,7 +292,7 @@ export default function CadastroPage() {
       }
       return c;
     });
-  }, [listaKey, entidades, aguardandoAptidao]);
+  }, [listaKey, entidades, aguardandoAptidao, cegocCirculacao]);
   const [proximaEntidade, setProximaEntidade] = useState(null);
   const [carregandoEntidade, setCarregandoEntidade] = useState(false);
 
@@ -445,6 +457,14 @@ export default function CadastroPage() {
       });
       // Itens cadastrados direto em HIGEIA vão sempre para reciclagem
       if (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") payload.DESTINACAO = "RECICLAGEM";
+      // CEGOC circulação: converte a lista inicial de órgãos autuadores em MULTAS (JSON)
+      if (payload.MULTAS_INI) {
+        payload.MULTAS = JSON.stringify(
+          payload.MULTAS_INI.split(/[,;\n]/).map(s => s.trim().toUpperCase()).filter(Boolean)
+            .map((orgao, i) => ({ id: Date.now() + i, orgao, baixada: false, dataBaixa: null }))
+        );
+      }
+      delete payload.MULTAS_INI;
 
       const res = await fetch(`/api/bens/${rota}`, {
         method: "POST",

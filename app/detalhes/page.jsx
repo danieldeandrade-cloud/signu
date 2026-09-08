@@ -454,6 +454,69 @@ function RenajudChecklist({ renajudsStr, onSalvar, salvando }) {
   );
 }
 
+// ─── MULTAS PENDENTES (CEGOC circulação) ─────────────────────────────────────
+// Lista de órgãos autuadores. Servidor adiciona; ao receber a confirmação de
+// retirada, marca a multa como baixada.
+function MultasChecklist({ multasStr, onSalvar }) {
+  const parse = (str) => { try { return JSON.parse(str || "[]"); } catch { return []; } };
+  const [itens, setItens] = useState(() => parse(multasStr));
+  const [nova, setNova] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setItens(parse(multasStr)); }, [multasStr]);
+
+  const salvar = async (novos) => { setSaving(true); await onSalvar(JSON.stringify(novos)); setSaving(false); };
+  const adicionar = () => {
+    const orgao = nova.trim().toUpperCase();
+    if (!orgao) return;
+    const novos = [...itens, { id: Date.now(), orgao, baixada: false, dataBaixa: null }];
+    setItens(novos); setNova(""); salvar(novos);
+  };
+  const toggleBaixada = (id) => {
+    const novos = itens.map(m => m.id === id
+      ? { ...m, baixada: !m.baixada, dataBaixa: !m.baixada ? new Date().toLocaleDateString("pt-BR") : null }
+      : m);
+    setItens(novos); salvar(novos);
+  };
+  const remover = (id) => { const novos = itens.filter(m => m.id !== id); setItens(novos); salvar(novos); };
+
+  const pendentes = itens.filter(m => !m.baixada).length;
+  const baixadas  = itens.filter(m => m.baixada).length;
+
+  return (
+    <div>
+      {itens.length > 0 && (
+        <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap" }}>
+          <span style={{ padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:"rgba(248,113,113,0.12)", border:"1px solid rgba(248,113,113,0.3)", color:"#f87171" }}>{pendentes} pendente{pendentes!==1?"s":""}</span>
+          <span style={{ padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:"rgba(34,197,94,0.1)", border:"1px solid rgba(34,197,94,0.3)", color:"#22c55e" }}>{baixadas} baixada{baixadas!==1?"s":""}</span>
+        </div>
+      )}
+      {itens.length === 0 && <p style={{ fontSize:12, color:"#6b7280", marginBottom:12 }}>Nenhuma multa registrada.</p>}
+      <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:12 }}>
+        {itens.map(m => (
+          <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:8, background: m.baixada ? "rgba(34,197,94,0.05)" : "rgba(248,113,113,0.06)", border:`1px solid ${m.baixada ? "rgba(34,197,94,0.2)" : "rgba(248,113,113,0.2)"}` }}>
+            <button onClick={() => toggleBaixada(m.id)} title={m.baixada?"Reabrir":"Dar baixa"} style={{ width:20, height:20, borderRadius:4, border:`2px solid ${m.baixada?"#22c55e":"#9ca3af"}`, background: m.baixada?"#22c55e":"transparent", cursor:"pointer", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:12, fontWeight:700 }}>{m.baixada ? "✓" : ""}</button>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, color: m.baixada ? "#4b5563" : "#111827", textDecoration: m.baixada ? "line-through" : "none" }}>{m.orgao}</div>
+              {m.baixada && m.dataBaixa && <div style={{ fontSize:10, color:"rgba(34,197,94,0.7)", marginTop:2 }}>✓ Baixada em {m.dataBaixa}</div>}
+            </div>
+            <button onClick={() => remover(m.id)} style={{ background:"none", border:"none", color:"#9ca3af", fontSize:14, cursor:"pointer", padding:"0 4px", lineHeight:1 }} title="Remover">✕</button>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <input value={nova} onChange={e => setNova(e.target.value)} onKeyDown={e => e.key === "Enter" && adicionar()}
+          placeholder="Órgão autuador (ex: DER, DETRAN)…"
+          style={{ flex:1, padding:"8px 12px", background:"#f3f4f6", border:"1.5px solid #c4c9d0", borderRadius:8, color:"#0f172a", fontSize:12, outline:"none" }}/>
+        <button onClick={adicionar} disabled={!nova.trim() || saving}
+          style={{ padding:"8px 14px", borderRadius:8, background:"rgba(37,99,235,0.1)", border:"1.5px solid #b0b8c4", color:"#2563eb", fontSize:12, fontWeight:700, cursor:"pointer", opacity: !nova.trim()||saving ? 0.4 : 1 }}>
+          ＋ Adicionar
+        </button>
+      </div>
+      {saving && <div style={{ fontSize:11, color:"#6b7280", marginTop:6 }}>Salvando…</div>}
+    </div>
+  );
+}
+
 function TimelineObservacoes({ obsStr, onSalvar, salvando }) {
   const [novaNota, setNovaNota] = useState("");
   const [salvandoNota, setSalvandoNota] = useState(false);
@@ -655,11 +718,12 @@ function DetalhesContent() {
       // OBSERVACOES é gerenciado exclusivamente pela TimelineObservacoes (PATCH separado).
       // Não incluir aqui para não sobrescrever notas adicionadas durante a edição.
       delete payload.OBSERVACOES;
-      // RENAJUDS também é gerenciado pelo checklist separado
+      // RENAJUDS e MULTAS são gerenciados pelos checklists separados
       delete payload.RENAJUDS;
+      delete payload.MULTAS;
       // Normaliza toggles: a string "FALSE" do Sheets é truthy em JS — usa boolVal
       // antes de reserializar, senão qualquer save religava os flags não mexidos.
-      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO"].forEach(k => {
+      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO","RESTRICAO_ALIEN_FIDUC","RESTRICAO_ADMIN"].forEach(k => {
         if (k in payload) payload[k] = boolVal(payload[k]) ? "TRUE" : "FALSE";
       });
       const res = await fetch(`/api/bens/${lista}/${row}`, {
@@ -797,6 +861,28 @@ function DetalhesContent() {
     });
   };
   const current = editMode ? editData : bem;
+
+  // ── CEGOC circulação: gate para migrar LPC → Catálogo ──
+  const cegocCirculacao = listaKey === "CEGOC" && current?.DESTINACAO === "CIRCULAÇÃO";
+  const restricoesAtivas = ["RESTRICAO_ROUBO", "RESTRICAO_ALIEN_FIDUC", "RESTRICAO_ADMIN"].filter(k => boolVal(current?.[k]));
+  const multasPendentes = (() => {
+    try { return JSON.parse(current?.MULTAS || "[]").filter(m => !m.baixada).length; } catch { return 0; }
+  })();
+  const podeCatalogar = restricoesAtivas.length === 0 && multasPendentes === 0;
+
+  const migrarParaCatalogo = async () => {
+    setSalvando(true);
+    try {
+      const res = await fetch(`/api/bens/${lista}/${row}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ STATUS_DILIGENCIA: "CATÁLOGO" }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.erro || "Erro ao migrar");
+      setBem(json.item);
+      showToast("Bem migrado para CATÁLOGO");
+    } catch (e) { showToast(e.message, "error"); } finally { setSalvando(false); }
+  };
 
   const idDisplay = displayId(current, listaKey);
   const statusValor = listaKey === "CAIXA_SEI" ? (current?.ACAO || current?.STATUS_DILIGENCIA) : current?.STATUS_DILIGENCIA;
@@ -939,7 +1025,14 @@ function DetalhesContent() {
                         🏛️ Mover → PCDF 2ª <Ico.Arrow/>
                       </button>
                     )}
-                    {current?.STATUS_DILIGENCIA === "LPC" && (
+                    {current?.STATUS_DILIGENCIA === "LPC" && cegocCirculacao && (
+                      <button onClick={migrarParaCatalogo} disabled={!podeCatalogar || salvando}
+                        title={podeCatalogar ? "" : `Pendente: ${[restricoesAtivas.length ? `${restricoesAtivas.length} restrição(ões)` : "", multasPendentes ? `${multasPendentes} multa(s)` : ""].filter(Boolean).join(" e ")}`}
+                        style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderRadius:10,background: podeCatalogar ? "linear-gradient(135deg,rgba(21,128,61,0.2),rgba(34,197,94,0.1))" : "#f3f4f6", border:`1px solid ${podeCatalogar ? "rgba(34,197,94,0.5)" : "#d1d5db"}`, color: podeCatalogar ? "#22c55e" : "#9ca3af", fontSize:13, fontWeight:700, cursor: podeCatalogar && !salvando ? "pointer" : "not-allowed" }}>
+                        📋 Migrar para catálogo <Ico.Arrow/>
+                      </button>
+                    )}
+                    {current?.STATUS_DILIGENCIA === "LPC" && !cegocCirculacao && (
                       <button onClick={()=>setModal("CATALOGO")} style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderRadius:10,background:"linear-gradient(135deg,rgba(21,128,61,0.2),rgba(34,197,94,0.1))",border:"1px solid rgba(34,197,94,0.5)",color:"#22c55e",fontSize:13,fontWeight:700,cursor:"pointer" }}>
                         📋 LPC → Catálogo <Ico.Arrow/>
                       </button>
@@ -1086,6 +1179,50 @@ function DetalhesContent() {
                           : <FieldView label="Peso estimado (kg)" value={current?.PESO_KG ? `${current.PESO_KG} kg` : null}/>}
                       </div>
                       <Toggle label="FIB Expedida" value={editMode?editData?.FIB:current?.FIB} onChange={v=>upd("FIB",v)} editMode={editMode}/>
+                    </Section>
+                  )}
+
+                  {/* CEGOC circulação — restrições, multas e catalogação */}
+                  {cegocCirculacao && (
+                    <Section title="Circulação — restrições e multas">
+                      <div style={{ fontSize:11, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:6 }}>Restrições</div>
+                      {[["Roubo / Furto","RESTRICAO_ROUBO"],["Alienação Fiduciária","RESTRICAO_ALIEN_FIDUC"],["Administrativa","RESTRICAO_ADMIN"]].map(([label,field])=>(
+                        <Toggle key={field} label={label} value={editMode?editData?.[field]:current?.[field]} onChange={v=>upd(field,v)} editMode={editMode}/>
+                      ))}
+                      <div style={{ fontSize:10, color:"#6b7280", marginTop:2 }}>Ligado = restrição ativa. Desligue ao receber a baixa do órgão.</div>
+
+                      <div style={{ fontSize:11, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", margin:"18px 0 8px" }}>Multas pendentes</div>
+                      <MultasChecklist
+                        multasStr={bem?.MULTAS || "[]"}
+                        onSalvar={async (novoJson) => {
+                          setSalvando(true);
+                          try {
+                            const res = await fetch(`/api/bens/${lista}/${row}`, {
+                              method:"PATCH", headers:{"Content-Type":"application/json"},
+                              body: JSON.stringify({ MULTAS: novoJson }),
+                            });
+                            const json = await res.json();
+                            if (!res.ok) throw new Error(json.erro || "Erro ao salvar");
+                            setBem(json.item);
+                          } catch(e) { showToast(e.message, "error"); } finally { setSalvando(false); }
+                        }}
+                      />
+
+                      {current?.STATUS_DILIGENCIA === "CATÁLOGO" && (
+                        <div style={{ marginTop:18 }}>
+                          {editMode
+                            ? <FieldEdit label="LPC (leilão)" value={editData?.LPC} onChange={v=>upd("LPC",v)}/>
+                            : <FieldView label="LPC (leilão)" value={current?.LPC}/>}
+                        </div>
+                      )}
+
+                      {current?.STATUS_DILIGENCIA === "LPC" && (
+                        <div style={{ marginTop:16, fontSize:11, color: podeCatalogar ? "#22c55e" : "#f59e0b" }}>
+                          {podeCatalogar
+                            ? "✅ Sem restrições nem multas pendentes — pode migrar para catálogo (botão no topo)."
+                            : `⚠️ Pendente antes de catalogar: ${[restricoesAtivas.length ? `${restricoesAtivas.length} restrição(ões)` : "", multasPendentes ? `${multasPendentes} multa(s)` : ""].filter(Boolean).join(" · ")}`}
+                        </div>
+                      )}
                     </Section>
                   )}
 

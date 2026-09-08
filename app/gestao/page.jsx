@@ -867,6 +867,7 @@ export default function GestaoPage() {
                       {abaAtiva==="DOACOES"        && <ThSort campo="DATA_DECISAO">Data Decisão</ThSort>}
                       {abaAtiva==="DOACOES"        && <ThSort campo="ENTIDADE_NOME">Entidade</ThSort>}
                       {abaAtiva==="CEGOC"          && <ThSort campo="DESTINACAO">Destinação</ThSort>}
+                      {abaAtiva==="CEGOC" && filtroStatus.has("CATÁLOGO") && <ThSort campo="LPC">LPC</ThSort>}
                       <ThSort campo="STATUS_DILIGENCIA">Status</ThSort>
                       <ThSort campo="Responsavel">Responsável</ThSort>
                       <ThSort campo="OBSERVACOES">Observações</ThSort>
@@ -910,6 +911,7 @@ export default function GestaoPage() {
                           {abaAtiva==="DOACOES"        && <Cell mono muted>{item.DATA_DECISAO || "—"}</Cell>}
                           {abaAtiva==="DOACOES"        && <Cell muted>{(item.ENTIDADE_NOME || item.ENTIDADE) ? (item.ENTIDADE_NOME || item.ENTIDADE).substring(0,30)+"…" : "—"}</Cell>}
                           {abaAtiva==="CEGOC"          && <Cell muted>{item.DESTINACAO || "—"}</Cell>}
+                          {abaAtiva==="CEGOC" && filtroStatus.has("CATÁLOGO") && <Cell muted>{item.LPC || "—"}</Cell>}
                           <td style={{ padding:"11px 14px", borderBottom:"1px solid #f3f4f6" }}>
                             <StatusBadge status={status}/>
                           </td>
