@@ -1209,6 +1209,9 @@ function DetalhesContent() {
                         {editMode
                           ? <FieldEdit label="Data da avaliação" value={editData?.AVALIACAO_DATA} onChange={v=>upd("AVALIACAO_DATA",v)} type="date"/>
                           : <FieldView label="Data da avaliação" value={current?.AVALIACAO_DATA}/>}
+                        {editMode
+                          ? <FieldEdit label="Valor da avaliação (R$)" value={editData?.AVALIACAO_VALOR} onChange={v=>upd("AVALIACAO_VALOR",v)}/>
+                          : <FieldView label="Valor da avaliação (R$)" value={current?.AVALIACAO_VALOR ? `R$ ${current.AVALIACAO_VALOR}` : null}/>}
                       </div>
                       <div style={{ fontSize:10, color:"#6b7280", marginTop:4 }}>Sem avaliação, o bem não pode ser migrado para catálogo.</div>
 
