@@ -8,6 +8,8 @@
   --card-bg: #ffffff;
   --card-border: #b0b8c4;
   --accent: #2563eb;
+  /* Escala global da interface — sobe/desce tudo (fonte, espaçamentos, ícones) */
+  --ui-zoom: 1.1;
 }
 
 * { box-sizing: border-box; }
@@ -18,12 +20,13 @@ body {
   font-family: 'Inter', system-ui, sans-serif;
   margin: 0;
   padding: 0;
+  zoom: var(--ui-zoom);
 }
 
 /* ── Layout principal ─────────────────────────────────────── */
 .signu-layout {
   display: flex;
-  height: 100vh;
+  height: calc(100vh / var(--ui-zoom));
   overflow: hidden;
 }
 
@@ -68,7 +71,7 @@ body {
 
   .signu-layout {
     flex-direction: column;
-    height: 100dvh;
+    height: calc(100dvh / var(--ui-zoom));
   }
 
   /* ── Sidebar → bottom nav ────────────────────────────────── */
