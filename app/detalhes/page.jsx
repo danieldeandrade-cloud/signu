@@ -533,12 +533,12 @@ function TimelineObservacoes({ obsStr, onSalvar, salvando }) {
   return (
     <div>
       {/* Input de nova nota */}
-      <div style={{ marginBottom:16, display:"flex", gap:8 }}>
+      <div style={{ marginBottom:6, display:"flex", gap:8 }}>
         <textarea
           value={novaNota}
           onChange={e => setNovaNota(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSalvarNota(); }}
-          placeholder="Nova anotação… (Ctrl+Enter para salvar)"
+          placeholder="Nova anotação… (Ctrl+Enter para adicionar)"
           rows={2}
           style={{ flex:1, padding:"9px 12px", background:"#f3f4f6", border:"1.5px solid #b0b8c4", borderRadius:8, color:"#0f172a", fontSize:13, lineHeight:1.5, resize:"vertical", outline:"none", fontFamily:"inherit" }}
         />
@@ -547,8 +547,11 @@ function TimelineObservacoes({ obsStr, onSalvar, salvando }) {
           disabled={!novaNota.trim() || salvandoNota}
           style={{ padding:"0 16px", background: novaNota.trim() ? "rgba(37,99,235,0.12)" : "#f3f4f6", border:`1px solid ${novaNota.trim() ? "rgba(37,99,235,0.4)" : "#e5e7eb"}`, borderRadius:8, color: novaNota.trim() ? "#2563eb" : "#9ca3af", fontSize:12, fontWeight:700, cursor: novaNota.trim() ? "pointer" : "default", transition:"all 0.15s", whiteSpace:"nowrap", alignSelf:"flex-start", height:38 }}
         >
-          {salvandoNota ? "…" : "＋ Salvar"}
+          {salvandoNota ? "…" : "＋ Adicionar"}
         </button>
+      </div>
+      <div style={{ fontSize:11, color:"#b45309", background:"#fffbeb", border:"1px solid #fcd34d", borderRadius:8, padding:"7px 10px", marginBottom:16 }}>
+        ⚠️ "Adicionar" só registra a anotação. Para gravar as <b>demais alterações</b> do bem, clique em <b>«Salvar»</b> no topo da página.
       </div>
 
       {/* Timeline */}
