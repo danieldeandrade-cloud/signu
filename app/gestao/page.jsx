@@ -113,6 +113,7 @@ const FLAGS_CONFIG = [
   { key:"CEB_TEP_TIV",   label:"CEB/TEP/TIV",          color:"#60a5fa", bg:"rgba(96,165,250,0.15)"   },
   { key:"RESTRICAO_ROUBO",label:"🔒 Roubo/Furto",      color:"#f87171", bg:"rgba(248,113,113,0.15)"  },
   { key:"OFICIO_BAIXA",  label:"Ofício Baixa",          color:"#a78bfa", bg:"rgba(167,139,250,0.15)"  },
+  { key:"AVALIACAO_FEITA",label:"✅ Avaliação",         color:"#22c55e", bg:"rgba(34,197,94,0.12)"    },
   { key:"RENAJUD_ANY",   label:"🔒 RENAJUD",            color:"#f59e0b", bg:"rgba(245,158,11,0.15)"   },
   { key:"RENAJUD_PEND",  label:"🔒 RENAJUD Pendente",  color:"#f87171", bg:"rgba(248,113,113,0.15)"  },
 ];
@@ -215,6 +216,7 @@ export default function GestaoPage() {
   const [filtroResp,   setFiltroResp]   = useState(new Set());
   const [filtroFlags,       setFiltroFlags]       = useState(new Set());
   const [filtroSemFib,      setFiltroSemFib]      = useState(false);
+  const [filtroSemAvaliacao, setFiltroSemAvaliacao] = useState(false);
   const [filtroDestinacao,  setFiltroDestinacao]  = useState(new Set());
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [carregandoRenajud,   setCarregandoRenajud]   = useState(false);
@@ -313,7 +315,7 @@ export default function GestaoPage() {
 
   const totalFiltrosAtivos =
     filtroStatus.size + filtroTipo.size + filtroResp.size + filtroFlags.size +
-    (filtroSemFib ? 1 : 0) + filtroDestinacao.size + (busca.trim() ? 1 : 0);
+    (filtroSemFib ? 1 : 0) + (filtroSemAvaliacao ? 1 : 0) + filtroDestinacao.size + (busca.trim() ? 1 : 0);
   const [ordenacao, setOrdenacao]   = useState({ campo:"_rowNumber", dir:"asc" });
   const [pag, setPag]               = useState(1);
   const POR_PAGINA = 15;
@@ -347,6 +349,7 @@ export default function GestaoPage() {
     setFiltroResp(new Set());
     setFiltroFlags(new Set());
     setFiltroSemFib(false);
+    setFiltroSemAvaliacao(false);
     setFiltroDestinacao(new Set());
     setPag(1);
     setSelecao(new Set());
@@ -415,6 +418,9 @@ export default function GestaoPage() {
     if (filtroSemFib) {
       res = res.filter(i => !hasFlag(i, "FIB"));
     }
+    if (filtroSemAvaliacao) {
+      res = res.filter(i => i.DESTINACAO === "CIRCULAÇÃO" && !hasFlag(i, "AVALIACAO_FEITA"));
+    }
     if (filtroDestinacao.size > 0) {
       res = res.filter(i => filtroDestinacao.has(i.DESTINACAO));
     }
@@ -433,7 +439,7 @@ export default function GestaoPage() {
       return ordenacao.dir === "asc" ? r : -r;
     });
     return res;
-  }, [dados, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroDestinacao, ordenacao, abaAtiva]);
+  }, [dados, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroSemAvaliacao, filtroDestinacao, ordenacao, abaAtiva]);
 
   const totalPags = Math.ceil(filtrados.length / POR_PAGINA);
   const pagina = filtrados.slice((pag-1)*POR_PAGINA, pag*POR_PAGINA);
@@ -455,7 +461,7 @@ export default function GestaoPage() {
 
   const limparFiltros = () => {
     setBusca(""); setFiltroStatus(new Set()); setFiltroTipo(new Set());
-    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setFiltroDestinacao(new Set()); setPag(1);
+    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setFiltroSemAvaliacao(false); setFiltroDestinacao(new Set()); setPag(1);
   };
 
   // Flags disponíveis na lista ativa (só exibe pill se houver ao menos 1 item com a flag)
@@ -750,6 +756,12 @@ export default function GestaoPage() {
                           {filtroSemFib&&"✓ "}⚠️ Sem FIB <span style={{ fontSize:10, opacity:.6 }}>({dados.filter(i=>!hasFlag(i,"FIB")).length})</span>
                         </button>
                       )}
+                      {abaAtiva==="CEGOC" && (
+                        <button onClick={()=>{setFiltroSemAvaliacao(v=>!v);setPag(1);}}
+                          style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemAvaliacao?700:400, cursor:"pointer", transition:"all 0.15s", border:`1px solid ${filtroSemAvaliacao?"#f59e0b":"#d1d5db"}`, background:filtroSemAvaliacao?"rgba(245,158,11,0.15)":"transparent", color:filtroSemAvaliacao?"#f59e0b":"#374151" }}>
+                          {filtroSemAvaliacao&&"✓ "}⚠️ Cobrar avaliação <span style={{ fontSize:10, opacity:.6 }}>({dados.filter(i=>i.DESTINACAO==="CIRCULAÇÃO"&&!hasFlag(i,"AVALIACAO_FEITA")).length})</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -792,6 +804,9 @@ export default function GestaoPage() {
                 );})}
                 {filtroSemFib && (
                   <span onClick={()=>{setFiltroSemFib(false);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(248,113,113,0.1)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:20, fontSize:11, color:"#f87171", cursor:"pointer" }}>Sem FIB ✕</span>
+                )}
+                {filtroSemAvaliacao && (
+                  <span onClick={()=>{setFiltroSemAvaliacao(false);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(245,158,11,0.12)", border:"1px solid rgba(245,158,11,0.3)", borderRadius:20, fontSize:11, color:"#f59e0b", cursor:"pointer" }}>Cobrar avaliação ✕</span>
                 )}
                 {[...filtroDestinacao].map(d => {
                   const cor = d === "RECICLAGEM" ? "#22c55e" : "#60a5fa";
@@ -927,6 +942,11 @@ export default function GestaoPage() {
                                 <span style={{ fontSize:9, background:"rgba(96,165,250,0.15)", color:"#60a5fa", padding:"2px 5px", borderRadius:4, fontWeight:700 }}>CEB</span>}
                               {(item.RESTRICAO_ROUBO === "TRUE" || item.RESTRICAO_ROUBO === true) &&
                                 <span style={{ fontSize:9, background:"rgba(248,113,113,0.15)", color:"#f87171", padding:"2px 5px", borderRadius:4, fontWeight:700 }}>🔒 Roubo</span>}
+                              {abaAtiva==="CEGOC" && item.DESTINACAO==="CIRCULAÇÃO" && (
+                                (item.AVALIACAO_FEITA === "TRUE" || item.AVALIACAO_FEITA === true)
+                                  ? <span style={{ fontSize:9, background:"rgba(34,197,94,0.15)", color:"#22c55e", padding:"2px 5px", borderRadius:4, fontWeight:700, whiteSpace:"nowrap" }}>✅ Aval.</span>
+                                  : <span style={{ fontSize:9, background:"rgba(245,158,11,0.15)", color:"#f59e0b", padding:"2px 5px", borderRadius:4, fontWeight:700, whiteSpace:"nowrap" }}>⚠️ s/ aval.</span>
+                              )}
                               {(() => {
                                 const r = renajudInfo(item);
                                 if (!r) return null;

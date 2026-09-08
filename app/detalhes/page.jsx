@@ -723,7 +723,7 @@ function DetalhesContent() {
       delete payload.MULTAS;
       // Normaliza toggles: a string "FALSE" do Sheets é truthy em JS — usa boolVal
       // antes de reserializar, senão qualquer save religava os flags não mexidos.
-      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO","RESTRICAO_ALIEN_FIDUC","RESTRICAO_ADMIN"].forEach(k => {
+      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO","RESTRICAO_ALIEN_FIDUC","RESTRICAO_ADMIN","AVALIACAO_FEITA"].forEach(k => {
         if (k in payload) payload[k] = boolVal(payload[k]) ? "TRUE" : "FALSE";
       });
       const res = await fetch(`/api/bens/${lista}/${row}`, {
@@ -868,7 +868,13 @@ function DetalhesContent() {
   const multasPendentes = (() => {
     try { return JSON.parse(current?.MULTAS || "[]").filter(m => !m.baixada).length; } catch { return 0; }
   })();
-  const podeCatalogar = restricoesAtivas.length === 0 && multasPendentes === 0;
+  const semAvaliacao = !boolVal(current?.AVALIACAO_FEITA);
+  const podeCatalogar = restricoesAtivas.length === 0 && multasPendentes === 0 && !semAvaliacao;
+  const pendCatalogo = [
+    restricoesAtivas.length ? `${restricoesAtivas.length} restrição(ões)` : "",
+    multasPendentes ? `${multasPendentes} multa(s)` : "",
+    semAvaliacao ? "avaliação" : "",
+  ].filter(Boolean).join(" · ");
 
   const migrarParaCatalogo = async () => {
     setSalvando(true);
@@ -1027,7 +1033,7 @@ function DetalhesContent() {
                     )}
                     {current?.STATUS_DILIGENCIA === "LPC" && cegocCirculacao && (
                       <button onClick={migrarParaCatalogo} disabled={!podeCatalogar || salvando}
-                        title={podeCatalogar ? "" : `Pendente: ${[restricoesAtivas.length ? `${restricoesAtivas.length} restrição(ões)` : "", multasPendentes ? `${multasPendentes} multa(s)` : ""].filter(Boolean).join(" e ")}`}
+                        title={podeCatalogar ? "" : `Pendente: ${pendCatalogo}`}
                         style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderRadius:10,background: podeCatalogar ? "linear-gradient(135deg,rgba(21,128,61,0.2),rgba(34,197,94,0.1))" : "#f3f4f6", border:`1px solid ${podeCatalogar ? "rgba(34,197,94,0.5)" : "#d1d5db"}`, color: podeCatalogar ? "#22c55e" : "#9ca3af", fontSize:13, fontWeight:700, cursor: podeCatalogar && !salvando ? "pointer" : "not-allowed" }}>
                         📋 Migrar para catálogo <Ico.Arrow/>
                       </button>
@@ -1182,10 +1188,22 @@ function DetalhesContent() {
                     </Section>
                   )}
 
-                  {/* CEGOC circulação — restrições, multas e catalogação */}
+                  {/* CEGOC circulação — restrições, multas, avaliação e catalogação */}
                   {cegocCirculacao && (
-                    <Section title="Circulação — restrições e multas">
-                      <div style={{ fontSize:11, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:6 }}>Restrições</div>
+                    <Section title="Circulação — restrições, multas e avaliação">
+                      <div style={{ fontSize:11, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:6 }}>Avaliação</div>
+                      <Toggle label="Mandado de avaliação expedido" value={editMode?editData?.AVALIACAO_FEITA:current?.AVALIACAO_FEITA} onChange={v=>upd("AVALIACAO_FEITA",v)} editMode={editMode}/>
+                      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginTop:10 }}>
+                        {editMode
+                          ? <FieldEdit label="Nº do mandado" value={editData?.AVALIACAO_MANDADO} onChange={v=>upd("AVALIACAO_MANDADO",v)}/>
+                          : <FieldView label="Nº do mandado" value={current?.AVALIACAO_MANDADO} mono/>}
+                        {editMode
+                          ? <FieldEdit label="Data da avaliação" value={editData?.AVALIACAO_DATA} onChange={v=>upd("AVALIACAO_DATA",v)} type="date"/>
+                          : <FieldView label="Data da avaliação" value={current?.AVALIACAO_DATA}/>}
+                      </div>
+                      <div style={{ fontSize:10, color:"#6b7280", marginTop:4 }}>Sem avaliação, o bem não pode ser migrado para catálogo.</div>
+
+                      <div style={{ fontSize:11, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", margin:"18px 0 6px" }}>Restrições</div>
                       {[["Roubo / Furto","RESTRICAO_ROUBO"],["Alienação Fiduciária","RESTRICAO_ALIEN_FIDUC"],["Administrativa","RESTRICAO_ADMIN"]].map(([label,field])=>(
                         <Toggle key={field} label={label} value={editMode?editData?.[field]:current?.[field]} onChange={v=>upd(field,v)} editMode={editMode}/>
                       ))}
@@ -1219,8 +1237,8 @@ function DetalhesContent() {
                       {current?.STATUS_DILIGENCIA === "LPC" && (
                         <div style={{ marginTop:16, fontSize:11, color: podeCatalogar ? "#22c55e" : "#f59e0b" }}>
                           {podeCatalogar
-                            ? "✅ Sem restrições nem multas pendentes — pode migrar para catálogo (botão no topo)."
-                            : `⚠️ Pendente antes de catalogar: ${[restricoesAtivas.length ? `${restricoesAtivas.length} restrição(ões)` : "", multasPendentes ? `${multasPendentes} multa(s)` : ""].filter(Boolean).join(" · ")}`}
+                            ? "✅ Sem pendências — pode migrar para catálogo (botão no topo)."
+                            : `⚠️ Pendente antes de catalogar: ${pendCatalogo}`}
                         </div>
                       )}
                     </Section>
