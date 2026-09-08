@@ -706,6 +706,15 @@ export default function GestaoPage() {
                   <div>
                     <div style={{ fontSize:10, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:7 }}>Responsável</div>
                     <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                      {(() => {
+                        const macro = filtroResp.size === 0;
+                        return (
+                          <button onClick={()=>{ setFiltroResp(new Set()); setPag(1); }}
+                            style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:700, cursor:"pointer", border:`1px solid ${macro?"#a78bfa":"#d1d5db"}`, background:macro?"rgba(167,139,250,0.12)":"transparent", color:macro?"#a78bfa":"#374151", transition:"all 0.15s" }}>
+                            {macro&&"✓ "}Todos
+                          </button>
+                        );
+                      })()}
                       {respOptions.map(r => {
                         const ativo = filtroResp.has(r);
                         const count = dados.filter(i => (i.RESPONSAVEL||i.Responsavel||"") === r).length;

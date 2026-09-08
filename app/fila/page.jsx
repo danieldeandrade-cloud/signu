@@ -1021,7 +1021,8 @@ export default function SIGNUMinhaFila() {
                       ))}
                     </div>
 
-                    {/* Flags */}
+                    {/* Flags — não fazem sentido para CEGOC destinado a circulação */}
+                    {!(selectedItem.listaOrigem==="CEGOC" && selectedItem.DESTINACAO==="CIRCULAÇÃO") && (
                     <div style={{ marginBottom:20 }}>
                       <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:8 }}>🏷 Flags</div>
                       <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
@@ -1040,6 +1041,7 @@ export default function SIGNUMinhaFila() {
                         })}
                       </div>
                     </div>
+                    )}
 
                     {/* Observações — mais recente primeiro */}
                     {selectedItem.OBSERVACOES && (
@@ -1107,6 +1109,7 @@ export default function SIGNUMinhaFila() {
                     {inp("NIV / Chassi", "NIV")}
                     {(selectedItem.listaOrigem==="PCDF_1HIGEIA"||selectedItem.listaOrigem==="PCDF_2HIGEIA") && inp("Nº SEI do TEP","TEP_SEI")}
                     {(selectedItem.listaOrigem==="PCDF_1HIGEIA"||selectedItem.listaOrigem==="PCDF_2HIGEIA") && inp("Valor TEP (R$)","TEP_VALOR")}
+                    {!(selectedItem.listaOrigem==="CEGOC" && (drawerEditData?.DESTINACAO ?? selectedItem.DESTINACAO)==="CIRCULAÇÃO") && (
                     <div style={{ borderTop:"1px solid #e5e7eb", paddingTop:8, display:"flex", flexDirection:"column", gap:8 }}>
                       <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:2 }}>Flags</div>
                       {tog("FIB Expedida",       "FIB",           "#22c55e")}
@@ -1114,6 +1117,7 @@ export default function SIGNUMinhaFila() {
                       {tog("Ofício de Baixa DETRAN","OFICIO_BAIXA","#f472b6")}
                       {tog("Restrição Roubo/Furto","RESTRICAO_ROUBO","#fbbf24")}
                     </div>
+                    )}
                   </div>
                 );
               })()}
