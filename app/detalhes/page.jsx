@@ -877,12 +877,12 @@ function DetalhesContent() {
   const multasPendentes = (() => {
     try { return JSON.parse(current?.MULTAS || "[]").filter(m => !m.baixada).length; } catch { return 0; }
   })();
-  const semAvaliacao = !boolVal(current?.AVALIACAO_FEITA);
+  const semAvaliacao = !String(current?.AVALIACAO_VALOR || "").trim();
   const podeCatalogar = restricoesAtivas.length === 0 && multasPendentes === 0 && !semAvaliacao;
   const pendCatalogo = [
     restricoesAtivas.length ? `${restricoesAtivas.length} restrição(ões)` : "",
     multasPendentes ? `${multasPendentes} multa(s)` : "",
-    semAvaliacao ? "avaliação" : "",
+    semAvaliacao ? "valor da avaliação" : "",
   ].filter(Boolean).join(" · ");
 
   const migrarParaCatalogo = async () => {
@@ -1213,7 +1213,7 @@ function DetalhesContent() {
                           ? <FieldEdit label="Valor da avaliação (R$)" value={editData?.AVALIACAO_VALOR} onChange={v=>upd("AVALIACAO_VALOR",v)}/>
                           : <FieldView label="Valor da avaliação (R$)" value={current?.AVALIACAO_VALOR ? `R$ ${current.AVALIACAO_VALOR}` : null}/>}
                       </div>
-                      <div style={{ fontSize:10, color:"#6b7280", marginTop:4 }}>Sem avaliação, o bem não pode ser migrado para catálogo.</div>
+                      <div style={{ fontSize:10, color:"#6b7280", marginTop:4 }}>Sem o valor da avaliação preenchido, o bem não pode ser migrado para catálogo.</div>
 
                       <div style={{ fontSize:11, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", margin:"18px 0 6px" }}>Restrições</div>
                       {[["Roubo / Furto","RESTRICAO_ROUBO"],["Alienação Fiduciária","RESTRICAO_ALIEN_FIDUC"],["Administrativa","RESTRICAO_ADMIN"]].map(([label,field])=>(
