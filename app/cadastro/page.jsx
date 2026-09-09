@@ -674,9 +674,9 @@ export default function CadastroPage() {
                     </div>
                   )}
 
-                  {/* ── Alerta de duplicata ── */}
+                  {/* ── Alerta de duplicata (fica no topo da coluna, junto dos campos) ── */}
                   {(buscandoDup || duplicata) && (
-                    <div style={{ borderRadius:10, overflow:"hidden", border:`1px solid ${duplicata ? "rgba(248,113,113,0.4)" : "rgba(37,99,235,0.2)"}` }}>
+                    <div style={{ order:-1, borderRadius:10, overflow:"hidden", border:`1px solid ${duplicata ? "rgba(248,113,113,0.4)" : "rgba(37,99,235,0.2)"}` }}>
                       {buscandoDup && !duplicata && (
                         <div style={{ padding:"10px 14px", background:"#f9fafb", fontSize:12, color:"#4b5563", display:"flex", alignItems:"center", gap:8 }}>
                           <span style={{ animation:"spin 1s linear infinite", display:"inline-block" }}>⟳</span>
