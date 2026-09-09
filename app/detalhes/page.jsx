@@ -719,7 +719,7 @@ function DetalhesContent() {
       delete payload.MULTAS;
       // Normaliza toggles: a string "FALSE" do Sheets é truthy em JS — usa boolVal
       // antes de reserializar, senão qualquer save religava os flags não mexidos.
-      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO","RESTRICAO_ALIEN_FIDUC","RESTRICAO_ADMIN","AVALIACAO_FEITA"].forEach(k => {
+      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO","RESTRICAO_ALIEN_FIDUC","RESTRICAO_ADMIN","AVALIACAO_FEITA","NIV_NAO_AFLORADO"].forEach(k => {
         if (k in payload) payload[k] = boolVal(payload[k]) ? "TRUE" : "FALSE";
       });
       const res = await fetch(`/api/bens/${lista}/${row}`, {
@@ -863,6 +863,22 @@ function DetalhesContent() {
       const next = { ...prev, STATUS_DILIGENCIA: v };
       if (v === "BAIXADO" && (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA")) {
         const campoStatus = listaKey === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA";
+        next[campoStatus] = "FINALIZADO";
+        next.OFICIO_BAIXA = "FALSE";
+      }
+      return next;
+    });
+  };
+
+  // Veículo não aflorado (NIV nunca localizado): marca o bem como BAIXADO e
+  // fecha a etapa HIGEIA direto. A placa ostentada fica guardada só para busca.
+  const handleNaoAflorado = (v) => {
+    setEditData(prev => {
+      const next = { ...prev, NIV_NAO_AFLORADO: v };
+      if (v && (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA")) {
+        const campoStatus = listaKey === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA";
+        next.NIV = "N/A";
+        next.STATUS_DILIGENCIA = "BAIXADO";
         next[campoStatus] = "FINALIZADO";
         next.OFICIO_BAIXA = "FALSE";
       }
@@ -1094,12 +1110,39 @@ function DetalhesContent() {
                           ? <FieldEdit label="Etapa HIGEIA" value={editData?.[campoStatus]||"EM PROCESSAMENTO"} onChange={v=>handleEtapaHigeia(campoStatus,v)} options={STATUS_2HIGEIA}/>
                           : <FieldView label="Etapa HIGEIA" value={current?.[campoStatus]||"EM PROCESSAMENTO"} highlight={current?.[campoStatus]==="FINALIZADO"?"#22c55e":"#2563eb"}/>;
                       })()}
-                      {editMode
+                      {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") ? (
+                        editMode ? (
+                          <div>
+                            <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5,gap:8 }}>
+                              <span style={{ fontSize:10,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em" }}>NIV / Chassi</span>
+                              <label style={{ display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#b45309",cursor:"pointer" }}>
+                                <input type="checkbox" checked={boolVal(editData?.NIV_NAO_AFLORADO)} onChange={e=>handleNaoAflorado(e.target.checked)}/>
+                                Não aflorado
+                              </label>
+                            </div>
+                            <input
+                              value={editData?.NIV||""}
+                              onChange={e=>upd("NIV",e.target.value)}
+                              disabled={boolVal(editData?.NIV_NAO_AFLORADO)}
+                              style={{ width:"100%",padding:"8px 10px",background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:6,color:"#0f172a",fontSize:13,fontFamily:"'IBM Plex Mono',monospace",outline:"none",boxSizing:"border-box",opacity:boolVal(editData?.NIV_NAO_AFLORADO)?0.6:1 }}/>
+                            {boolVal(editData?.NIV_NAO_AFLORADO) && (
+                              <div style={{ fontSize:10,color:"#b45309",marginTop:4 }}>Veículo não aflorado — ao salvar: status BAIXADO e etapa HIGEIA finalizada.</div>
+                            )}
+                          </div>
+                        ) : (
+                          <FieldView label="NIV / Chassi" value={boolVal(current?.NIV_NAO_AFLORADO) ? "N/A (não aflorado)" : current?.NIV} mono/>
+                        )
+                      ) : (editMode
                         ? <FieldEdit label="NIV / Chassi" value={editData?.NIV} onChange={v=>upd("NIV",v)} mono/>
-                        : <FieldView label="NIV / Chassi" value={current?.NIV} mono/>}
+                        : <FieldView label="NIV / Chassi" value={current?.NIV} mono/>)}
                       {listaKey !== "CAIXA_SEI" && (editMode
                         ? <FieldEdit label="Placa" value={editData?.PLACA} onChange={v=>upd("PLACA", v.toUpperCase().replace(/[^A-Z0-9]/g,""))} mono/>
                         : <FieldView label="Placa" value={current?.PLACA} mono/>)}
+                      {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") && (
+                        boolVal(current?.NIV_NAO_AFLORADO) || (editMode && boolVal(editData?.NIV_NAO_AFLORADO))
+                      ) && (editMode
+                        ? <FieldEdit label="Placa ostentada (só p/ busca)" value={editData?.PLACA_OSTENTADA} onChange={v=>upd("PLACA_OSTENTADA", v.toUpperCase().replace(/[^A-Z0-9]/g,""))}/>
+                        : <FieldView label="Placa ostentada" value={current?.PLACA_OSTENTADA} mono/>)}
                       {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA")
                         ? <FieldView label="Destinação" value="RECICLAGEM"/>
                         : editMode

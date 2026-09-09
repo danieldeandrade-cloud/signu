@@ -133,6 +133,14 @@ function ResultCard({ item, termo, onOpen }) {
               </span>
             </div>
           )}
+          {item.PLACA_OSTENTADA && (
+            <div>
+              <span style={{ fontSize:9,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.08em" }}>Placa ostentada </span>
+              <span style={{ fontSize:11,fontFamily:"'IBM Plex Mono',monospace",color:"#1f2937" }}>
+                <Highlight text={item.PLACA_OSTENTADA} termo={termo}/>
+              </span>
+            </div>
+          )}
           {item.DESTINACAO && (
             <div>
               <span style={{ fontSize:9,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.08em" }}>Dest. </span>
