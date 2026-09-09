@@ -219,6 +219,7 @@ export default function GestaoPage() {
   const [filtroSemFib,      setFiltroSemFib]      = useState(false);
   const [filtroSemAvaliacao, setFiltroSemAvaliacao] = useState(false);
   const [filtroDestinacao,  setFiltroDestinacao]  = useState(new Set());
+  const [filtroLPC,         setFiltroLPC]         = useState(new Set());
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [carregandoRenajud,   setCarregandoRenajud]   = useState(false);
   const [modalRenajud,        setModalRenajud]         = useState(false);
@@ -316,7 +317,7 @@ export default function GestaoPage() {
 
   const totalFiltrosAtivos =
     filtroStatus.size + filtroTipo.size + filtroResp.size + filtroFlags.size +
-    (filtroSemFib ? 1 : 0) + (filtroSemAvaliacao ? 1 : 0) + filtroDestinacao.size + (busca.trim() ? 1 : 0);
+    (filtroSemFib ? 1 : 0) + (filtroSemAvaliacao ? 1 : 0) + filtroDestinacao.size + filtroLPC.size + (busca.trim() ? 1 : 0);
   const [ordenacao, setOrdenacao]   = useState({ campo:"_rowNumber", dir:"asc" });
   const [pag, setPag]               = useState(1);
   const POR_PAGINA = 15;
@@ -352,6 +353,7 @@ export default function GestaoPage() {
     setFiltroSemFib(false);
     setFiltroSemAvaliacao(false);
     setFiltroDestinacao(new Set());
+    setFiltroLPC(new Set());
     setPag(1);
     setSelecao(new Set());
     // Doações: fila ordenada pela data da decisão (mais antiga primeiro)
@@ -425,6 +427,9 @@ export default function GestaoPage() {
     if (filtroDestinacao.size > 0) {
       res = res.filter(i => filtroDestinacao.has(i.DESTINACAO));
     }
+    if (filtroLPC.size > 0) {
+      res = res.filter(i => filtroLPC.has(i.LPC || ""));
+    }
     res.sort((a, b) => {
       if (ordenacao.campo === "_recencia") {
         // desempate por ordem de linha (novos são acrescentados no fim da planilha)
@@ -440,7 +445,13 @@ export default function GestaoPage() {
       return ordenacao.dir === "asc" ? r : -r;
     });
     return res;
-  }, [dados, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroSemAvaliacao, filtroDestinacao, ordenacao, abaAtiva]);
+  }, [dados, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroSemAvaliacao, filtroDestinacao, filtroLPC, ordenacao, abaAtiva]);
+
+  // Valores de LPC (leilão) presentes nos itens de catálogo — alimenta o filtro
+  const lpcOptions = useMemo(
+    () => [...new Set(dados.filter(i => String(i.LPC || "").trim()).map(i => i.LPC.trim()))].sort(),
+    [dados]
+  );
 
   const totalPags = Math.ceil(filtrados.length / POR_PAGINA);
   const pagina = filtrados.slice((pag-1)*POR_PAGINA, pag*POR_PAGINA);
@@ -462,7 +473,7 @@ export default function GestaoPage() {
 
   const limparFiltros = () => {
     setBusca(""); setFiltroStatus(new Set()); setFiltroTipo(new Set());
-    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setFiltroSemAvaliacao(false); setFiltroDestinacao(new Set()); setPag(1);
+    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setFiltroSemAvaliacao(false); setFiltroDestinacao(new Set()); setFiltroLPC(new Set()); setPag(1);
   };
 
   // Flags disponíveis na lista ativa (só exibe pill se houver ao menos 1 item com a flag)
@@ -766,6 +777,24 @@ export default function GestaoPage() {
                     </div>
                   </div>
                 )}
+                {/* LPC (leilão) — só CEGOC, quando o filtro de status Catálogo está ativo */}
+                {abaAtiva==="CEGOC" && filtroStatus.has("CATÁLOGO") && lpcOptions.length > 0 && (
+                  <div>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:7 }}>LPC (leilão)</div>
+                    <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                      {lpcOptions.map(lpc => {
+                        const ativo = filtroLPC.has(lpc);
+                        const count = dados.filter(i => (i.LPC || "").trim() === lpc).length;
+                        return (
+                          <button key={lpc} onClick={() => { toggleSet(setFiltroLPC, lpc); setPag(1); }}
+                            style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:ativo?700:400, cursor:"pointer", border:`1px solid ${ativo?"#a78bfa":"#d1d5db"}`, background:ativo?"rgba(167,139,250,0.15)":"transparent", color:ativo?"#a78bfa":"#374151" }}>
+                            {ativo && "✓ "}{lpc} <span style={{ fontSize:10, opacity:.6 }}>({count})</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 {/* Destinação */}
                 {dados.some(i => i.DESTINACAO === "CIRCULAÇÃO" || i.DESTINACAO === "RECICLAGEM") && (
                   <div>
@@ -813,6 +842,9 @@ export default function GestaoPage() {
                   const cor = d === "RECICLAGEM" ? "#22c55e" : "#60a5fa";
                   return <span key={d} onClick={()=>{toggleSet(setFiltroDestinacao,d);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:`${cor}12`, border:`1px solid ${cor}44`, borderRadius:20, fontSize:11, color:cor, cursor:"pointer" }}>{d} ✕</span>;
                 })}
+                {[...filtroLPC].map(lpc => (
+                  <span key={lpc} onClick={()=>{toggleSet(setFiltroLPC,lpc);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:20, fontSize:11, color:"#a78bfa", cursor:"pointer" }}>LPC {lpc} ✕</span>
+                ))}
               </div>
             )}
           </div>

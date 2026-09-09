@@ -163,17 +163,19 @@ function FieldView({ label, value, mono, highlight, children }) {
   );
 }
 
-function FieldEdit({ label, value, onChange, type="text", options }) {
+function FieldEdit({ label, value, onChange, type="text", options, hint, placeholder }) {
   const st = { width:"100%",padding:"8px 10px",background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:6,color:"#0f172a",fontSize:13,outline:"none",boxSizing:"border-box" };
   return (
     <div>
-      <div style={{ fontSize:10,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:5 }}>{label}</div>
+      <div style={{ fontSize:10,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:5 }}>
+        {label}{hint && <span style={{ textTransform:"none",letterSpacing:0,color:"#9ca3af",fontWeight:400 }}> · {hint}</span>}
+      </div>
       {options ? (
         <select value={value||""} onChange={e=>onChange(e.target.value)} style={{ ...st,cursor:"pointer" }}>
           {options.map(o=><option key={o} value={o} style={{ background:"#fff", color:"#111827" }}>{o}</option>)}
         </select>
       ) : (
-        <input type={type} value={value||""} onChange={e=>onChange(e.target.value)} style={st}/>
+        <input type={type} value={value||""} placeholder={placeholder} onChange={e=>onChange(e.target.value)} style={st}/>
       )}
     </div>
   );
@@ -1136,12 +1138,12 @@ function DetalhesContent() {
                         ? <FieldEdit label="NIV / Chassi" value={editData?.NIV} onChange={v=>upd("NIV",v)} mono/>
                         : <FieldView label="NIV / Chassi" value={current?.NIV} mono/>)}
                       {listaKey !== "CAIXA_SEI" && (editMode
-                        ? <FieldEdit label="Placa" value={editData?.PLACA} onChange={v=>upd("PLACA", v.toUpperCase().replace(/[^A-Z0-9]/g,""))} mono/>
+                        ? <FieldEdit label="Placa" hint="sem ponto, traço ou espaço · Ex: ABC1234" placeholder="Ex: ABC1234" value={editData?.PLACA} onChange={v=>upd("PLACA", v.toUpperCase().replace(/[^A-Z0-9]/g,""))} mono/>
                         : <FieldView label="Placa" value={current?.PLACA} mono/>)}
                       {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") && (
                         boolVal(current?.NIV_NAO_AFLORADO) || (editMode && boolVal(editData?.NIV_NAO_AFLORADO))
                       ) && (editMode
-                        ? <FieldEdit label="Placa ostentada (só p/ busca)" value={editData?.PLACA_OSTENTADA} onChange={v=>upd("PLACA_OSTENTADA", v.toUpperCase().replace(/[^A-Z0-9]/g,""))}/>
+                        ? <FieldEdit label="Placa ostentada (só p/ busca)" hint="sem ponto, traço ou espaço · Ex: ABC1234" placeholder="Ex: ABC1234" value={editData?.PLACA_OSTENTADA} onChange={v=>upd("PLACA_OSTENTADA", v.toUpperCase().replace(/[^A-Z0-9]/g,""))}/>
                         : <FieldView label="Placa ostentada" value={current?.PLACA_OSTENTADA} mono/>)}
                       {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA")
                         ? <FieldView label="Destinação" value="RECICLAGEM"/>
@@ -1284,7 +1286,7 @@ function DetalhesContent() {
                       {current?.STATUS_DILIGENCIA === "CATÁLOGO" && (
                         <div style={{ marginTop:18 }}>
                           {editMode
-                            ? <FieldEdit label="LPC (leilão)" value={editData?.LPC} onChange={v=>upd("LPC",v)}/>
+                            ? <FieldEdit label="LPC (leilão)" hint="Ex: nºLPC/ano" placeholder="Ex: 2LPC/2026" value={editData?.LPC} onChange={v=>upd("LPC",v)}/>
                             : <FieldView label="LPC (leilão)" value={current?.LPC}/>}
                         </div>
                       )}
