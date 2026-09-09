@@ -181,6 +181,53 @@ function FieldEdit({ label, value, onChange, type="text", options, hint, placeho
   );
 }
 
+// Converte o que o usuário digitou em número (aceita "15000", "15.000,50", "15000.5")
+function parseMoeda(str) {
+  let s = String(str ?? "").replace(/[^\d.,]/g, "");
+  if (!s) return null;
+  if (s.includes(",")) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else if ((s.match(/\./g) || []).length > 1 || /^\d{1,3}(\.\d{3})+$/.test(s)) {
+    s = s.replace(/\./g, "");
+  }
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
+}
+const fmtMoeda = (n) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Campo de valor que formata como moeda ao sair (blur / Tab). Guarda "1.234,56" (sem "R$").
+function MoedaField({ label, value, onChange, hint }) {
+  const st = { width:"100%",padding:"8px 10px",background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:6,color:"#0f172a",fontSize:13,outline:"none",boxSizing:"border-box" };
+  const [raw, setRaw] = useState(value ?? "");
+  const [foco, setFoco] = useState(false);
+  useEffect(() => { if (!foco) setRaw(value ?? ""); }, [value, foco]);
+  const aoSair = () => {
+    setFoco(false);
+    const n = parseMoeda(raw);
+    const fmt = n === null ? "" : fmtMoeda(n);
+    setRaw(fmt);
+    if (fmt !== (value ?? "")) onChange(fmt);
+  };
+  return (
+    <div>
+      <div style={{ fontSize:10,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:5 }}>
+        {label}{hint && <span style={{ textTransform:"none",letterSpacing:0,color:"#9ca3af",fontWeight:400 }}> · {hint}</span>}
+      </div>
+      <div style={{ position:"relative" }}>
+        <span style={{ position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:"#9ca3af",pointerEvents:"none" }}>R$</span>
+        <input
+          inputMode="decimal"
+          value={raw}
+          onFocus={() => setFoco(true)}
+          onChange={e => setRaw(e.target.value)}
+          onBlur={aoSair}
+          onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+          style={{ ...st, paddingLeft:30 }}/>
+      </div>
+    </div>
+  );
+}
+
 function Toggle({ label, value, onChange, editMode }) {
   const isOn = boolVal(value);
   return (
@@ -1255,7 +1302,7 @@ function DetalhesContent() {
                           ? <FieldEdit label="Data da avaliação" value={editData?.AVALIACAO_DATA} onChange={v=>upd("AVALIACAO_DATA",v)} type="date"/>
                           : <FieldView label="Data da avaliação" value={current?.AVALIACAO_DATA}/>}
                         {editMode
-                          ? <FieldEdit label="Valor da avaliação (R$)" value={editData?.AVALIACAO_VALOR} onChange={v=>upd("AVALIACAO_VALOR",v)}/>
+                          ? <MoedaField label="Valor da avaliação (R$)" value={editData?.AVALIACAO_VALOR} onChange={v=>upd("AVALIACAO_VALOR",v)}/>
                           : <FieldView label="Valor da avaliação (R$)" value={current?.AVALIACAO_VALOR ? `R$ ${current.AVALIACAO_VALOR}` : null}/>}
                       </div>
                       <div style={{ fontSize:10, color:"#6b7280", marginTop:4 }}>Sem o valor da avaliação preenchido, o bem não pode ser migrado para catálogo.</div>
