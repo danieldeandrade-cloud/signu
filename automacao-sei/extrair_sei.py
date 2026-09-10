@@ -3,12 +3,13 @@
 Protótipo — extração SEI -> revisão para cadastro no SIGNU.
 
 O QUE FAZ
-  1. Conecta no Chrome que VOCÊ já abriu e logou no SEI (via CDP).
-  2. Varre as abas abertas e identifica as que são um processo do SEI.
-  3. Em cada processo: lê o texto da árvore de documentos e do documento aberto
-     (opcionalmente percorre a árvore clicando em cada nó).
-  4. Manda o texto para o Claude com um schema de campos do SIGNU e recebe um
-     registro estruturado + nível de confiança + alertas.
+  1. Conecta no navegador que VOCÊ já abriu e logou no SEI (via CDP).
+  2. Acha os processos pelos marcadores "CADASTRAR SIGNU <lista>" (ou processa
+     as abas de processo abertas, com --modo abas).
+  3. Em cada processo: lê o texto dos frames da árvore/documento
+     (ifrArvore, ifrConteudoVisualizacao, ifrVisualizacao).
+  4. Manda o texto para a API do Google Gemini com um schema de campos do SIGNU
+     e recebe um registro estruturado + nível de confiança + alertas.
   5. Grava saida/revisao_<timestamp>.json  e  .csv  para conferência humana.
 
 O QUE NÃO FAZ (de propósito)
@@ -16,13 +17,12 @@ O QUE NÃO FAZ (de propósito)
   - Não faz login, não guarda senha: você loga no navegador.
 
 COMO RODAR   (ver README.md para o passo a passo completo)
-  1. Abrir o Chrome com porta de depuração e logar no SEI:
-       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-         --remote-debugging-port=9222 \
-         --user-data-dir="$HOME/chrome-sei-debug"
-  2. Abrir cada processo que interessa numa aba.
-  3. export ANTHROPIC_API_KEY=sk-ant-...
-  4. python extrair_sei.py --lista pcdf2
+  1. Abrir o navegador com porta de depuração e logar no SEI:
+       open -a "Comet" --args --remote-debugging-port=9222 \
+         --user-data-dir="$HOME/comet-sei-debug"
+  2. Colar a chave do Gemini em "gemini_api_key" no config.json.
+  3. Marcar os processos no SEI com "CADASTRAR SIGNU <lista>".
+  4. python extrair_sei.py            # varre pelos marcadores
 """
 
 import argparse
@@ -349,44 +349,61 @@ def extrair_processo(page, cfg_sei, debug=False):
     except Exception:
         pass
 
-    fr_arvore = achar_frame(page, cfg_sei["frame_arvore"])
-    fr_visu   = achar_frame(page, cfg_sei["frame_visualizacao"])
+    fr_arvore   = achar_frame(page, cfg_sei["frame_arvore"])
+    fr_conteudo = achar_frame(page, cfg_sei.get("frame_conteudo", "ifrConteudoVisualizacao"))
+    fr_visu     = achar_frame(page, cfg_sei["frame_visualizacao"])
+    # frame que hospeda a árvore clicável (no SEI/TJDFT é o ifrConteudoVisualizacao)
+    fr_tree = fr_conteudo or fr_arvore
 
     partes = []
-    if fr_arvore:
-        partes.append("### ÁRVORE DE DOCUMENTOS\n" + texto_frame(fr_arvore, 8000))
+    if fr_arvore or fr_conteudo:
+        partes.append("### ÁRVORE DE DOCUMENTOS\n" +
+                      texto_frame(fr_tree or fr_arvore, 8000))
     else:
         partes.append("### PÁGINA\n" + texto_frame(page.main_frame, 8000))
 
+    SEL_NODE = ("a[target='ifrVisualizacao'], a[href*='documento_visualizar'], "
+                "a[href*='acao=documento_visualizar'], a[onclick*='documento'], "
+                "a[onclick*='Arvore'], a.clsArvoreDocumento, span.infraArvoreNo a")
+
+    def _ler_visu():
+        chunks = []
+        fv = achar_frame(page, cfg_sei["frame_visualizacao"])
+        if fv:
+            chunks.append(texto_frame(fv, 9000))
+            for f in page.frames:  # doc às vezes carrega +1 nível abaixo
+                if f in (fr_arvore, fr_conteudo, fv, page.main_frame):
+                    continue
+                sub = texto_frame(f, 7000)
+                if len(sub) > 200:
+                    chunks.append(sub)
+        return "\n".join(c for c in chunks if c and c.strip())
+
     docs_lidos = 0
-    if fr_visu:
-        partes.append("### DOCUMENTO ABERTO\n" + texto_frame(fr_visu))
-        # frames aninhados dentro do visualizador (SEI às vezes usa +1 nível)
-        for f in page.frames:
-            if f in (fr_arvore, fr_visu, page.main_frame):
-                continue
-            sub = texto_frame(f, 6000)
-            if len(sub) > 200:
-                partes.append("### (frame aninhado)\n" + sub)
+    inicial = _ler_visu()
+    if inicial:
+        partes.append("### DOCUMENTO ABERTO\n" + inicial)
         docs_lidos = 1
 
-    # opcional: percorrer a árvore clicando em cada nó
-    if cfg_sei.get("percorrer_arvore") and fr_arvore:
+    # percorre a árvore clicando em cada nó e lendo o visualizador
+    if cfg_sei.get("percorrer_arvore") and fr_tree:
         try:
-            nodes = fr_arvore.locator("a[href*='documento_visualizar'], a[onclick*='documento']")
-            n = min(nodes.count(), int(cfg_sei.get("max_documentos", 12)))
+            nodes = fr_tree.locator(SEL_NODE)
+            total = nodes.count()
+            n = min(total, int(cfg_sei.get("max_documentos", 12)))
             if debug:
-                print(f"    árvore: {nodes.count()} nós, lendo {n}")
+                print(f"    árvore: {total} nós clicáveis, lendo {n}")
             for i in range(n):
                 try:
+                    titulo_no = re.sub(r"\s+", " ", nodes.nth(i).inner_text() or "").strip()[:80]
                     nodes.nth(i).click(timeout=3000)
-                    page.wait_for_timeout(600)
-                    fv = achar_frame(page, cfg_sei["frame_visualizacao"])
-                    if fv:
-                        txt = texto_frame(fv, 8000)
-                        if len(txt) > 120:
-                            partes.append(f"### DOC {i+1}\n{txt}")
-                            docs_lidos += 1
+                    page.wait_for_timeout(700)
+                    txt = _ler_visu()
+                    if len(txt) > 120:
+                        partes.append(f"### DOC {i+1} — {titulo_no}\n{txt}")
+                        docs_lidos += 1
+                    elif debug:
+                        print(f"    nó {i} ({titulo_no}): visualizador vazio (PDF imagem?)")
                 except Exception as e:
                     if debug:
                         print(f"    nó {i}: {e}")
@@ -410,8 +427,53 @@ def extrair_processo(page, cfg_sei, debug=False):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Extração com o Claude
+# Extração com a API do Google Gemini (generativelanguage.googleapis.com)
 # ─────────────────────────────────────────────────────────────────────────────
+GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+
+
+def chamar_gemini(api_key, model, system, prompt, max_tokens=2048, timeout=90):
+    """POST .../{model}:generateContent — retorna o texto da 1ª candidata."""
+    import urllib.request
+    import urllib.error
+
+    url = f"{GEMINI_BASE}/{model}:generateContent"
+    body = {
+        "system_instruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0,
+            "maxOutputTokens": max_tokens,
+            "responseMimeType": "application/json",
+        },
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        detalhe = e.read().decode("utf-8", "replace")[:400]
+        if e.code == 404:
+            detalhe += (f"\n    -> modelo '{model}' não encontrado. Veja os disponíveis:\n"
+                        f"       curl -s '{GEMINI_BASE}?key=SUA_CHAVE' | grep '\"name\"'\n"
+                        f"       e ajuste 'gemini_model' no config.json (ex.: gemini-2.5-flash).")
+        raise RuntimeError(f"Gemini HTTP {e.code}: {detalhe}")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Gemini sem conexão: {e.reason}")
+
+    cands = data.get("candidates") or []
+    if not cands:
+        fb = data.get("promptFeedback", {})
+        raise RuntimeError(f"Gemini não retornou candidata (block: {fb.get('blockReason')})")
+    parts = (cands[0].get("content") or {}).get("parts") or []
+    return "".join(p.get("text", "") for p in parts).strip()
+
+
 def montar_schema_texto(schema):
     linhas = []
     for campo, meta in schema.items():
@@ -429,7 +491,7 @@ SYS = (
 )
 
 
-def extrair_com_ia(client, model, schema, proc):
+def extrair_com_ia(api_key, model, schema, proc):
     prompt = f"""Abaixo está o texto extraído de um processo do SEI.
 
 Preencha os campos do SIGNU listados. Regras:
@@ -464,14 +526,7 @@ TEXTO DO PROCESSO (pode estar truncado):
 {proc['texto'][:45000]}
 \"\"\"
 """
-    msg = client.messages.create(
-        model=model,
-        max_tokens=1600,
-        temperature=0,
-        system=SYS,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+    raw = chamar_gemini(api_key, model, SYS, prompt)
     raw = re.sub(r"^```(?:json)?|```$", "", raw.strip()).strip()
     try:
         data = json.loads(raw)
@@ -489,7 +544,7 @@ TEXTO DO PROCESSO (pode estar truncado):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-def processar(page, cfg_sei, client, model, lista, args):
+def processar(page, cfg_sei, api_key, model, lista, args):
     """Extrai texto da página de um processo + IA. Retorna o dict de resultado."""
     schema = SCHEMAS[lista]
     proc = extrair_processo(page, cfg_sei, debug=args.debug)
@@ -499,7 +554,7 @@ def processar(page, cfg_sei, client, model, lista, args):
         print("    [!] pouco texto extraído — provável PDF escaneado ou seletor de frame errado.")
 
     try:
-        ia = extrair_com_ia(client, model, schema, proc)
+        ia = extrair_com_ia(api_key, model, schema, proc)
     except Exception as e:
         print(f"    [x] IA falhou: {e}")
         ia = {"campos": {}, "_confianca": 0, "_alertas": [f"erro IA: {e}"], "_campos_incertos": []}
@@ -551,21 +606,24 @@ def main():
         sys.exit(f"[x] lista inválida: {args.lista}. Use: {', '.join(sorted(SCHEMAS))}")
     if args.modo == "abas" and not args.lista and not args.dump:
         sys.exit("[x] modo abas exige --lista.")
-    if not args.dump and not os.environ.get("ANTHROPIC_API_KEY"):
-        sys.exit("[x] defina ANTHROPIC_API_KEY no ambiente.")
 
     cfg = carregar_config(args.config)
     cfg_sei = cfg["sei"]
     mapa_marc = (cfg.get("marcadores") or {}).get("mapa") or MARCADOR_LISTA
 
+    api_key = (
+        cfg.get("gemini_api_key") or cfg.get("GEMINI_API_KEY") or cfg.get("GOOGLE_API_KEY")
+        or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
+    ).strip()
+    model = cfg.get("gemini_model", "gemini-3.5-flash")
+    if not args.dump and not api_key:
+        sys.exit("[x] sem chave do Gemini. Cole o valor em \"gemini_api_key\" no config.json\n"
+                 "    (ou defina a env GEMINI_API_KEY / GOOGLE_API_KEY).")
+
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
         sys.exit("[x] pip install -r requirements.txt  (playwright)")
-    import anthropic
-
-    client = anthropic.Anthropic()
-    model = cfg.get("anthropic_model", "claude-sonnet-5")
 
     resultados = []
     with sync_playwright() as pw:
@@ -692,7 +750,7 @@ def main():
             alvos = abas_sei[:args.limite] if args.limite else abas_sei
             for idx, page in enumerate(alvos, 1):
                 print(f"\n[{idx}/{len(alvos)}] {page.url[:90]}")
-                resultados.append(processar(page, cfg_sei, client, model, args.lista.lower(), args))
+                resultados.append(processar(page, cfg_sei, api_key, model, args.lista.lower(), args))
 
         else:  # modo marcador
             filtro = args.lista.lower() if args.lista else None
@@ -725,7 +783,7 @@ def main():
                         print(f"    [x] não abriu: {e}")
                         continue
                     work.wait_for_timeout(800)
-                    resultados.append(processar(work, cfg_sei, client, model, item["lista"], args))
+                    resultados.append(processar(work, cfg_sei, api_key, model, item["lista"], args))
             finally:
                 work.close()
 

@@ -1,10 +1,14 @@
 {
   "cdp_url": "http://localhost:9222",
-  "anthropic_model": "claude-sonnet-5",
+
+  "_ia": "Extração/interpretação via Google Gemini (generativelanguage.googleapis.com). Cole a chave em gemini_api_key no config.json (que está no .gitignore). Também aceita a env GEMINI_API_KEY ou GOOGLE_API_KEY.",
+  "gemini_api_key": "COLE_AQUI_A_SUA_CHAVE_DO_GEMINI",
+  "gemini_model": "gemini-3.5-flash",
 
   "sei": {
     "url_contains": ["/sei/", "controlador.php"],
     "frame_arvore": "ifrArvore",
+    "frame_conteudo": "ifrConteudoVisualizacao",
     "frame_visualizacao": "ifrVisualizacao",
     "percorrer_arvore": true,
     "max_documentos": 12

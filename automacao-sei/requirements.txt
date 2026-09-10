@@ -1,2 +1,2 @@
 playwright>=1.40
-anthropic>=0.40
+# A extração usa a API REST do Google Gemini via urllib (stdlib) — sem SDK.
