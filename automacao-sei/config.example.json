@@ -1,0 +1,18 @@
+{
+  "cdp_url": "http://localhost:9222",
+  "anthropic_model": "claude-sonnet-5",
+
+  "sei": {
+    "url_contains": ["/sei/", "controlador.php"],
+    "frame_arvore": "ifrArvore",
+    "frame_visualizacao": "ifrVisualizacao",
+    "percorrer_arvore": true,
+    "max_documentos": 12
+  },
+
+  "_comentario_signu": "base_url e import_token só serão usados no passo 2 (ingestão). O protótipo v0 NÃO grava no SIGNU.",
+  "signu": {
+    "base_url": "https://signu.vercel.app",
+    "import_token": ""
+  }
+}

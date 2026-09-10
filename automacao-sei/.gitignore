@@ -1,0 +1,7 @@
+# Conteúdo de processo = dado sensível (LGPD). Nunca versionar.
+saida/
+config.json
+.venv/
+venv/
+__pycache__/
+*.pyc
