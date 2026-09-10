@@ -182,28 +182,34 @@ def _norm(s):
     return re.sub(r"\s+", " ", _sem_acento(str(s)).upper()).strip()
 
 
-def _primeira_pagina(page, debug=False):
-    """Rebobina a paginação do 'Recebidos' até a 1ª página."""
-    for _ in range(40):
+def _primeiro_proc(page):
+    try:
+        pl = page.locator("a[href*='acao=procedimento_trabalhar']").first
+        return pl.inner_text().strip() if pl.count() else ""
+    except Exception:
+        return ""
+
+
+def _paginar(page, direcao):
+    """Chama a paginação AJAX do SEI (infraAcaoPaginar) e espera a lista mudar.
+    direcao: '-' (anterior/1ª) ou '+' (próxima). Retorna True se a lista mudou."""
+    antes = _primeiro_proc(page)
+    for grupo in ("Recebidos", "Gerados"):
         try:
-            ant = page.locator("a[title='Página Anterior'], a[title*='Anterior']").first
-            if not ant.count():
-                break
-            antes = ""
-            pl = page.locator("a[href*='acao=procedimento_trabalhar']").first
-            if pl.count():
-                antes = pl.inner_text()
-            ant.click(timeout=2500)
-            page.wait_for_timeout(700)
-            depois = ""
-            pl = page.locator("a[href*='acao=procedimento_trabalhar']").first
-            if pl.count():
-                depois = pl.inner_text()
-            if antes == depois:  # não mudou -> já estava na 1ª
-                break
-        except Exception as e:
-            if debug:
-                print(f"    [debug] rebobinar: {e}")
+            page.evaluate(f"infraAcaoPaginar('{direcao}',0,'{grupo}', null)")
+        except Exception:
+            pass
+    for _ in range(20):
+        page.wait_for_timeout(300)
+        if _primeiro_proc(page) != antes:
+            return True
+    return False
+
+
+def _primeira_pagina(page, debug=False):
+    """Rebobina a paginação do 'Recebidos' até a 1ª página (AJAX)."""
+    for _ in range(30):
+        if not _paginar(page, "-"):
             break
 
 
@@ -281,24 +287,9 @@ def descobrir_por_marcador(sei_page, mapa, filtro_lista=None, max_paginas=12, de
                 if debug:
                     print(f"    [debug] linha {i}: {e}")
 
-        # próxima página (SEI: título "Próxima Página" / "Página Seguinte")
-        try:
-            prox = sei_page.locator(
-                "a[title='Próxima Página'], a[title*='Seguinte'], a[title*='Próxima'], a[title*='seguinte']"
-            ).first
-            if prox.count():
-                ref = ""
-                pl0 = linhas_frame.locator("a[href*='acao=procedimento_trabalhar']").first
-                if pl0.count():
-                    ref = pl0.inner_text()
-                prox.click(timeout=3000)
-                sei_page.wait_for_timeout(1200)
-                pl1 = sei_page.locator("a[href*='acao=procedimento_trabalhar']").first
-                if pl1.count() and pl1.inner_text() != ref:
-                    continue  # avançou de página
-        except Exception as e:
-            if debug:
-                print(f"    [debug] próxima página: {e}")
+        # próxima página (paginação AJAX do SEI)
+        if _paginar(sei_page, "+"):
+            continue
         break
 
     if debug:
