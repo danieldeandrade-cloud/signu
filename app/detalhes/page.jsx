@@ -1210,6 +1210,27 @@ function DetalhesContent() {
                   </Section>
                   )}
 
+                  {["CEGOC", "DPJ_GC99", "PCDF_1HIGEIA", "PCDF_2HIGEIA"].includes(listaKey) && (
+                    <Section title="Descrição do bem">
+                      <div style={{ fontSize:10, color:"#6b7280", marginBottom:12 }}>
+                        Usada para montar o catálogo do leilão público coletivo.
+                      </div>
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+                        {editMode ? <>
+                          <FieldEdit label="Marca / Modelo" value={editData?.MARCA_MODELO} onChange={v=>upd("MARCA_MODELO",v)} placeholder="Ex: GM/Corsa Wind"/>
+                          <FieldEdit label="Ano fab./modelo" value={editData?.ANO_FAB_MODELO} onChange={v=>upd("ANO_FAB_MODELO",v)} placeholder="Ex: 2005/2006"/>
+                          <FieldEdit label="Cor" value={editData?.COR} onChange={v=>upd("COR",v)} placeholder="Ex: Prata"/>
+                          <FieldEdit label="RENAVAM" value={editData?.RENAVAM} onChange={v=>upd("RENAVAM", String(v).replace(/\D/g,""))} placeholder="Ex: 00123456789" mono/>
+                        </> : <>
+                          <FieldView label="Marca / Modelo" value={current?.MARCA_MODELO}/>
+                          <FieldView label="Ano fab./modelo" value={current?.ANO_FAB_MODELO}/>
+                          <FieldView label="Cor" value={current?.COR}/>
+                          <FieldView label="RENAVAM" value={current?.RENAVAM} mono/>
+                        </>}
+                      </div>
+                    </Section>
+                  )}
+
                   <Section title="Responsável">
                     {editMode ? (
                       <div>

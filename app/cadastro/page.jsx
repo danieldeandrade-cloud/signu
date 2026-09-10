@@ -61,6 +61,15 @@ const STATUS_LOCAL = ["EM ANÁLISE","AGUARDANDO ENTIDADE","AGUARDANDO APTIDÃO",
 // Entidades_Credenciadas via useEntidades(); ENTIDADES_FALLBACK é só o padrão estático.
 const MOTIVOS_SAIDA= ["DETERIORADO","BAIXA","DOAÇÃO","ARREMATAÇÃO LPC","OUTROS"];
 
+// Descrição do bem — usada para montar o catálogo do leilão público coletivo.
+// Vai nas listas de veículo (CEGOC, DPJ, PCDF 1ª e 2ª).
+const DESC_VEICULO = [
+  { id:"MARCA_MODELO",   label:"Marca / Modelo",  type:"text", placeholder:"Ex: GM/Corsa Wind" },
+  { id:"ANO_FAB_MODELO", label:"Ano fab./modelo", type:"text", placeholder:"Ex: 2005/2006" },
+  { id:"COR",            label:"Cor",             type:"text", placeholder:"Ex: Prata" },
+  { id:"RENAVAM",        label:"RENAVAM",         type:"text", placeholder:"Ex: 00123456789" },
+];
+
 // Campos por lista
 const CAMPOS = {
   CEGOC: [
@@ -68,6 +77,7 @@ const CAMPOS = {
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
+    ...DESC_VEICULO,
     { id:"PESO_KG",           label:"Peso estimado (kg)",  type:"number",   placeholder:"Ex: 800", hint:"Para estatística de reciclagem" },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
     { id:"DESTINACAO",        label:"Destinação *",        type:"select",   required:true,  options:DESTINACOES },
@@ -81,6 +91,7 @@ const CAMPOS = {
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
+    ...DESC_VEICULO,
     { id:"PESO_KG",           label:"Peso estimado (kg)",  type:"number",   placeholder:"Ex: 800", hint:"Para estatística de reciclagem" },
     { id:"DATA_ENTRADA",      label:"Data de Entrada *",   type:"date",     required:true },
     { id:"PRAZO_6MESES",      label:"Prazo 6 Meses",       type:"date",     readonly:true,  hint:"Calculado automaticamente (+180 dias)" },
@@ -93,6 +104,7 @@ const CAMPOS = {
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
+    ...DESC_VEICULO,
     { id:"DEPOSITO",          label:"Depósito *",          type:"select",   required:true,  options:DEPOSITOS },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
     { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
@@ -107,6 +119,7 @@ const CAMPOS = {
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
+    ...DESC_VEICULO,
     { id:"DEPOSITO",          label:"Depósito *",          type:"select",   required:true,  options:DEPOSITOS },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
     { id:"PA_TJDFT",          label:"PA TJDFT",            type:"text",     placeholder:"N/C se não houver" },
@@ -391,6 +404,7 @@ export default function CadastroPage() {
   const handleChange = (id, val) => {
     // Placa: sempre em maiúsculas e sem ponto/traço/espaço (consistência p/ busca)
     if (id === "PLACA") val = String(val).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (id === "RENAVAM") val = String(val).replace(/\D/g, "");
     const next = { ...formData, [id]: val };
     if (id === "DATA_ENTRADA" && listaKey === "DPJ_GC99" && val) {
       const d = new Date(val);

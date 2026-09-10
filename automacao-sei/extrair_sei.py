@@ -50,12 +50,21 @@ MOTIVOS     = ["DETERIORADO", "BAIXA", "DOAÇÃO", "ARREMATAÇÃO LPC", "OUTROS"
 
 CAMPO = lambda desc, enum=None: {"descricao": desc, "enum": enum}
 
+# Descrição do bem (p/ o catálogo do leilão) — sai preferencialmente do INFOSEG.
+DESC_VEICULO = {
+    "MARCA_MODELO":   CAMPO("Marca/modelo do veículo (ex.: GM/Corsa Wind)"),
+    "ANO_FAB_MODELO": CAMPO("Ano de fabricação/modelo (ex.: 2005/2006)"),
+    "COR":            CAMPO("Cor predominante"),
+    "RENAVAM":        CAMPO("RENAVAM, só dígitos"),
+}
+
 SCHEMAS = {
     "cegoc": {
         "ID_PASEI":          CAMPO("Número do processo SEI/PA (formato 00000-00000000/0000-00)"),
         "TIPO_BEM":          CAMPO("Tipo do veículo", TIPOS_BEM),
         "NIV":               CAMPO("NIV/chassi (17 caracteres). 'N/A' se não aflorado/ilegível"),
         "PLACA":             CAMPO("Placa ostentada, só letras e números, sem traço"),
+        **DESC_VEICULO,
         "STATUS_DILIGENCIA": CAMPO("Situação atual da diligência", STATUS_DI),
         "DESTINACAO":        CAMPO("Destino do bem", DESTINACOES),
         "OBSERVACOES":       CAMPO("Resumo em 1-2 frases do que o processo determina sobre o bem"),
@@ -67,6 +76,7 @@ SCHEMAS = {
         "NIV_NAO_AFLORADO":  CAMPO("'TRUE' se não houver INFOSEG no processo, senão 'FALSE'", ["TRUE", "FALSE"]),
         "PLACA":             CAMPO("Placa do INFOSEG, só letras e números"),
         "PLACA_OSTENTADA":   CAMPO("Placa citada no auto/BO quando NÃO há INFOSEG (só p/ busca)"),
+        **DESC_VEICULO,
         "DEPOSITO":          CAMPO("Depósito onde o bem está", DEPOSITOS),
         "STATUS_DILIGENCIA": CAMPO("Situação da diligência", STATUS_DI),
         "OBSERVACOES":       CAMPO("Resumo em 1-2 frases"),
@@ -78,6 +88,7 @@ SCHEMAS = {
         "NIV_NAO_AFLORADO":  CAMPO("'TRUE' se não houver INFOSEG no processo, senão 'FALSE'", ["TRUE", "FALSE"]),
         "PLACA":             CAMPO("Placa do INFOSEG, só letras e números"),
         "PLACA_OSTENTADA":   CAMPO("Placa citada no auto/BO quando NÃO há INFOSEG (só p/ busca)"),
+        **DESC_VEICULO,
         "DEPOSITO":          CAMPO("Depósito onde o bem está", DEPOSITOS),
         "STATUS_DILIGENCIA": CAMPO("Situação da diligência", STATUS_DI),
         "PA_TJDFT":          CAMPO("Nº do PA administrativo do TJDFT, se citado; senão 'N/C'"),
@@ -89,6 +100,7 @@ SCHEMAS = {
         "TIPO_BEM":     CAMPO("Tipo do veículo", TIPOS_BEM),
         "NIV":          CAMPO("NIV/chassi"),
         "PLACA":        CAMPO("Placa, só letras e números"),
+        **DESC_VEICULO,
         "DATA_ENTRADA": CAMPO("Data de entrada do bem (AAAA-MM-DD), se citada"),
         "MOTIVO_SAIDA": CAMPO("Motivo de saída, se já definido", ["", *MOTIVOS]),
         "OBSERVACOES":  CAMPO("Resumo em 1-2 frases"),
