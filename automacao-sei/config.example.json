@@ -10,6 +10,21 @@
     "max_documentos": 12
   },
 
+  "marcadores": {
+    "_nota": "texto do marcador (como aparece na listagem) -> lista do SIGNU. IDs do SEI/TJDFT anotados p/ referência.",
+    "mapa": {
+      "CADASTRAR SIGNU CEGOC":   "cegoc",
+      "CADASTRAR SIGNU DPJ":     "dpj",
+      "CADASTRAR SIGNU PCDF 1":  "pcdf1",
+      "CADASTRAR SIGNU PCDF 2":  "pcdf2",
+      "CADASTRAR SIGNU SEI":     "sei"
+    },
+    "ids_sei": {
+      "9755": "cegoc", "9759": "dpj", "9757": "pcdf1", "9758": "pcdf2", "9760": "sei"
+    },
+    "pos_processado": "REVISAR - CADASTRADO SIGNU"
+  },
+
   "_comentario_signu": "base_url e import_token só serão usados no passo 2 (ingestão). O protótipo v0 NÃO grava no SIGNU.",
   "signu": {
     "base_url": "https://signu.vercel.app",
