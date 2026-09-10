@@ -181,11 +181,37 @@ def _norm(s):
     return re.sub(r"\s+", " ", _sem_acento(str(s)).upper()).strip()
 
 
-def descobrir_por_marcador(sei_page, mapa, filtro_lista=None, max_paginas=10, debug=False):
+def _primeira_pagina(page, debug=False):
+    """Rebobina a paginação do 'Recebidos' até a 1ª página."""
+    for _ in range(40):
+        try:
+            ant = page.locator("a[title='Página Anterior'], a[title*='Anterior']").first
+            if not ant.count():
+                break
+            antes = ""
+            pl = page.locator("a[href*='acao=procedimento_trabalhar']").first
+            if pl.count():
+                antes = pl.inner_text()
+            ant.click(timeout=2500)
+            page.wait_for_timeout(700)
+            depois = ""
+            pl = page.locator("a[href*='acao=procedimento_trabalhar']").first
+            if pl.count():
+                depois = pl.inner_text()
+            if antes == depois:  # não mudou -> já estava na 1ª
+                break
+        except Exception as e:
+            if debug:
+                print(f"    [debug] rebobinar: {e}")
+            break
+
+
+def descobrir_por_marcador(sei_page, mapa, filtro_lista=None, max_paginas=12, debug=False):
     """Lê a listagem 'Controle de Processos' aberta e devolve os processos cujo
     marcador está no `mapa`. Retorna [{numero, url, lista, marcador}]."""
     mapa_norm = {_norm(k): v for k, v in mapa.items()}
     achados, vistos = [], set()
+    _primeira_pagina(sei_page, debug=debug)
 
     for pagina in range(1, max_paginas + 1):
         try:
@@ -195,11 +221,12 @@ def descobrir_por_marcador(sei_page, mapa, filtro_lista=None, max_paginas=10, de
 
         # a listagem costuma estar num frame de conteúdo; varre todos
         frames = [sei_page.main_frame] + [f for f in sei_page.frames if f is not sei_page.main_frame]
+        SEL_PROC = "a[href*='acao=procedimento_trabalhar']"
         linhas_frame = None
         for f in frames:
             try:
                 linhas = f.locator("table tr")
-                if linhas.count() >= 2 and f.locator("a[href*='procedimento_trabalhar'], a[href*='id_procedimento']").count():
+                if linhas.count() >= 2 and f.locator(SEL_PROC).count():
                     linhas_frame = f
                     break
             except Exception:
@@ -216,9 +243,14 @@ def descobrir_por_marcador(sei_page, mapa, filtro_lista=None, max_paginas=10, de
         for i in range(total):
             row = linhas.nth(i)
             try:
-                link = row.locator("a[href*='procedimento_trabalhar'], a[href*='id_procedimento']").first
+                # o link do PROCESSO é o que tem acao=procedimento_trabalhar
+                # (a linha também tem link p/ gerenciar marcador, anotação, etc.)
+                link = row.locator(SEL_PROC).first
                 if not link.count():
-                    continue
+                    cand = row.locator("a").filter(has_text=re.compile(r"\d{4,6}[-./]\d")).first
+                    if not cand.count():
+                        continue
+                    link = cand
                 href = link.get_attribute("href") or ""
                 numero = _norm(link.inner_text())
                 # rótulo do marcador: texto da linha + títulos/tooltips dos elementos de marcador
@@ -248,19 +280,28 @@ def descobrir_por_marcador(sei_page, mapa, filtro_lista=None, max_paginas=10, de
                 if debug:
                     print(f"    [debug] linha {i}: {e}")
 
-        # próxima página
+        # próxima página (SEI: título "Próxima Página" / "Página Seguinte")
         try:
-            prox = linhas_frame.locator(
-                "a:has-text('Próxima'), a[title*='Próxima'], a:has-text('>>'), a[title*='próxima']"
+            prox = sei_page.locator(
+                "a[title='Próxima Página'], a[title*='Seguinte'], a[title*='Próxima'], a[title*='seguinte']"
             ).first
-            if prox.count() and prox.is_enabled():
+            if prox.count():
+                ref = ""
+                pl0 = linhas_frame.locator("a[href*='acao=procedimento_trabalhar']").first
+                if pl0.count():
+                    ref = pl0.inner_text()
                 prox.click(timeout=3000)
                 sei_page.wait_for_timeout(1200)
-                continue
-        except Exception:
-            pass
+                pl1 = sei_page.locator("a[href*='acao=procedimento_trabalhar']").first
+                if pl1.count() and pl1.inner_text() != ref:
+                    continue  # avançou de página
+        except Exception as e:
+            if debug:
+                print(f"    [debug] próxima página: {e}")
         break
 
+    if debug:
+        print(f"    [debug] descoberta varreu {pagina} página(s)")
     return achados
 
 
@@ -270,12 +311,17 @@ def _abs_url(base, href):
 
 
 def ir_para_controle_processos(page, debug=False):
-    """Navega a aba do SEI para a tela 'Controle de Processos' (listagem com marcadores)."""
+    """Navega a aba do SEI para a tela 'Controle de Processos' (listagem completa)."""
     try:
-        link = page.locator("a[href*='acao=procedimento_controlar']").first
-        if link.count():
-            href = link.get_attribute("href")
-            page.goto(_abs_url(page.url, href), wait_until="domcontentloaded", timeout=20000)
+        # preferir o link do MENU (tem reset=1 -> listagem completa, sem filtro/paginação herdada)
+        alvo = None
+        for a in page.locator("a[href*='acao=procedimento_controlar']").all():
+            h = a.get_attribute("href") or ""
+            if "reset=1" in h:
+                alvo = h
+                break
+        if alvo:
+            page.goto(_abs_url(page.url, alvo), wait_until="domcontentloaded", timeout=20000)
         else:
             page.get_by_role("link", name=re.compile("Controle de Processos", re.I)).first.click(timeout=5000)
     except Exception as e:
