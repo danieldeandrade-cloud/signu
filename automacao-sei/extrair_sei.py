@@ -62,8 +62,10 @@ SCHEMAS = {
     "pcdf1": {
         "ID_PASEI":          CAMPO("Número do processo SEI/PA"),
         "TIPO_BEM":          CAMPO("Tipo do veículo", TIPOS_BEM),
-        "NIV":               CAMPO("NIV/chassi. 'N/A' se não aflorado"),
-        "PLACA":             CAMPO("Placa, só letras e números"),
+        "NIV":               CAMPO("NIV/chassi do INFOSEG. 'N/A' se não houver INFOSEG"),
+        "NIV_NAO_AFLORADO":  CAMPO("'TRUE' se não houver INFOSEG no processo, senão 'FALSE'", ["TRUE", "FALSE"]),
+        "PLACA":             CAMPO("Placa do INFOSEG, só letras e números"),
+        "PLACA_OSTENTADA":   CAMPO("Placa citada no auto/BO quando NÃO há INFOSEG (só p/ busca)"),
         "DEPOSITO":          CAMPO("Depósito onde o bem está", DEPOSITOS),
         "STATUS_DILIGENCIA": CAMPO("Situação da diligência", STATUS_DI),
         "OBSERVACOES":       CAMPO("Resumo em 1-2 frases"),
@@ -71,8 +73,10 @@ SCHEMAS = {
     "pcdf2": {
         "ID_PASEI":          CAMPO("Número do processo SEI/PA"),
         "TIPO_BEM":          CAMPO("Tipo do veículo", TIPOS_BEM),
-        "NIV":               CAMPO("NIV/chassi. 'N/A' se não aflorado"),
-        "PLACA":             CAMPO("Placa, só letras e números"),
+        "NIV":               CAMPO("NIV/chassi do INFOSEG. 'N/A' se não houver INFOSEG"),
+        "NIV_NAO_AFLORADO":  CAMPO("'TRUE' se não houver INFOSEG no processo, senão 'FALSE'", ["TRUE", "FALSE"]),
+        "PLACA":             CAMPO("Placa do INFOSEG, só letras e números"),
+        "PLACA_OSTENTADA":   CAMPO("Placa citada no auto/BO quando NÃO há INFOSEG (só p/ busca)"),
         "DEPOSITO":          CAMPO("Depósito onde o bem está", DEPOSITOS),
         "STATUS_DILIGENCIA": CAMPO("Situação da diligência", STATUS_DI),
         "PA_TJDFT":          CAMPO("Nº do PA administrativo do TJDFT, se citado; senão 'N/C'"),
@@ -385,8 +389,17 @@ def extrair_com_ia(client, model, schema, proc):
 Preencha os campos do SIGNU listados. Regras:
 - Use exatamente um dos valores possíveis quando o campo tiver lista.
 - Se a informação não estiver no texto, use "" (string vazia). NÃO invente.
-- PLACA e NIV: só letras e números, maiúsculas, sem traço/espaço. NIV = "N/A" se o processo diz que não aflorou / não foi possível identificar.
+- PLACA e NIV: só letras e números, maiúsculas, sem traço/espaço.
 - ID_PASEI / PA_PJE: copie o número do processo exatamente como aparece.
+
+FONTE DOS DADOS DO VEÍCULO (regra do NULEJ):
+- Se houver um relatório/consulta **INFOSEG** no processo, os dados do veículo
+  (NIV/chassi, placa, tipo, marca/modelo) SÃO OS DO INFOSEG — use esses, mesmo
+  que outro documento divirja. Em "_alertas", registre eventual divergência.
+- Se NÃO houver INFOSEG no processo, trate como **NIV não aflorado**:
+  NIV = "N/A", NIV_NAO_AFLORADO = "TRUE", e a placa (se citada em auto de
+  apreensão/BO) vai em PLACA_OSTENTADA, não em PLACA. Adicione o alerta
+  "sem INFOSEG — NIV não aflorado".
 
 CAMPOS:
 {montar_schema_texto(schema)}
@@ -394,6 +407,7 @@ CAMPOS:
 Formato da resposta (JSON):
 {{
   "campos": {{ ... um par para cada campo acima ... }},
+  "_infoseg": true/false,
   "_confianca": 0.0 a 1.0,
   "_campos_incertos": ["NOME_DO_CAMPO", ...],
   "_alertas": ["frases curtas sobre ambiguidades, divergências ou dados faltando"]
@@ -447,8 +461,15 @@ def processar(page, cfg_sei, client, model, lista, args):
     campos = ia.get("campos", {}) or {}
     campos.setdefault("RESPONSAVEL", "__AUTO__")  # SIGNU resolve o servidor na ingestão
 
+    infoseg = bool(ia.get("_infoseg"))
+    # coerência: sem INFOSEG => NIV não aflorado
+    if "NIV_NAO_AFLORADO" in campos and not infoseg:
+        campos["NIV_NAO_AFLORADO"] = "TRUE"
+        if not campos.get("NIV"):
+            campos["NIV"] = "N/A"
+
     conf = ia.get("_confianca", 0)
-    print(f"    confiança: {conf}  incertos: {ia.get('_campos_incertos')}")
+    print(f"    confiança: {conf}  INFOSEG: {infoseg}  incertos: {ia.get('_campos_incertos')}")
     for a in ia.get("_alertas", []):
         print(f"      · {a}")
 
@@ -456,6 +477,7 @@ def processar(page, cfg_sei, client, model, lista, args):
         "processo": proc["numero"],
         "lista": lista,
         "campos": campos,
+        "_infoseg": infoseg,
         "_confianca": conf,
         "_campos_incertos": ia.get("_campos_incertos", []),
         "_alertas": ia.get("_alertas", []),
@@ -679,12 +701,13 @@ def main():
         for k in r["campos"]:
             if k not in todas_chaves:
                 todas_chaves.append(k)
-    cols = ["processo", "lista", "_confianca"] + todas_chaves + ["_campos_incertos", "_alertas", "fonte_url"]
+    cols = ["processo", "lista", "_confianca", "_infoseg"] + todas_chaves + ["_campos_incertos", "_alertas", "fonte_url"]
     with fcsv.open("w", newline="", encoding="utf-8-sig") as fh:
         w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
         w.writeheader()
         for r in resultados:
             linha = {"processo": r["processo"], "lista": r["lista"], "_confianca": r["_confianca"],
+                     "_infoseg": r.get("_infoseg", ""),
                      "_campos_incertos": " ; ".join(r["_campos_incertos"]),
                      "_alertas": " ; ".join(r["_alertas"]),
                      "fonte_url": r["fonte"]["url"]}
