@@ -85,10 +85,16 @@ lido de cada processo (para auditar o que a IA viu).
 - **Sem INFOSEG** → NIV não aflorado: `NIV_NAO_AFLORADO=TRUE`, `NIV="N/A"`, e a
   placa citada no auto/BO vai em `PLACA_OSTENTADA`.
 
+## Como lê os documentos
+
+Percorre a árvore (`ifrArvore`), e para cada documento:
+- **SEI nativo (HTML)** → lê o texto direto.
+- **PDF anexo (inclusive escaneado)** → baixa o arquivo pela sessão autenticada
+  do navegador e manda como anexo para o Gemini, que faz o OCR. Limites em
+  `sei.max_pdfs` / `sei.max_pdf_mb`.
+
 ## Limitações conhecidas (v0)
 
-- **PDF escaneado**: lê texto de HTML e de PDF com camada de texto. Documento que
-  é imagem pura sai vazio — vai precisar de OCR (passo futuro).
 - **Seletores do SEI**: frames `ifrArvore` / `ifrConteudoVisualizacao` /
   `ifrVisualizacao` são o padrão do SEI 4.x. Ajuste `sei.*` no `config.json` e
   rode com `--debug` se o seu SEI divergir.

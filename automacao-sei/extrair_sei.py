@@ -26,6 +26,7 @@ COMO RODAR   (ver README.md para o passo a passo completo)
 """
 
 import argparse
+import base64
 import csv
 import datetime as dt
 import json
@@ -338,10 +339,11 @@ def ir_para_controle_processos(page, debug=False):
 def extrair_processo(page, cfg_sei, debug=False):
     """Retorna dict {numero, titulo_aba, url, texto, docs_lidos}."""
     page.bring_to_front()
-    try:
-        page.wait_for_load_state("domcontentloaded", timeout=8000)
-    except Exception:
-        pass
+    for st in ("domcontentloaded", "networkidle"):
+        try:
+            page.wait_for_load_state(st, timeout=10000)
+        except Exception:
+            pass
 
     titulo = ""
     try:
@@ -349,67 +351,120 @@ def extrair_processo(page, cfg_sei, debug=False):
     except Exception:
         pass
 
-    fr_arvore   = achar_frame(page, cfg_sei["frame_arvore"])
-    fr_conteudo = achar_frame(page, cfg_sei.get("frame_conteudo", "ifrConteudoVisualizacao"))
-    fr_visu     = achar_frame(page, cfg_sei["frame_visualizacao"])
-    # frame que hospeda a árvore clicável (no SEI/TJDFT é o ifrConteudoVisualizacao)
-    fr_tree = fr_conteudo or fr_arvore
+    # SEI/TJDFT: a ÁRVORE de documentos fica no ifrArvore; cada nó é
+    # <a href="...&id_documento=NNN..."> e o conteúdo abre no ifrConteudoVisualizacao.
+    nome_arvore = cfg_sei.get("frame_arvore", "ifrArvore")
+    nome_conteudo = cfg_sei.get("frame_conteudo", "ifrConteudoVisualizacao")
+
+    fr_arvore = None
+    for tentativa in range(15):
+        fr_arvore = achar_frame(page, nome_arvore)
+        if fr_arvore and len(texto_frame(fr_arvore, 500)) > 40:
+            break
+        page.wait_for_timeout(1000)
+    if debug:
+        print(f"    frames: {[f.name for f in page.frames]} (após {tentativa+1}s)")
+
+    def _ler_conteudo():
+        """Texto do ifrConteudoVisualizacao + qualquer frame aninhado com corpo de doc."""
+        chunks = []
+        for nome in (nome_conteudo, cfg_sei.get("frame_visualizacao", "ifrVisualizacao")):
+            fc = achar_frame(page, nome)
+            if fc:
+                chunks.append(texto_frame(fc, 12000))
+        for f in page.frames:  # doc costuma carregar +1 nível abaixo
+            if f.name in ("", nome_arvore, nome_conteudo, "ifrArvore", "ifrPasta"):
+                continue
+            sub = texto_frame(f, 10000)
+            if len(sub) > 150:
+                chunks.append(sub)
+        vistos, out = set(), []
+        for c in chunks:
+            k = c[:200]
+            if c.strip() and k not in vistos:
+                vistos.add(k); out.append(c)
+        return "\n".join(out)
+
+    def _achar_pdf_url():
+        """Depois de abrir um doc, acha a URL do PDF (documento_download_anexo / .pdf)
+        varrendo as URLs dos frames e os src de embed/iframe/object."""
+        alvos = []
+        for f in page.frames:
+            if "documento_download" in f.url or f.url.lower().endswith(".pdf"):
+                alvos.append(f.url)
+            try:
+                for sel in ("embed[src]", "iframe[src]", "object[data]"):
+                    for el in f.locator(sel).all():
+                        s = el.get_attribute("src") or el.get_attribute("data") or ""
+                        if "documento_download" in s or s.lower().endswith(".pdf"):
+                            alvos.append(s if s.startswith("http") else _abs_url(f.url, s))
+            except Exception:
+                pass
+        return alvos[0] if alvos else None
 
     partes = []
-    if fr_arvore or fr_conteudo:
-        partes.append("### ÁRVORE DE DOCUMENTOS\n" +
-                      texto_frame(fr_tree or fr_arvore, 8000))
-    else:
-        partes.append("### PÁGINA\n" + texto_frame(page.main_frame, 8000))
-
-    SEL_NODE = ("a[target='ifrVisualizacao'], a[href*='documento_visualizar'], "
-                "a[href*='acao=documento_visualizar'], a[onclick*='documento'], "
-                "a[onclick*='Arvore'], a.clsArvoreDocumento, span.infraArvoreNo a")
-
-    def _ler_visu():
-        chunks = []
-        fv = achar_frame(page, cfg_sei["frame_visualizacao"])
-        if fv:
-            chunks.append(texto_frame(fv, 9000))
-            for f in page.frames:  # doc às vezes carrega +1 nível abaixo
-                if f in (fr_arvore, fr_conteudo, fv, page.main_frame):
-                    continue
-                sub = texto_frame(f, 7000)
-                if len(sub) > 200:
-                    chunks.append(sub)
-        return "\n".join(c for c in chunks if c and c.strip())
-
     docs_lidos = 0
-    inicial = _ler_visu()
-    if inicial:
-        partes.append("### DOCUMENTO ABERTO\n" + inicial)
-        docs_lidos = 1
+    pdfs = []
 
-    # percorre a árvore clicando em cada nó e lendo o visualizador
-    if cfg_sei.get("percorrer_arvore") and fr_tree:
-        try:
-            nodes = fr_tree.locator(SEL_NODE)
-            total = nodes.count()
-            n = min(total, int(cfg_sei.get("max_documentos", 12)))
-            if debug:
-                print(f"    árvore: {total} nós clicáveis, lendo {n}")
-            for i in range(n):
+    if fr_arvore:
+        nodes = fr_arvore.locator("a[href*='id_documento']")
+        total = nodes.count()
+        titulos, hrefs = [], []
+        for i in range(total):
+            titulos.append(re.sub(r"\s+", " ", (nodes.nth(i).inner_text() or "")).strip()[:90])
+            hrefs.append(nodes.nth(i).get_attribute("href") or "")
+        # ignora o nó raiz (só id_procedimento) e duplicatas de id_documento
+        idx_por_doc = {}
+        for i, h in enumerate(hrefs):
+            m = re.search(r"id_documento=(\d+)", h)
+            if m and m.group(1) not in idx_por_doc:
+                idx_por_doc[m.group(1)] = i
+        ordem = list(idx_por_doc.values())
+        # INFOSEG primeiro
+        ordem.sort(key=lambda i: (0 if "INFOSEG" in titulos[i].upper() else 1, i))
+        ordem = ordem[: int(cfg_sei.get("max_documentos", 25))]
+        partes.append("### DOCUMENTOS DO PROCESSO\n" + "\n".join(
+            f"- {titulos[i]}" for i in ordem))
+        if debug:
+            print(f"    árvore: {total} <a>, {len(idx_por_doc)} documentos únicos, lendo {len(ordem)}")
+
+        max_pdf_mb = float(cfg_sei.get("max_pdf_mb", 12))
+        max_pdfs = int(cfg_sei.get("max_pdfs", 6))
+        if cfg_sei.get("percorrer_arvore"):
+            for i in ordem:
                 try:
-                    titulo_no = re.sub(r"\s+", " ", nodes.nth(i).inner_text() or "").strip()[:80]
-                    nodes.nth(i).click(timeout=3000)
-                    page.wait_for_timeout(700)
-                    txt = _ler_visu()
+                    nodes.nth(i).click(timeout=4000)
+                    page.wait_for_timeout(1400)
+                    txt = _ler_conteudo()
                     if len(txt) > 120:
-                        partes.append(f"### DOC {i+1} — {titulo_no}\n{txt}")
+                        partes.append(f"### DOC — {titulos[i]}\n{txt}")
                         docs_lidos += 1
+                        continue
+                    # sem texto no DOM -> tentar baixar o PDF e mandar pro Gemini
+                    pdf_url = _achar_pdf_url()
+                    if pdf_url and len(pdfs) < max_pdfs:
+                        try:
+                            resp = page.context.request.get(pdf_url, timeout=30000)
+                            body = resp.body() if resp.ok else b""
+                        except Exception as e:
+                            body = b""
+                            if debug:
+                                print(f"    '{titulos[i]}': download falhou: {e}")
+                        if body and len(body) <= max_pdf_mb * 1_000_000:
+                            pdfs.append({"titulo": titulos[i],
+                                         "b64": base64.b64encode(body).decode()})
+                            docs_lidos += 1
+                            if debug:
+                                print(f"    '{titulos[i]}': PDF {len(body)//1024} KB -> Gemini")
+                        elif debug:
+                            print(f"    '{titulos[i]}': PDF {len(body)} bytes (fora do limite / vazio)")
                     elif debug:
-                        print(f"    nó {i} ({titulo_no}): visualizador vazio (PDF imagem?)")
+                        print(f"    '{titulos[i]}': sem texto e sem PDF localizável")
                 except Exception as e:
                     if debug:
-                        print(f"    nó {i}: {e}")
-        except Exception as e:
-            if debug:
-                print(f"    percorrer árvore falhou: {e}")
+                        print(f"    nó '{titulos[i]}': {e}")
+    else:
+        partes.append("### PÁGINA\n" + texto_frame(page.main_frame, 8000))
 
     texto = "\n\n".join(p for p in partes if p and p.strip())
 
@@ -423,6 +478,7 @@ def extrair_processo(page, cfg_sei, debug=False):
         "url": page.url,
         "texto": texto,
         "docs_lidos": docs_lidos,
+        "pdfs": pdfs,
     }
 
 
@@ -432,15 +488,21 @@ def extrair_processo(page, cfg_sei, debug=False):
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
-def chamar_gemini(api_key, model, system, prompt, max_tokens=2048, timeout=90):
-    """POST .../{model}:generateContent — retorna o texto da 1ª candidata."""
+def chamar_gemini(api_key, model, system, prompt, pdfs=None, max_tokens=4096, timeout=180):
+    """POST .../{model}:generateContent — retorna (texto, finish_reason).
+    pdfs: lista de {titulo, b64} anexada como inline_data application/pdf."""
     import urllib.request
     import urllib.error
+
+    parts = [{"text": prompt}]
+    for d in (pdfs or []):
+        parts.append({"text": f"\n[PDF anexado: {d.get('titulo','documento')}]"})
+        parts.append({"inline_data": {"mime_type": "application/pdf", "data": d["b64"]}})
 
     url = f"{GEMINI_BASE}/{model}:generateContent"
     body = {
         "system_instruction": {"parts": [{"text": system}]},
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {
             "temperature": 0,
             "maxOutputTokens": max_tokens,
@@ -470,8 +532,34 @@ def chamar_gemini(api_key, model, system, prompt, max_tokens=2048, timeout=90):
     if not cands:
         fb = data.get("promptFeedback", {})
         raise RuntimeError(f"Gemini não retornou candidata (block: {fb.get('blockReason')})")
+    fr = cands[0].get("finishReason", "")
     parts = (cands[0].get("content") or {}).get("parts") or []
-    return "".join(p.get("text", "") for p in parts).strip()
+    return "".join(p.get("text", "") for p in parts).strip(), fr
+
+
+def _extrair_json(raw):
+    """Tira cercas, tenta json.loads, senão isola do 1º '{' até fechar as chaves."""
+    s = re.sub(r"^```(?:json)?|```$", "", raw.strip()).strip()
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+    i = s.find("{")
+    if i < 0:
+        raise ValueError("sem '{' na resposta")
+    prof, fim = 0, None
+    for j in range(i, len(s)):
+        if s[j] == "{":
+            prof += 1
+        elif s[j] == "}":
+            prof -= 1
+            if prof == 0:
+                fim = j + 1
+                break
+    if fim:
+        return json.loads(s[i:fim])
+    # truncado: fecha o que dá
+    return json.loads(s[i:] + "}" * prof)
 
 
 def montar_schema_texto(schema):
@@ -500,10 +588,13 @@ Preencha os campos do SIGNU listados. Regras:
 - PLACA e NIV: só letras e números, maiúsculas, sem traço/espaço.
 - ID_PASEI / PA_PJE: copie o número do processo exatamente como aparece.
 
+Alguns documentos vêm como PDF anexado (inclusive escaneados) — leia-os também.
+
 FONTE DOS DADOS DO VEÍCULO (regra do NULEJ):
-- Se houver um relatório/consulta **INFOSEG** no processo, os dados do veículo
-  (NIV/chassi, placa, tipo, marca/modelo) SÃO OS DO INFOSEG — use esses, mesmo
-  que outro documento divirja. Em "_alertas", registre eventual divergência.
+- Se houver um relatório/consulta **INFOSEG** no processo (texto ou PDF anexo),
+  os dados do veículo (NIV/chassi, placa, tipo, marca/modelo) SÃO OS DO INFOSEG
+  — use esses, mesmo que outro documento divirja. Em "_alertas", registre
+  eventual divergência.
 - Se NÃO houver INFOSEG no processo, trate como **NIV não aflorado**:
   NIV = "N/A", NIV_NAO_AFLORADO = "TRUE", e a placa (se citada em auto de
   apreensão/BO) vai em PLACA_OSTENTADA, não em PLACA. Adicione o alerta
@@ -526,13 +617,21 @@ TEXTO DO PROCESSO (pode estar truncado):
 {proc['texto'][:45000]}
 \"\"\"
 """
-    raw = chamar_gemini(api_key, model, SYS, prompt)
-    raw = re.sub(r"^```(?:json)?|```$", "", raw.strip()).strip()
+    raw, finish = chamar_gemini(api_key, model, SYS, prompt, pdfs=proc.get("pdfs"))
     try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        m = re.search(r"\{.*\}", raw, re.DOTALL)
-        data = json.loads(m.group(0)) if m else {"campos": {}, "_alertas": ["IA não retornou JSON"], "_confianca": 0}
+        data = _extrair_json(raw)
+    except Exception as e:
+        dbg = Path(__file__).with_name("saida") / f"_gemini_raw_{dt.datetime.now():%Y%m%d_%H%M%S}.txt"
+        try:
+            dbg.parent.mkdir(exist_ok=True)
+            dbg.write_text(f"finishReason={finish}\n\n{raw}", encoding="utf-8")
+        except Exception:
+            pass
+        data = {"campos": {}, "_confianca": 0,
+                "_alertas": [f"resposta não-JSON (finish={finish}): {e}. Cru salvo em {dbg.name}"],
+                "_campos_incertos": []}
+    if finish and finish not in ("STOP", ""):
+        data.setdefault("_alertas", []).append(f"Gemini finishReason={finish} (resposta pode ter sido cortada)")
 
     campos = data.get("campos", {}) or {}
     # rede de segurança: se a IA não pegou o número mas o regex pegou
@@ -548,10 +647,11 @@ def processar(page, cfg_sei, api_key, model, lista, args):
     """Extrai texto da página de um processo + IA. Retorna o dict de resultado."""
     schema = SCHEMAS[lista]
     proc = extrair_processo(page, cfg_sei, debug=args.debug)
+    npdf = len(proc.get("pdfs", []))
     print(f"    processo: {proc['numero'] or '??'} | lista: {lista} | "
-          f"docs lidos: {proc['docs_lidos']} | texto: {len(proc['texto'])} chars")
-    if len(proc["texto"]) < 200:
-        print("    [!] pouco texto extraído — provável PDF escaneado ou seletor de frame errado.")
+          f"docs lidos: {proc['docs_lidos']} | texto: {len(proc['texto'])} chars | PDFs: {npdf}")
+    if len(proc["texto"]) < 200 and npdf == 0:
+        print("    [!] pouco texto e nenhum PDF — seletor de frame errado ou processo vazio.")
 
     try:
         ia = extrair_com_ia(api_key, model, schema, proc)

@@ -1,34 +1,39 @@
 {
   "cdp_url": "http://localhost:9222",
-
   "_ia": "Extração/interpretação via Google Gemini (generativelanguage.googleapis.com). Cole a chave em gemini_api_key no config.json (que está no .gitignore). Também aceita a env GEMINI_API_KEY ou GOOGLE_API_KEY.",
   "gemini_api_key": "COLE_AQUI_A_SUA_CHAVE_DO_GEMINI",
   "gemini_model": "gemini-3.5-flash",
-
   "sei": {
-    "url_contains": ["/sei/", "controlador.php"],
+    "url_contains": [
+      "/sei/",
+      "controlador.php"
+    ],
     "frame_arvore": "ifrArvore",
     "frame_conteudo": "ifrConteudoVisualizacao",
     "frame_visualizacao": "ifrVisualizacao",
     "percorrer_arvore": true,
-    "max_documentos": 12
+    "max_documentos": 25,
+    "max_pdfs": 6,
+    "max_pdf_mb": 12
   },
-
   "marcadores": {
     "_nota": "texto do marcador (como aparece na listagem) -> lista do SIGNU. IDs do SEI/TJDFT anotados p/ referência.",
     "mapa": {
-      "CADASTRAR SIGNU CEGOC":   "cegoc",
-      "CADASTRAR SIGNU DPJ":     "dpj",
-      "CADASTRAR SIGNU PCDF 1":  "pcdf1",
-      "CADASTRAR SIGNU PCDF 2":  "pcdf2",
-      "CADASTRAR SIGNU SEI":     "sei"
+      "CADASTRAR SIGNU CEGOC": "cegoc",
+      "CADASTRAR SIGNU DPJ": "dpj",
+      "CADASTRAR SIGNU PCDF 1": "pcdf1",
+      "CADASTRAR SIGNU PCDF 2": "pcdf2",
+      "CADASTRAR SIGNU SEI": "sei"
     },
     "ids_sei": {
-      "9755": "cegoc", "9759": "dpj", "9757": "pcdf1", "9758": "pcdf2", "9760": "sei"
+      "9755": "cegoc",
+      "9759": "dpj",
+      "9757": "pcdf1",
+      "9758": "pcdf2",
+      "9760": "sei"
     },
     "pos_processado": "REVISAR - CADASTRADO SIGNU"
   },
-
   "_comentario_signu": "base_url e import_token só serão usados no passo 2 (ingestão). O protótipo v0 NÃO grava no SIGNU.",
   "signu": {
     "base_url": "https://signu.vercel.app",
