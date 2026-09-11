@@ -756,6 +756,28 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador=""):
         if not campos.get("NIV"):
             campos["NIV"] = "N/A"
 
+    # PCDF/DPJ: o servidor também pode anotar "não aflorado" / "N/A" no texto do
+    # marcador — isso é mais confiável que o palpite da IA sobre haver INFOSEG ou
+    # não, então força a flag (e avisa se contradiz o que a IA achou no processo).
+    if "NIV_NAO_AFLORADO" in campos:
+        tm = _norm(texto_marcador)
+        diz_nao_aflorado = "AFLORADO" in tm or tm == "N/A" or "N A" == tm
+        if diz_nao_aflorado:
+            if infoseg:
+                alertas.append(f"marcador diz 'não aflorado' ({texto_marcador!r}) mas o processo TEM "
+                                f"INFOSEG — confira qual está certo antes de cadastrar.")
+            campos["NIV_NAO_AFLORADO"] = "TRUE"
+            campos["NIV"] = "N/A"
+
+    # PCDF 1ª/2ª: marcador "BAIXADO" — veículo já baixado no DETRAN/INFOSEG, não
+    # precisa de ofício. Mesma regra do BAIXADO manual no SIGNU: fecha a etapa
+    # HIGEIA direto (senão o item entra "vivo" e convida um ofício desnecessário).
+    if lista in ("pcdf1", "pcdf2") and "BAIXADO" in _norm(texto_marcador):
+        campo_etapa = "STATUS_1HIGEIA" if lista == "pcdf1" else "STATUS_2HIGEIA"
+        campos["STATUS_DILIGENCIA"] = "BAIXADO"
+        campos[campo_etapa] = "FINALIZADO"
+        campos["OFICIO_BAIXA"] = "FALSE"
+
     # CEGOC: o servidor escreve CIRCULAÇÃO/RECICLAGEM no texto do marcador — isso
     # decide DESTINACAO e STATUS_DILIGENCIA, não é palpite da IA.
     if lista == "cegoc":
@@ -988,7 +1010,7 @@ def main():
                 for idx, item in enumerate(fila, 1):
                     print(f"\n[{idx}/{len(fila)}] {item['numero']}  ({item['marcador']} -> {item['lista']})")
                     texto_marcador = ""
-                    if item.get("url_marcador") and item["lista"] in ("cegoc", "sei"):
+                    if item.get("url_marcador"):
                         texto_marcador = ler_texto_marcador(work, item["url_marcador"], item["marcador"], debug=args.debug)
                     try:
                         work.goto(item["url"], wait_until="domcontentloaded", timeout=20000)
