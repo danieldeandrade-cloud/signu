@@ -41,6 +41,10 @@ from pathlib import Path
 # (distribuição é decidida no cadastro); datas/flags calculadas também.
 # ─────────────────────────────────────────────────────────────────────────────
 TIPOS_BEM   = ["CARRO", "MOTO", "CAMINHÃO", "CAMINHONETE", "REBOQUE", "OUTROS"]
+# DPJ recebe lotes cíveis — nem tudo é veículo (mesma lista da tela de edição do SIGNU)
+TIPOS_BEM_DPJ = ["CARRO", "MOTO", "CAMINHÃO", "CAMINHONETE", "REBOQUE", "VEÍCULO",
+                  "ELETRÔNICO", "ELETRODOMÉSTICO", "INFORMÁTICA", "MÓVEIS", "FERRAMENTAS",
+                  "DIVERSOS", "OUTROS"]
 DESTINACOES = ["CIRCULAÇÃO", "RECICLAGEM"]
 STATUS_DI   = ["AGUARDANDO", "EM DILIGÊNCIA", "ATRASADO", "PRAZO 6 MESES", "BAIXADO",
                "EM DILIGÊNCIA HIGEIA", "LPC", "CATÁLOGO", "RENAJUD"]
@@ -95,11 +99,15 @@ SCHEMAS = {
         "OBSERVACOES":       CAMPO("Resumo em 1-2 frases"),
     },
     "dpj": {
+        # Extrai o 1º/principal bem do lote. Lote com vários bens diferentes
+        # ainda precisa de conferência manual — ver LIMITAÇÕES no README.
         "PA_PJE":       CAMPO("Número do processo PJe"),
         "LOTE":         CAMPO("Número do lote, se citado"),
-        "TIPO_BEM":     CAMPO("Tipo do veículo", TIPOS_BEM),
-        "NIV":          CAMPO("NIV/chassi"),
-        "PLACA":        CAMPO("Placa, só letras e números"),
+        "TIPO_BEM":     CAMPO("Tipo do bem (nem sempre é veículo)", TIPOS_BEM_DPJ),
+        "DESCRICAO":    CAMPO("Descrição do bem — obrigatória se não for veículo (ex.: '5 cadeiras de escritório')"),
+        "QUANTIDADE":   CAMPO("Quantidade do item, se citada (padrão '1')"),
+        "NIV":          CAMPO("NIV/chassi, se for veículo"),
+        "PLACA":        CAMPO("Placa, só letras e números, se for veículo"),
         **DESC_VEICULO,
         "DATA_ENTRADA": CAMPO("Data de entrada do bem (AAAA-MM-DD), se citada"),
         "MOTIVO_SAIDA": CAMPO("Motivo de saída, se já definido", ["", *MOTIVOS]),

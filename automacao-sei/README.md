@@ -102,6 +102,11 @@ Percorre a árvore (`ifrArvore`), e para cada documento:
   processo sem assinatura. O script sempre usa a href assinada da listagem.
 - **Sem checagem de duplicidade**: conferência manual; dedup automática entra no
   passo 2.
+- **DPJ com vários bens no mesmo lote**: o schema `dpj` extrai só o item
+  principal/1º bem do processo. A tela de cadastro do SIGNU já suporta vários
+  itens por lote (com descrição, quantidade e avaliação individual/total cada
+  um) — extrair a lista completa de bens de um único processo é melhoria
+  futura, não feita ainda.
 
 ## Passo 2 (quando a extração estiver confiável)
 

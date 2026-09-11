@@ -52,6 +52,9 @@ const poolDistribuicao = (listaKey) => {
 };
 
 const TIPOS_BEM    = ["CARRO","MOTO","CAMINHÃO","CAMINHONETE","REBOQUE","OUTROS"];
+// DPJ recebe lotes cíveis — nem tudo é veículo (mesma lista usada na edição)
+const TIPOS_BEM_DPJ = ["CARRO","MOTO","CAMINHÃO","CAMINHONETE","REBOQUE","VEÍCULO",
+  "ELETRÔNICO","ELETRODOMÉSTICO","INFORMÁTICA","MÓVEIS","FERRAMENTAS","DIVERSOS","OUTROS"];
 const DESTINACOES  = ["CIRCULAÇÃO","RECICLAGEM"];
 const STATUS_DI    = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO","EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD"];
 const DEPOSITOS    = ["SELAB/PCDF","CPA/PCDF","CPA","CEGOC","5ªDP","23ªDP","30ªDP","33ªDP"];
@@ -85,14 +88,12 @@ const CAMPOS = {
     { id:"FIB",               label:"FIB Expedida",        type:"toggle" },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação e ações..." },
   ],
+  // DPJ_GC99: o lote é o "cabeçalho" (LOTE/PA_PJE/prazo/responsável); os bens do
+  // lote (1 ou vários, nem todos veículo) são cadastrados à parte — ver
+  // ItensLoteDPJ, abaixo do grid principal no formulário.
   DPJ_GC99: [
     { id:"LOTE",              label:"Lote *",              type:"number",   required:true,  placeholder:"Ex: 49" },
     { id:"PA_PJE",            label:"PA PJE *",            type:"text",     required:true,  placeholder:"Ex: 0002341-88.2021" },
-    { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
-    { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
-    { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
-    ...DESC_VEICULO,
-    { id:"PESO_KG",           label:"Peso estimado (kg)",  type:"number",   placeholder:"Ex: 800", hint:"Para estatística de reciclagem" },
     { id:"DATA_ENTRADA",      label:"Data de Entrada *",   type:"date",     required:true },
     { id:"PRAZO_6MESES",      label:"Prazo 6 Meses",       type:"date",     readonly:true,  hint:"Calculado automaticamente (+180 dias)" },
     { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
@@ -235,6 +236,120 @@ function FormField({ campo, value, onChange, accentColor }) {
   );
 }
 
+// ─── Itens do lote (DPJ) ────────────────────────────────────────────────────
+// Um lote pode reunir vários bens, nem todos veículo — cada um com sua própria
+// descrição, quantidade e avaliação (individual e total). Cada item vira uma
+// linha na planilha, todas com o mesmo LOTE/PA_PJE do cabeçalho. Pensado para
+// alimentar o catálogo do leilão público coletivo do NULEJ.
+function parseMoedaCad(str) {
+  let s = String(str ?? "").replace(/[^\d.,]/g, "");
+  if (!s) return null;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  else if ((s.match(/\./g) || []).length > 1 || /^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
+}
+const fmtMoedaCad = (n) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function itemLoteVazio() {
+  return {
+    TIPO_BEM: "", DESCRICAO: "", QUANTIDADE: "1",
+    NIV: "", PLACA: "", MARCA_MODELO: "", ANO_FAB_MODELO: "", COR: "", RENAVAM: "",
+    AVALIACAO_UNITARIA: "", AVALIACAO_TOTAL: "",
+  };
+}
+// Item "tocado" pelo servidor (algo além da quantidade padrão foi preenchido)
+function itemPreenchido(it) {
+  return Object.entries(it).some(([k, v]) => k !== "QUANTIDADE" && String(v || "").trim() !== "");
+}
+
+function CampoMoedaItem({ label, value, onChange }) {
+  const [raw, setRaw] = useState(value || "");
+  const [foco, setFoco] = useState(false);
+  useEffect(() => { if (!foco) setRaw(value || ""); }, [value, foco]);
+  return (
+    <div>
+      <label style={{ fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:4 }}>{label}</label>
+      <div style={{ position:"relative" }}>
+        <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#9ca3af",pointerEvents:"none" }}>R$</span>
+        <input
+          inputMode="decimal" value={raw}
+          onFocus={() => setFoco(true)}
+          onChange={e => setRaw(e.target.value)}
+          onBlur={() => {
+            setFoco(false);
+            const n = parseMoedaCad(raw);
+            const fmt = n === null ? "" : fmtMoedaCad(n);
+            setRaw(fmt);
+            onChange(fmt);
+          }}
+          style={{ width:"100%",boxSizing:"border-box",padding:"7px 9px 7px 28px",background:"#f9fafb",border:"1px solid #d1d5db",borderRadius:7,fontSize:12,color:"#0f172a",outline:"none" }}/>
+      </div>
+    </div>
+  );
+}
+
+function ItemLoteCard({ item, idx, onChange, onRemove, podeRemover, accentColor, invalido }) {
+  const upd = (campo, v) => {
+    const next = { ...item, [campo]: v };
+    if (campo === "AVALIACAO_UNITARIA" || campo === "QUANTIDADE") {
+      const unit = parseMoedaCad(campo === "AVALIACAO_UNITARIA" ? v : item.AVALIACAO_UNITARIA);
+      const qtd  = Number(campo === "QUANTIDADE" ? v : item.QUANTIDADE) || 0;
+      next.AVALIACAO_TOTAL = unit !== null ? fmtMoedaCad(unit * qtd) : "";
+    }
+    onChange(idx, next, campo);
+  };
+  const stTxt = { width:"100%",boxSizing:"border-box",padding:"7px 9px",background:"#f9fafb",border:"1px solid #d1d5db",borderRadius:7,fontSize:12,color:"#0f172a",outline:"none" };
+  const lbl = (t) => <label style={{ fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:4 }}>{t}</label>;
+  return (
+    <div style={{ border:`1.5px solid ${invalido ? "rgba(248,113,113,0.5)" : "#e5e7eb"}`, borderRadius:10, padding:14, position:"relative", background:"#fff" }}>
+      {podeRemover && (
+        <button onClick={() => onRemove(idx)} title="Remover item"
+          style={{ position:"absolute", top:10, right:10, width:22, height:22, borderRadius:6, border:"1px solid #fca5a5", background:"#fef2f2", color:"#dc2626", fontSize:12, cursor:"pointer", lineHeight:1 }}>✕</button>
+      )}
+      <div style={{ fontSize:11, fontWeight:700, color:accentColor, marginBottom:10 }}>Item {idx + 1}</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr 70px", gap:10, marginBottom:10 }}>
+        <div>
+          {lbl("Tipo de bem *")}
+          <select value={item.TIPO_BEM} onChange={e => upd("TIPO_BEM", e.target.value)} style={{ ...stTxt, cursor:"pointer" }}>
+            <option value="">— Selecione —</option>
+            {TIPOS_BEM_DPJ.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div>
+          {lbl("Descrição *")}
+          <input value={item.DESCRICAO} onChange={e => upd("DESCRICAO", e.target.value)}
+            placeholder="Ex: 5 cadeiras de escritório, sofá 3 lugares..." style={stTxt}/>
+        </div>
+        <div>
+          {lbl("Qtd.")}
+          <input type="number" min="1" value={item.QUANTIDADE} onChange={e => upd("QUANTIDADE", e.target.value)} style={stTxt}/>
+        </div>
+      </div>
+      <div style={{ fontSize:10, color:"#9ca3af", marginBottom:6 }}>Se for veículo (opcional):</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:10 }}>
+        <div>{lbl("NIV / Chassi")}<input value={item.NIV} onChange={e => upd("NIV", e.target.value)} maxLength={18} style={stTxt}/></div>
+        <div>{lbl("Placa")}<input value={item.PLACA} onChange={e => upd("PLACA", e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))} style={stTxt}/></div>
+        <div>{lbl("Marca / Modelo")}<input value={item.MARCA_MODELO} onChange={e => upd("MARCA_MODELO", e.target.value)} style={stTxt}/></div>
+        <div>{lbl("Ano fab./modelo")}<input value={item.ANO_FAB_MODELO} onChange={e => upd("ANO_FAB_MODELO", e.target.value)} style={stTxt}/></div>
+        <div>{lbl("Cor")}<input value={item.COR} onChange={e => upd("COR", e.target.value)} style={stTxt}/></div>
+        <div>{lbl("RENAVAM")}<input value={item.RENAVAM} onChange={e => upd("RENAVAM", e.target.value.replace(/\D/g,""))} style={stTxt}/></div>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        <CampoMoedaItem label="Avaliação unitária" value={item.AVALIACAO_UNITARIA} onChange={v => upd("AVALIACAO_UNITARIA", v)}/>
+        <div>
+          {lbl("Avaliação total")}
+          <div style={{ padding:"7px 9px", background:"#f3f4f6", border:"1px solid #e5e7eb", borderRadius:7, fontSize:12, color:"#374151", fontFamily:"'IBM Plex Mono',monospace" }}>
+            {item.AVALIACAO_TOTAL ? `R$ ${item.AVALIACAO_TOTAL}` : "—"}
+          </div>
+          <div style={{ fontSize:9, color:"#9ca3af", marginTop:3 }}>calculado: unitária × quantidade</div>
+        </div>
+      </div>
+      {invalido && <div style={{ fontSize:10, color:"#f87171", marginTop:8 }}>⚠ Preencha ao menos Tipo de bem e Descrição, ou remova o item.</div>}
+    </div>
+  );
+}
+
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 export default function CadastroPage() {
   const [listaKey, setListaKey] = useState(null);
@@ -243,6 +358,11 @@ export default function CadastroPage() {
   const [sucesso, setSucesso] = useState(false);
   const [erroSalvar, setErroSalvar] = useState(null);
   const [erros, setErros] = useState([]);
+
+  // ── DPJ: vários itens por lote ─────────────────────────────────────────────
+  const [itensLote, setItensLote] = useState([itemLoteVazio()]);
+  const [errosItens, setErrosItens] = useState([]); // índices de itens inválidos
+  const resetItensLote = () => { setItensLote([itemLoteVazio()]); setErrosItens([]); };
 
   // ── Distribuição automática ────────────────────────────────────────────────
   const [autoResp, setAutoResp]   = useState(null);   // { servidor, contagens }
@@ -450,8 +570,21 @@ export default function CadastroPage() {
       dadosResolvidos.Responsavel = autoResp.servidor;
     }
 
-    // Validação dos campos obrigatórios
+    // Validação dos campos obrigatórios do cabeçalho (lote, no caso da DPJ)
     const novosErros = campos.filter(c => c.required && !dadosResolvidos[c.id]).map(c => c.id);
+
+    // DPJ: valida os itens do lote — ignora cards extras deixados em branco,
+    // mas reprova os que foram parcialmente preenchidos (sem Tipo/Descrição).
+    let itensParaEnviar = [];
+    if (listaKey === "DPJ_GC99") {
+      const tocados = itensLote.filter(itemPreenchido);
+      itensParaEnviar = tocados.length ? tocados : itensLote.slice(0, 1);
+      const invalidos = [];
+      itensParaEnviar.forEach((it, i) => { if (!it.TIPO_BEM || !it.DESCRICAO.trim()) invalidos.push(i); });
+      setErrosItens(invalidos);
+      if (invalidos.length > 0) novosErros.push("ITENS_LOTE");
+    }
+
     if (novosErros.length > 0) { setErros(novosErros); return; }
 
     setSalvando(true);
@@ -460,29 +593,46 @@ export default function CadastroPage() {
     try {
       const rota = LISTA_API_MAP[listaKey];
 
-      // Normaliza toggles: envia "TRUE"/"FALSE" (compatível com Google Sheets)
-      const payload = {};
-      campos.forEach(c => {
-        if (c.type === "toggle") {
-          payload[c.id] = dadosResolvidos[c.id] ? "TRUE" : "FALSE";
-        } else if (dadosResolvidos[c.id] !== undefined && dadosResolvidos[c.id] !== "") {
-          payload[c.id] = dadosResolvidos[c.id];
+      if (listaKey === "DPJ_GC99") {
+        // Cabeçalho do lote (LOTE, PA_PJE, datas, responsável...) replicado
+        // em todas as linhas dos itens.
+        const loteBase = {};
+        campos.forEach(c => {
+          if (dadosResolvidos[c.id] !== undefined && dadosResolvidos[c.id] !== "") loteBase[c.id] = dadosResolvidos[c.id];
+        });
+        for (const it of itensParaEnviar) {
+          const payloadItem = { ...loteBase, TIPO_BEM: it.TIPO_BEM, DESCRICAO: it.DESCRICAO.trim(), QUANTIDADE: it.QUANTIDADE || "1" };
+          ["NIV", "PLACA", "MARCA_MODELO", "ANO_FAB_MODELO", "COR", "RENAVAM", "AVALIACAO_UNITARIA", "AVALIACAO_TOTAL"]
+            .forEach(k => { if (it[k]) payloadItem[k] = it[k]; });
+          const res = await fetch(`/api/bens/${rota}`, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payloadItem),
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.erro || `Erro ao salvar item "${it.DESCRICAO || it.TIPO_BEM}"`);
         }
-      });
-      // Itens cadastrados direto em HIGEIA vão sempre para reciclagem
-      if (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") payload.DESTINACAO = "RECICLAGEM";
+        setSucesso(itensParaEnviar.length > 1 ? `${itensParaEnviar.length} bens cadastrados no lote` : true);
+      } else {
+        // Normaliza toggles: envia "TRUE"/"FALSE" (compatível com Google Sheets)
+        const payload = {};
+        campos.forEach(c => {
+          if (c.type === "toggle") {
+            payload[c.id] = dadosResolvidos[c.id] ? "TRUE" : "FALSE";
+          } else if (dadosResolvidos[c.id] !== undefined && dadosResolvidos[c.id] !== "") {
+            payload[c.id] = dadosResolvidos[c.id];
+          }
+        });
+        // Itens cadastrados direto em HIGEIA vão sempre para reciclagem
+        if (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") payload.DESTINACAO = "RECICLAGEM";
 
-      const res = await fetch(`/api/bens/${rota}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+        const res = await fetch(`/api/bens/${rota}`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.erro || "Erro ao salvar");
+        setSucesso(true);
+      }
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.erro || "Erro ao salvar");
-
-      setSucesso(true);
-      setTimeout(() => { setSucesso(false); setFormData({}); setListaKey(null); }, 3000);
+      setTimeout(() => { setSucesso(false); setFormData({}); resetItensLote(); setListaKey(null); }, 3000);
     } catch (e) {
       setErroSalvar(e.message);
     } finally {
@@ -490,7 +640,15 @@ export default function CadastroPage() {
     }
   };
 
-  const handleLimpar = () => { setFormData({}); setErros([]); };
+  const handleLimpar = () => { setFormData({}); setErros([]); resetItensLote(); };
+
+  const atualizarItemLote = (idx, next, campoAlterado) => {
+    setItensLote(prev => prev.map((it, i) => i === idx ? next : it));
+    setErrosItens(prev => prev.filter(i => i !== idx));
+    if (campoAlterado === "NIV") buscarDuplicata("NIV", next.NIV);
+  };
+  const adicionarItemLote = () => setItensLote(prev => [...prev, itemLoteVazio()]);
+  const removerItemLote = (idx) => setItensLote(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
 
   // Separa toggles dos outros campos
   const camposNormais = campos.filter(c => c.type !== "toggle");
@@ -548,7 +706,7 @@ export default function CadastroPage() {
               <p style={{ fontSize:13,color:"#6b7280",margin:"0 0 28px" }}>Selecione a lista de destino para o bem.</p>
               <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,maxWidth:800 }}>
                 {LISTAS_CONFIG.map(l => (
-                  <button key={l.key} onClick={() => { setListaKey(l.key); setFormData({}); setErros([]); setDuplicata(null); setAutoResp(null); }}
+                  <button key={l.key} onClick={() => { setListaKey(l.key); setFormData({}); setErros([]); setDuplicata(null); setAutoResp(null); resetItensLote(); }}
                     style={{
                       background:`linear-gradient(145deg,${l.bg},rgba(6,15,30,0.9))`,
                       border:`1px solid ${l.color}30`,
@@ -622,7 +780,7 @@ export default function CadastroPage() {
                   {/* Grid de campos 2 colunas */}
                   <div style={{ background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"20px" }}>
                     <div style={{ fontSize:11,fontWeight:700,color:`${lista.color}99`,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:18 }}>
-                      Dados do Bem
+                      {listaKey === "DPJ_GC99" ? "Dados do Lote" : "Dados do Bem"}
                     </div>
                     <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
                       {camposNormais.map(campo => (
@@ -640,6 +798,42 @@ export default function CadastroPage() {
                       ))}
                     </div>
                   </div>
+
+                  {/* ── Itens do lote (DPJ): 1 ou vários bens, nem todos veículo ── */}
+                  {listaKey === "DPJ_GC99" && (
+                    <div style={{ background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"20px" }}>
+                      <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16 }}>
+                        <div style={{ fontSize:11,fontWeight:700,color:`${lista.color}99`,textTransform:"uppercase",letterSpacing:"0.1em" }}>
+                          Itens do lote ({itensLote.length})
+                        </div>
+                        <button onClick={adicionarItemLote} type="button"
+                          style={{ padding:"6px 12px",borderRadius:8,border:`1px solid ${lista.color}55`,background:`${lista.color}12`,color:lista.color,fontSize:11,fontWeight:700,cursor:"pointer" }}>
+                          ＋ Adicionar item
+                        </button>
+                      </div>
+                      <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+                        {itensLote.map((item, idx) => (
+                          <ItemLoteCard key={idx} item={item} idx={idx}
+                            onChange={atualizarItemLote} onRemove={removerItemLote}
+                            podeRemover={itensLote.length > 1} accentColor={lista.color}
+                            invalido={errosItens.includes(idx)}/>
+                        ))}
+                      </div>
+                      {erros.includes("ITENS_LOTE") && (
+                        <div style={{ fontSize:11,color:"#f87171",marginTop:10 }}>⚠ Corrija os itens marcados acima antes de salvar.</div>
+                      )}
+                      {(() => {
+                        const total = itensLote.reduce((s, it) => s + (parseMoedaCad(it.AVALIACAO_TOTAL) || 0), 0);
+                        const qtdItens = itensLote.filter(itemPreenchido).length || 1;
+                        return (
+                          <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid #e5e7eb", display:"flex", justifyContent:"space-between", fontSize:11, color:"#6b7280" }}>
+                            <span>{qtdItens} item{qtdItens !== 1 ? "s" : ""} no lote</span>
+                            {total > 0 && <span style={{ fontWeight:700, color:"#111827" }}>Avaliação total do lote: R$ {fmtMoedaCad(total)}</span>}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
 
                   {/* ── Distribuição automática ── */}
                   {(autoLoading || autoResp) && (
@@ -784,6 +978,9 @@ export default function CadastroPage() {
                     <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:11,lineHeight:1.8,color:"#6b7280" }}>
                       <div><span style={{ color:"#a78bfa" }}>POST</span> /api/bens/<span style={{ color:lista?.color }}>{LISTA_API_MAP[listaKey]}</span></div>
                       <div style={{ fontSize:10,marginTop:4,color:"#9ca3af" }}>→ Google Sheets: SIGNU_DB</div>
+                      {listaKey === "DPJ_GC99" && (
+                        <div style={{ fontSize:10,marginTop:4,color:"#9ca3af" }}>1 requisição por item do lote</div>
+                      )}
                     </div>
                   </div>
 
@@ -830,7 +1027,7 @@ export default function CadastroPage() {
           fontSize:14,fontWeight:700,color:"#0f172a",
           animation:"fadeIn 0.3s ease",
         }}>
-          ✅ Bem cadastrado em {lista?.label} com sucesso!
+          ✅ {typeof sucesso === "string" ? sucesso : `Bem cadastrado em ${lista?.label}`} com sucesso!
         </div>
       )}
     </div>

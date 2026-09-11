@@ -934,6 +934,16 @@ function DetalhesContent() {
       return next;
     });
   };
+  // DPJ: avaliação total recalcula sozinha quando a unitária ou a quantidade mudam.
+  const handleAvaliacaoItemDPJ = (campo, v) => {
+    setEditData(prev => {
+      const next = { ...prev, [campo]: v };
+      const unit = parseMoeda(campo === "AVALIACAO_UNITARIA" ? v : prev.AVALIACAO_UNITARIA);
+      const qtd  = Number(campo === "QUANTIDADE" ? v : prev.QUANTIDADE) || 0;
+      next.AVALIACAO_TOTAL = unit !== null ? fmtMoeda(unit * qtd) : "";
+      return next;
+    });
+  };
   const current = editMode ? editData : bem;
 
   // ── CEGOC circulação: gate para migrar LPC → Catálogo ──
@@ -1509,6 +1519,23 @@ function DetalhesContent() {
                         {editMode
                           ? <FieldEdit label="Motivo de Saída" value={editData?.MOTIVO_SAIDA||""} onChange={v=>upd("MOTIVO_SAIDA",v)} options={["","DOAÇÃO","LEILÃO INDIVIDUAL","LEILÃO COLETIVO","ADJUDICAÇÃO","RESTITUIÇÃO","ALIENAÇÃO PARTICULAR"]}/>
                           : <FieldView label="Motivo de Saída" value={current?.MOTIVO_SAIDA}/>}
+                        <div style={{ gridColumn:"1 / -1" }}>
+                          {editMode
+                            ? <FieldEdit label="Descrição do item" value={editData?.DESCRICAO} onChange={v=>upd("DESCRICAO",v)} placeholder="Ex: 5 cadeiras de escritório, sofá 3 lugares..."/>
+                            : <FieldView label="Descrição do item" value={current?.DESCRICAO}/>}
+                        </div>
+                        {editMode
+                          ? <FieldEdit label="Quantidade" type="number" value={editData?.QUANTIDADE||"1"} onChange={v=>handleAvaliacaoItemDPJ("QUANTIDADE",v)}/>
+                          : <FieldView label="Quantidade" value={current?.QUANTIDADE || "1"}/>}
+                        {editMode
+                          ? <MoedaField label="Avaliação unitária (R$)" value={editData?.AVALIACAO_UNITARIA} onChange={v=>handleAvaliacaoItemDPJ("AVALIACAO_UNITARIA",v)}/>
+                          : <FieldView label="Avaliação unitária (R$)" value={current?.AVALIACAO_UNITARIA ? `R$ ${current.AVALIACAO_UNITARIA}` : null}/>}
+                        <FieldView label="Avaliação total (R$)" value={current?.AVALIACAO_TOTAL ? `R$ ${current.AVALIACAO_TOTAL}` : null} highlight="#22c55e"/>
+                        {editMode && (
+                          <div style={{ gridColumn:"1 / -1", fontSize:10, color:"#6b7280", marginTop:-8 }}>
+                            Avaliação total é calculada sozinha (unitária × quantidade) para o catálogo do leilão.
+                          </div>
+                        )}
                       </div>
                     </Section>
                   )}
