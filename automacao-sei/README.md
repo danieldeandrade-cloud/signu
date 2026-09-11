@@ -130,11 +130,22 @@ Percorre a árvore (`ifrArvore`), e para cada documento:
   um) — extrair a lista completa de bens de um único processo é melhoria
   futura, não feita ainda.
 
-## Passo 2 (quando a extração estiver confiável)
+## Passo 2 — staging e revisão (implementado)
 
-1. Endpoint `POST /api/importacao-sei` no SIGNU, fora do middleware, autenticado
-   por `x-import-token`, que grava numa aba `Importacao_SEI` (staging).
-2. Tela "Importação SEI — a revisar" na Gestão: gestor confere linha a linha e
-   promove para a lista real (reaproveitando o fluxo de cadastro + dedup).
-3. `extrair_sei.py` ganha `--enviar` para postar o JSON nesse endpoint, e a
-   troca automática do marcador verde pelo rosa `REVISAR - CADASTRADO SIGNU`.
+1. `python extrair_sei.py --enviar` — além do CSV/JSON local, faz `POST
+   /api/importacao-sei` (token `signu.import_token` do config.json) pra cada
+   item extraído, gravando na aba `Importacao_SEI` (staging, `STATUS_REVISAO
+   PENDENTE`). Em seguida troca sozinho o marcador verde `CADASTRAR SIGNU
+   <lista>` pelo rosa `REVISAR - CADASTRADO SIGNU` no processo (com um texto
+   registrando quando foi enviado) — só roda em `--modo marcador` (precisa do
+   `url_marcador` da descoberta; `--modo abas` envia sem trocar marcador).
+2. Tela **`/gestao/importacao-sei`** ("📥 Importação SEI" no cabeçalho da
+   Gestão): um card por item pendente — campos editáveis, responsável
+   (inclusive "⚡ Distribuição automática", mesma regra do cadastro), botão de
+   verificar duplicidade contra todas as listas reais, promover/descartar.
+3. `PATCH /api/importacao-sei/[rowNumber]` faz a promoção de verdade: cria a
+   linha na lista de destino e marca o staging `PROMOVIDO` (ou `DESCARTADO`).
+
+Tudo isso já rodou de ponta a ponta em processos reais (CEGOC, PCDF 2ª, DPJ,
+Caixa SEI) sem gravar nada indevido — só chega na lista real quando um gestor
+clica em "Promover".
