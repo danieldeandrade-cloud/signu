@@ -326,18 +326,34 @@ def _abs_url(base, href):
     return urljoin(base, href)
 
 
+def _goto_seguro(page, url, timeout=20000, espera_pos=900, debug=False, tentativas=3):
+    """goto com retentativa. O SEI às vezes dispara um redirect interno (ex.: a
+    tela 'Marcadores do Processo' volta sozinha pro processo) que atropela a
+    navegação seguinte no mesmo Page ('interrupted by another navigation') —
+    sem retry isso derruba o item inteiro mesmo sendo só um problema de timing."""
+    erro = None
+    for tentativa in range(tentativas):
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+            page.wait_for_timeout(espera_pos)
+            return True
+        except Exception as e:
+            erro = e
+            if debug:
+                print(f"    [debug] goto tentativa {tentativa+1}/{tentativas}: {e}")
+            page.wait_for_timeout(1200)
+    if debug and erro:
+        print(f"    [debug] goto falhou após {tentativas} tentativas: {erro}")
+    return False
+
+
 def ler_texto_marcador(page, url, nome_marcador, debug=False):
     """Abre 'Marcadores do Processo' (tela de gerenciar) e devolve o texto que o
     servidor anotou junto do marcador — é ali que a CEGOC diz circulação/reciclagem
     e o Caixa SEI recebe o nome do responsável."""
     if not url:
         return ""
-    try:
-        page.goto(url, wait_until="domcontentloaded", timeout=20000)
-        page.wait_for_timeout(900)
-    except Exception as e:
-        if debug:
-            print(f"    [debug] abrir marcadores do processo: {e}")
+    if not _goto_seguro(page, url, espera_pos=1200, debug=debug):
         return ""
     alvo = _norm(nome_marcador)
     try:
@@ -485,6 +501,7 @@ def extrair_processo(page, cfg_sei, debug=False):
     partes = []
     docs_lidos = 0
     pdfs = []
+    tem_infoseg_doc = False  # documento chamado literalmente "... INFOSEG ..." na árvore
 
     if fr_arvore:
         nodes = fr_arvore.locator("a[href*='id_documento']")
@@ -500,6 +517,10 @@ def extrair_processo(page, cfg_sei, debug=False):
             if m and m.group(1) not in idx_por_doc:
                 idx_por_doc[m.group(1)] = i
         ordem = list(idx_por_doc.values())
+        # presença de INFOSEG é decidida pelo NOME do documento na árvore, não por
+        # palpite da IA sobre o conteúdo (evita falso positivo de "achei menção a
+        # base nacional" sem existir de fato um "Relatório INFOSEG" no processo)
+        tem_infoseg_doc = any("INFOSEG" in titulos[i].upper() for i in idx_por_doc.values())
         # INFOSEG primeiro
         ordem.sort(key=lambda i: (0 if "INFOSEG" in titulos[i].upper() else 1, i))
         ordem = ordem[: int(cfg_sei.get("max_documentos", 25))]
@@ -559,6 +580,7 @@ def extrair_processo(page, cfg_sei, debug=False):
         "texto": texto,
         "docs_lidos": docs_lidos,
         "pdfs": pdfs,
+        "tem_infoseg_doc": tem_infoseg_doc,
     }
 
 
@@ -660,6 +682,20 @@ SYS = (
 
 
 def extrair_com_ia(api_key, model, schema, proc):
+    if proc.get("tem_infoseg_doc"):
+        regra_infoseg = (
+            "- ESTE PROCESSO TEM um documento chamado 'Relatório INFOSEG' na árvore. "
+            "Os dados do veículo (NIV/chassi, placa, tipo, marca/modelo) SÃO OS DESSE "
+            "DOCUMENTO — use esses, mesmo que outro documento divirja. Em '_alertas', "
+            "registre eventual divergência."
+        )
+    else:
+        regra_infoseg = (
+            "- ESTE PROCESSO NÃO TEM um documento chamado 'Relatório INFOSEG' na árvore "
+            "(já conferido, não precisa procurar). Trate como NIV NÃO AFLORADO: "
+            'NIV="N/A", NIV_NAO_AFLORADO="TRUE", e a placa (se citada em auto de '
+            "apreensão/BO) vai em PLACA_OSTENTADA, não em PLACA."
+        )
     prompt = f"""Abaixo está o texto extraído de um processo do SEI.
 
 Preencha os campos do SIGNU listados. Regras:
@@ -671,14 +707,7 @@ Preencha os campos do SIGNU listados. Regras:
 Alguns documentos vêm como PDF anexado (inclusive escaneados) — leia-os também.
 
 FONTE DOS DADOS DO VEÍCULO (regra do NULEJ):
-- Se houver um relatório/consulta **INFOSEG** no processo (texto ou PDF anexo),
-  os dados do veículo (NIV/chassi, placa, tipo, marca/modelo) SÃO OS DO INFOSEG
-  — use esses, mesmo que outro documento divirja. Em "_alertas", registre
-  eventual divergência.
-- Se NÃO houver INFOSEG no processo, trate como **NIV não aflorado**:
-  NIV = "N/A", NIV_NAO_AFLORADO = "TRUE", e a placa (se citada em auto de
-  apreensão/BO) vai em PLACA_OSTENTADA, não em PLACA. Adicione o alerta
-  "sem INFOSEG — NIV não aflorado".
+{regra_infoseg}
 
 CAMPOS:
 {montar_schema_texto(schema)}
@@ -686,7 +715,6 @@ CAMPOS:
 Formato da resposta (JSON):
 {{
   "campos": {{ ... um par para cada campo acima ... }},
-  "_infoseg": true/false,
   "_confianca": 0.0 a 1.0,
   "_campos_incertos": ["NOME_DO_CAMPO", ...],
   "_alertas": ["frases curtas sobre ambiguidades, divergências ou dados faltando"]
@@ -749,23 +777,22 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador=""):
     alertas = list(ia.get("_alertas", []))
     campos.setdefault("RESPONSAVEL", "__AUTO__")  # SIGNU resolve o servidor na ingestão
 
-    infoseg = bool(ia.get("_infoseg"))
-    # coerência: sem INFOSEG => NIV não aflorado
-    if "NIV_NAO_AFLORADO" in campos and not infoseg:
-        campos["NIV_NAO_AFLORADO"] = "TRUE"
-        if not campos.get("NIV"):
-            campos["NIV"] = "N/A"
+    # INFOSEG: decidido pelo NOME do documento na árvore (não por palpite da IA
+    # sobre o conteúdo) — evita falso positivo tipo "achei menção a base nacional"
+    # sem existir de fato um documento "Relatório INFOSEG" no processo.
+    infoseg = bool(proc.get("tem_infoseg_doc"))
 
-    # PCDF/DPJ: o servidor também pode anotar "não aflorado" / "N/A" no texto do
-    # marcador — isso é mais confiável que o palpite da IA sobre haver INFOSEG ou
-    # não, então força a flag (e avisa se contradiz o que a IA achou no processo).
+    # NIV não aflorado: sem o documento "Relatório INFOSEG" já é o caso (regra
+    # principal). O texto do marcador pode reforçar isso — e se ele disser "não
+    # aflorado" mas o documento EXISTE mesmo assim, é uma contradição real digna
+    # de alerta (antes essa checagem dependia do palpite da IA e dava falso alarme).
     if "NIV_NAO_AFLORADO" in campos:
         tm = _norm(texto_marcador)
-        diz_nao_aflorado = "AFLORADO" in tm or tm == "N/A" or "N A" == tm
-        if diz_nao_aflorado:
-            if infoseg:
-                alertas.append(f"marcador diz 'não aflorado' ({texto_marcador!r}) mas o processo TEM "
-                                f"INFOSEG — confira qual está certo antes de cadastrar.")
+        marcador_diz_nao_aflorado = "AFLORADO" in tm or tm in ("N/A", "N A")
+        if marcador_diz_nao_aflorado and infoseg:
+            alertas.append(f"marcador diz 'não aflorado' ({texto_marcador!r}) mas existe documento "
+                            f"'Relatório INFOSEG' na árvore — confira qual está certo antes de cadastrar.")
+        if not infoseg or marcador_diz_nao_aflorado:
             campos["NIV_NAO_AFLORADO"] = "TRUE"
             campos["NIV"] = "N/A"
 
@@ -1012,12 +1039,9 @@ def main():
                     texto_marcador = ""
                     if item.get("url_marcador"):
                         texto_marcador = ler_texto_marcador(work, item["url_marcador"], item["marcador"], debug=args.debug)
-                    try:
-                        work.goto(item["url"], wait_until="domcontentloaded", timeout=20000)
-                    except Exception as e:
-                        print(f"    [x] não abriu: {e}")
+                    if not _goto_seguro(work, item["url"], espera_pos=800, debug=args.debug):
+                        print("    [x] não abriu (processo) — pulando.")
                         continue
-                    work.wait_for_timeout(800)
                     resultados.append(processar(work, cfg_sei, api_key, model, item["lista"], args, texto_marcador=texto_marcador))
             finally:
                 work.close()
