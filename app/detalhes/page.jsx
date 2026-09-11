@@ -33,6 +33,17 @@ const TIPOS_BEM_DPJ = ["","CARRO","MOTO","CAMINHÃO","CAMINHONETE","REBOQUE","VE
 const DESTINACOES = ["CIRCULAÇÃO","RECICLAGEM"];
 const DEPOSITOS   = ["SELAB/PCDF","CPA/PCDF","CPA","CEGOC","5ªDP","23ªDP","30ªDP","33ªDP"];
 
+// Item novo p/ "Adicionar item a este lote" (DPJ) — mesmo shape do cadastro.
+function novoItemLoteVazio() {
+  return {
+    TIPO_BEM: "", DESCRICAO: "", QUANTIDADE: "1",
+    NIV: "", PLACA: "", MARCA_MODELO: "", ANO_FAB_MODELO: "", COR: "", RENAVAM: "",
+    AVALIACAO_UNITARIA: "", AVALIACAO_TOTAL: "",
+  };
+}
+const lblSt = { fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:4 };
+const inputStDPJ = { width:"100%",boxSizing:"border-box",padding:"7px 9px",background:"#f9fafb",border:"1px solid #d1d5db",borderRadius:7,fontSize:12,color:"#0f172a",outline:"none" };
+
 const STATUS_OPTIONS  = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO","EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD"];
 const STATUS_2HIGEIA  = ["EM PROCESSAMENTO","TEP REGISTRADO","ENVIAR OFÍCIO DETRAN","AGUARDAR RESPOSTA DETRAN","GERAR TAP","FINALIZADO"];
 // Status Local PA das doações — igual ao usado no cadastro (lib compartilhada seria melhor, mas o padrão do projeto é const por arquivo)
@@ -654,6 +665,11 @@ function DetalhesContent() {
   const [loading,     setLoading]     = useState(true);
   const [salvando,    setSalvando]    = useState(false);
   const [erroLoad,    setErroLoad]    = useState(null);
+  // DPJ: outros itens do mesmo lote + form de adicionar mais um
+  const [itensIrmaos,     setItensIrmaos]     = useState([]);
+  const [carregandoIrmaos, setCarregandoIrmaos] = useState(false);
+  const [novoItemAberto,  setNovoItemAberto]  = useState(false);
+  const [novoItem,        setNovoItem]        = useState(novoItemLoteVazio());
   // Anexos (Google Drive)
   const [anexos,         setAnexos]        = useState([]);
   const [arrastando,     setArrastando]    = useState(false);
@@ -945,6 +961,55 @@ function DetalhesContent() {
     });
   };
   const current = editMode ? editData : bem;
+
+  // DPJ: lista os outros itens do mesmo lote (linhas irmãs) e permite adicionar mais um.
+  const carregarItensLote = async () => {
+    if (listaKey !== "DPJ_GC99" || !bem?.LOTE) { setItensIrmaos([]); return; }
+    setCarregandoIrmaos(true);
+    try {
+      const res = await fetch(`/api/bens/dpj`);
+      const json = await res.json();
+      const irmaos = (json.dados || []).filter(
+        i => String(i.LOTE) === String(bem.LOTE) && String(i._rowNumber) !== String(row)
+      );
+      setItensIrmaos(irmaos);
+    } catch { /* silencioso — não é crítico */ }
+    setCarregandoIrmaos(false);
+  };
+  useEffect(() => { carregarItensLote(); }, [listaKey, bem?.LOTE, row]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const salvarNovoItemLote = async () => {
+    if (!novoItem.TIPO_BEM || !novoItem.DESCRICAO.trim()) {
+      showToast("Preencha ao menos Tipo de bem e Descrição do novo item", "error");
+      return;
+    }
+    setSalvando(true);
+    try {
+      const payload = {
+        LOTE: bem.LOTE, PA_PJE: bem.PA_PJE, DATA_ENTRADA: bem.DATA_ENTRADA,
+        PRAZO_6MESES: bem.PRAZO_6MESES, RESPONSAVEL: bem.RESPONSAVEL || bem.Responsavel,
+        MOTIVO_SAIDA: bem.MOTIVO_SAIDA,
+        TIPO_BEM: novoItem.TIPO_BEM, DESCRICAO: novoItem.DESCRICAO.trim(), QUANTIDADE: novoItem.QUANTIDADE || "1",
+      };
+      ["NIV", "PLACA", "MARCA_MODELO", "ANO_FAB_MODELO", "COR", "RENAVAM", "AVALIACAO_UNITARIA", "AVALIACAO_TOTAL"]
+        .forEach(k => { if (novoItem[k]) payload[k] = novoItem[k]; });
+
+      const res = await fetch(`/api/bens/dpj`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.erro || "Erro ao adicionar item");
+
+      showToast(`Item adicionado ao lote #${bem.LOTE}`);
+      setNovoItem(novoItemLoteVazio());
+      setNovoItemAberto(false);
+      carregarItensLote();
+    } catch (e) {
+      showToast(e.message, "error");
+    } finally {
+      setSalvando(false);
+    }
+  };
 
   // ── CEGOC circulação: gate para migrar LPC → Catálogo ──
   const cegocCirculacao = listaKey === "CEGOC" && current?.DESTINACAO === "CIRCULAÇÃO";
@@ -1548,6 +1613,93 @@ function DetalhesContent() {
                           </div>
                         )}
                       </div>
+                    </Section>
+                  )}
+
+                  {/* ── DPJ: outros itens do lote + adicionar mais um ── */}
+                  {listaKey === "DPJ_GC99" && bem?.LOTE && (
+                    <Section title={`Itens deste lote (#${bem.LOTE})`}>
+                      <div style={{ fontSize:10, color:"#6b7280", marginBottom:12 }}>
+                        Cada item é uma linha própria, todas com o mesmo LOTE/PA PJE deste.
+                      </div>
+                      {carregandoIrmaos && <div style={{ fontSize:12, color:"#6b7280" }}>Carregando…</div>}
+                      {!carregandoIrmaos && itensIrmaos.length === 0 && (
+                        <div style={{ fontSize:12, color:"#9ca3af", fontStyle:"italic", marginBottom:12 }}>Nenhum outro item neste lote ainda.</div>
+                      )}
+                      {itensIrmaos.length > 0 && (
+                        <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:14 }}>
+                          {itensIrmaos.map(it => (
+                            <button key={it._rowNumber} onClick={() => router.push(`/detalhes?lista=dpj&row=${it._rowNumber}`)}
+                              style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:8, cursor:"pointer", textAlign:"left", width:"100%" }}>
+                              <div>
+                                <div style={{ fontSize:12, fontWeight:600, color:"#0f172a" }}>{it.TIPO_BEM || "—"}{it.DESCRICAO ? ` — ${it.DESCRICAO}` : ""}</div>
+                                <div style={{ fontSize:10, color:"#6b7280" }}>Qtd. {it.QUANTIDADE || "1"}{it.AVALIACAO_TOTAL ? ` · R$ ${it.AVALIACAO_TOTAL}` : ""}</div>
+                              </div>
+                              <span style={{ fontSize:11, color:"#2563eb" }}>Abrir →</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {!novoItemAberto ? (
+                        <button onClick={() => setNovoItemAberto(true)}
+                          style={{ padding:"8px 14px", borderRadius:8, border:"1px solid rgba(37,99,235,0.4)", background:"rgba(37,99,235,0.08)", color:"#2563eb", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                          ＋ Adicionar item a este lote
+                        </button>
+                      ) : (
+                        <div style={{ border:"1.5px solid #e5e7eb", borderRadius:10, padding:14 }}>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr 70px", gap:10, marginBottom:10 }}>
+                            <div>
+                              <label style={lblSt}>Tipo de bem *</label>
+                              <select value={novoItem.TIPO_BEM} onChange={e => setNovoItem(p => ({ ...p, TIPO_BEM: e.target.value }))} style={{ ...inputStDPJ, cursor:"pointer" }}>
+                                <option value="">— Selecione —</option>
+                                {TIPOS_BEM_DPJ.filter(Boolean).map(t => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label style={lblSt}>Descrição *</label>
+                              <input value={novoItem.DESCRICAO} onChange={e => setNovoItem(p => ({ ...p, DESCRICAO: e.target.value }))}
+                                placeholder="Ex: 5 cadeiras de escritório, sofá 3 lugares..." style={inputStDPJ}/>
+                            </div>
+                            <div>
+                              <label style={lblSt}>Qtd.</label>
+                              <input type="number" min="1" value={novoItem.QUANTIDADE} onChange={e => setNovoItem(p => ({ ...p, QUANTIDADE: e.target.value }))} style={inputStDPJ}/>
+                            </div>
+                          </div>
+                          <div style={{ fontSize:10, color:"#9ca3af", marginBottom:6 }}>Se for veículo (opcional):</div>
+                          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:10 }}>
+                            <div><label style={lblSt}>NIV / Chassi</label><input value={novoItem.NIV} onChange={e => setNovoItem(p => ({ ...p, NIV: e.target.value }))} maxLength={18} style={inputStDPJ}/></div>
+                            <div><label style={lblSt}>Placa</label><input value={novoItem.PLACA} onChange={e => setNovoItem(p => ({ ...p, PLACA: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"") }))} style={inputStDPJ}/></div>
+                            <div><label style={lblSt}>Marca / Modelo</label><input value={novoItem.MARCA_MODELO} onChange={e => setNovoItem(p => ({ ...p, MARCA_MODELO: e.target.value }))} style={inputStDPJ}/></div>
+                            <div><label style={lblSt}>Ano fab./modelo</label><input value={novoItem.ANO_FAB_MODELO} onChange={e => setNovoItem(p => ({ ...p, ANO_FAB_MODELO: e.target.value }))} style={inputStDPJ}/></div>
+                            <div><label style={lblSt}>Cor</label><input value={novoItem.COR} onChange={e => setNovoItem(p => ({ ...p, COR: e.target.value }))} style={inputStDPJ}/></div>
+                            <div><label style={lblSt}>RENAVAM</label><input value={novoItem.RENAVAM} onChange={e => setNovoItem(p => ({ ...p, RENAVAM: e.target.value.replace(/\D/g,"") }))} style={inputStDPJ}/></div>
+                          </div>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+                            <MoedaField label="Avaliação unitária (R$)" value={novoItem.AVALIACAO_UNITARIA} onChange={v => {
+                              const unit = parseMoeda(v);
+                              const qtd  = Number(novoItem.QUANTIDADE) || 0;
+                              setNovoItem(p => ({ ...p, AVALIACAO_UNITARIA: v, AVALIACAO_TOTAL: unit !== null ? fmtMoeda(unit * qtd) : "" }));
+                            }}/>
+                            <div>
+                              <label style={lblSt}>Avaliação total</label>
+                              <div style={{ padding:"8px 10px", background:"#f3f4f6", border:"1.5px solid #b0b8c4", borderRadius:6, fontSize:13, color:"#374151", fontFamily:"'IBM Plex Mono',monospace" }}>
+                                {novoItem.AVALIACAO_TOTAL ? `R$ ${novoItem.AVALIACAO_TOTAL}` : "—"}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ display:"flex", gap:8 }}>
+                            <button onClick={salvarNovoItemLote} disabled={salvando}
+                              style={{ padding:"9px 16px", borderRadius:8, border:"none", background: salvando ? "#e5e7eb" : "#2563eb", color:"#fff", fontSize:12, fontWeight:700, cursor: salvando ? "not-allowed" : "pointer" }}>
+                              {salvando ? "Salvando…" : "💾 Salvar item no lote"}
+                            </button>
+                            <button onClick={() => { setNovoItemAberto(false); setNovoItem(novoItemLoteVazio()); }}
+                              style={{ padding:"9px 16px", borderRadius:8, border:"1px solid #d1d5db", background:"transparent", color:"#4b5563", fontSize:12, cursor:"pointer" }}>
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </Section>
                   )}
 
