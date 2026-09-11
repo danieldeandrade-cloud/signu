@@ -986,7 +986,7 @@ function DetalhesContent() {
     setSalvando(true);
     try {
       const payload = {
-        LOTE: bem.LOTE, PA_PJE: bem.PA_PJE, DATA_ENTRADA: bem.DATA_ENTRADA,
+        LOTE: bem.LOTE, PA: bem.PA, PJE: bem.PJE, DATA_ENTRADA: bem.DATA_ENTRADA,
         PRAZO_6MESES: bem.PRAZO_6MESES, RESPONSAVEL: bem.RESPONSAVEL || bem.Responsavel,
         MOTIVO_SAIDA: bem.MOTIVO_SAIDA,
         TIPO_BEM: novoItem.TIPO_BEM, DESCRICAO: novoItem.DESCRICAO.trim(), QUANTIDADE: novoItem.QUANTIDADE || "1",
@@ -1566,7 +1566,12 @@ function DetalhesContent() {
                               options={TIPOS_BEM_DPJ.includes(editData?.TIPO_BEM||"") ? TIPOS_BEM_DPJ : [editData.TIPO_BEM, ...TIPOS_BEM_DPJ]}/>
                           : <FieldView label="Tipo de Bem" value={current?.TIPO_BEM}/>}
                         <FieldView label="Lote" value={current?.LOTE?`#${current.LOTE}`:null}/>
-                        <FieldView label="PA PJE" value={current?.PA_PJE} mono/>
+                        {editMode
+                          ? <FieldEdit label="PA (nº do processo SEI)" value={editData?.PA} onChange={v=>upd("PA",v)} mono/>
+                          : <FieldView label="PA (nº do processo SEI)" value={current?.PA || current?.PA_PJE} mono/>}
+                        {editMode
+                          ? <FieldEdit label="PJE (nº do processo judicial)" value={editData?.PJE} onChange={v=>upd("PJE",v)} mono/>
+                          : <FieldView label="PJE (nº do processo judicial)" value={current?.PJE} mono/>}
                         <FieldView label="Data de Entrada" value={current?.DATA_ENTRADA}/>
                         <FieldView label="Prazo 6 Meses" value={current?.PRAZO_6MESES} highlight="#fbbf24"/>
                         {editMode ? (

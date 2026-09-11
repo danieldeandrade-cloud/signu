@@ -88,12 +88,13 @@ const CAMPOS = {
     { id:"FIB",               label:"FIB Expedida",        type:"toggle" },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação e ações..." },
   ],
-  // DPJ_GC99: o lote é o "cabeçalho" (LOTE/PA_PJE/prazo/responsável); os bens do
+  // DPJ_GC99: o lote é o "cabeçalho" (LOTE/PA/PJE/prazo/responsável); os bens do
   // lote (1 ou vários, nem todos veículo) são cadastrados à parte — ver
   // ItensLoteDPJ, abaixo do grid principal no formulário.
   DPJ_GC99: [
     { id:"LOTE",              label:"Lote *",              type:"number",   required:true,  placeholder:"Ex: 49" },
-    { id:"PA_PJE",            label:"PA PJE *",            type:"text",     required:true,  placeholder:"Ex: 0002341-88.2021" },
+    { id:"PA",                label:"PA (nº do processo SEI) *", type:"text", required:true, placeholder:"Ex: 0037595/2026" },
+    { id:"PJE",               label:"PJE (nº do processo judicial)", type:"text", placeholder:"Ex: 0714761-93.2023.8.07.0009" },
     { id:"DATA_ENTRADA",      label:"Data de Entrada *",   type:"date",     required:true },
     { id:"PRAZO_6MESES",      label:"Prazo 6 Meses",       type:"date",     readonly:true,  hint:"Calculado automaticamente (+180 dias)" },
     { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
@@ -239,7 +240,7 @@ function FormField({ campo, value, onChange, accentColor }) {
 // ─── Itens do lote (DPJ) ────────────────────────────────────────────────────
 // Um lote pode reunir vários bens, nem todos veículo — cada um com sua própria
 // descrição, quantidade e avaliação (individual e total). Cada item vira uma
-// linha na planilha, todas com o mesmo LOTE/PA_PJE do cabeçalho. Pensado para
+// linha na planilha, todas com o mesmo LOTE/PA/PJE do cabeçalho. Pensado para
 // alimentar o catálogo do leilão público coletivo do NULEJ.
 function parseMoedaCad(str) {
   let s = String(str ?? "").replace(/[^\d.,]/g, "");
@@ -451,7 +452,9 @@ export default function CadastroPage() {
             const itens = json.dados || [];
             itens.forEach(item => {
               const niv    = (item.NIV      || "").toUpperCase();
-              const pasei  = (item.ID_PASEI || item.PA_PJE || "").toUpperCase().replace(/\s/g,"");
+              // PA_PJE é o campo legado da DPJ (antes de separar em PA + PJE); mantido
+              // no fallback pra achar duplicata em registros antigos que ainda só têm ele.
+              const pasei  = (item.ID_PASEI || item.PA || item.PJE || item.PA_PJE || "").toUpperCase().replace(/\s/g,"");
               const alvo   = v.replace(/\s/g,"");
               if ((campo === "NIV"      && niv   && niv   === alvo) ||
                   (campo === "ID_PASEI" && pasei && pasei === alvo)) {
@@ -536,8 +539,8 @@ export default function CadastroPage() {
     setFormData(next);
     setErros(erros.filter(e => e !== id));
     // Dispara verificação de duplicata nos campos críticos
-    if (id === "NIV" || id === "ID_PASEI" || id === "PA_PJE") {
-      const campo = id === "PA_PJE" ? "ID_PASEI" : id;
+    if (id === "NIV" || id === "ID_PASEI" || id === "PA" || id === "PJE") {
+      const campo = (id === "PA" || id === "PJE") ? "ID_PASEI" : id;
       buscarDuplicata(campo, val);
     }
     // Distribuição automática
@@ -594,7 +597,7 @@ export default function CadastroPage() {
       const rota = LISTA_API_MAP[listaKey];
 
       if (listaKey === "DPJ_GC99") {
-        // Cabeçalho do lote (LOTE, PA_PJE, datas, responsável...) replicado
+        // Cabeçalho do lote (LOTE, PA, PJE, datas, responsável...) replicado
         // em todas as linhas dos itens.
         const loteBase = {};
         campos.forEach(c => {
@@ -905,7 +908,7 @@ export default function CadastroPage() {
                                 <div style={{ flex:1, minWidth:0 }}>
                                   <div style={{ fontSize:11, fontWeight:700, color:enc.color, marginBottom:2 }}>{enc.lista}</div>
                                   <div style={{ fontSize:11, color:"#1f2937" }}>
-                                    {enc.item.ID_PASEI || enc.item.PA_PJE || "—"}
+                                    {enc.item.ID_PASEI || enc.item.PA || enc.item.PJE || enc.item.PA_PJE || "—"}
                                     {enc.item.TIPO_BEM ? ` · ${enc.item.TIPO_BEM}` : ""}
                                     {enc.item.STATUS_DILIGENCIA ? ` · ${enc.item.STATUS_DILIGENCIA}` : ""}
                                   </div>

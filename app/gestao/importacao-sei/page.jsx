@@ -50,17 +50,24 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
 
   const verificarDuplicidade = async () => {
     setDuplicata("buscando");
-    const alvo = (campos.ID_PASEI || campos.PA_PJE || "").toUpperCase().replace(/\s/g, "");
-    const nivAlvo = (campos.NIV || "").toUpperCase();
+    // Confere ID_PASEI/PA/PJE separadamente (não um combinado só) — a DPJ tem
+    // PA (processo SEI) e PJE (processo judicial) como identificadores
+    // distintos, e um pode bater com outro registro sem o outro bater.
+    // PA_PJE é o campo legado (antes de separar em PA + PJE), mantido no
+    // fallback pra achar duplicata em registros antigos que ainda só têm ele.
+    const norm = v => (v || "").toUpperCase().replace(/\s/g, "");
+    const alvos = [campos.ID_PASEI, campos.PA, campos.PJE, campos.PA_PJE].map(norm).filter(v => v.length > 5);
+    const nivAlvo = norm(campos.NIV);
     const encontrados = [];
     await Promise.allSettled(TODAS_LISTAS_ROTA.map(async (rota) => {
       try {
         const res = await fetch(`/api/bens/${rota}`);
         const json = await res.json();
         (json.dados || []).forEach(row => {
-          const pasei = (row.ID_PASEI || row.PA_PJE || "").toUpperCase().replace(/\s/g, "");
-          const niv = (row.NIV || "").toUpperCase();
-          if ((alvo && pasei === alvo) || (nivAlvo && nivAlvo.length > 5 && niv === nivAlvo)) {
+          const valoresRow = [row.ID_PASEI, row.PA, row.PJE, row.PA_PJE].map(norm).filter(Boolean);
+          const niv = norm(row.NIV);
+          const bateProcesso = alvos.some(a => valoresRow.includes(a));
+          if (bateProcesso || (nivAlvo && nivAlvo.length > 5 && niv === nivAlvo)) {
             encontrados.push({ rota, item: row });
           }
         });
@@ -142,7 +149,7 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
         {Object.keys(campos).filter(k => k !== "RESPONSAVEL").map(k => (
-          <Campo key={k} label={k} value={campos[k]} onChange={v => upd(k, v)} mono={/NIV|PLACA|RENAVAM|ID_PASEI|PA_PJE/.test(k)} />
+          <Campo key={k} label={k} value={campos[k]} onChange={v => upd(k, v)} mono={/NIV|PLACA|RENAVAM|ID_PASEI|^PA$|^PJE$/.test(k)} />
         ))}
         <div>
           <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Responsável *</div>
@@ -162,7 +169,7 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
             <div style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 8, padding: "8px 12px" }}>
               <div style={{ color: "#dc2626", fontWeight: 700, marginBottom: 4 }}>⚠️ Já cadastrado em {duplicata.encontrados.length} lugar(es):</div>
               {duplicata.encontrados.map((d, i) => (
-                <div key={i} style={{ color: "#7f1d1d" }}>{d.rota}: {d.item.ID_PASEI || d.item.PA_PJE} · {d.item.TIPO_BEM || ""}</div>
+                <div key={i} style={{ color: "#7f1d1d" }}>{d.rota}: {d.item.ID_PASEI || d.item.PA || d.item.PJE || d.item.PA_PJE} · {d.item.TIPO_BEM || ""}</div>
               ))}
             </div>
           )}

@@ -101,7 +101,10 @@ SCHEMAS = {
     "dpj": {
         # Extrai o 1º/principal bem do lote. Lote com vários bens diferentes
         # ainda precisa de conferência manual — ver LIMITAÇÕES no README.
-        "PA_PJE":       CAMPO("Número do processo PJe"),
+        # PA (nº do processo SEI) NÃO entra aqui — é preenchido de forma
+        # determinística com o número já capturado na descoberta por marcador
+        # (mais confiável que pedir pra IA re-achar no texto). Só PJE é pedido.
+        "PJE":          CAMPO("Número do processo judicial (PJe) vinculado ao lote, formato CNJ (nnnnnnn-nn.nnnn.n.nn.nnnn)"),
         "LOTE":         CAMPO("Número do lote, se citado"),
         "TIPO_BEM":     CAMPO("Tipo do bem (nem sempre é veículo)", TIPOS_BEM_DPJ),
         "DESCRICAO":    CAMPO("Descrição do bem — obrigatória se não for veículo (ex.: '5 cadeiras de escritório')"),
@@ -778,21 +781,24 @@ TEXTO DO PROCESSO (pode estar truncado):
         data.setdefault("_alertas", []).append(f"Gemini finishReason={finish} (resposta pode ter sido cortada)")
 
     campos = data.get("campos", {}) or {}
-    # rede de segurança: se a IA não pegou o número mas o regex pegou
-    for k in ("ID_PASEI", "PA_PJE"):
-        if k in schema and not campos.get(k) and proc["numero"]:
-            campos[k] = proc["numero"]
+    # rede de segurança: se a IA não pegou o número mas o regex pegou (só entra
+    # em jogo se processar() não tiver um numero_sei mais confiável pra sobrescrever)
+    if "ID_PASEI" in schema and not campos.get("ID_PASEI") and proc["numero"]:
+        campos["ID_PASEI"] = proc["numero"]
     data["campos"] = campos
     return data
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador=""):
+def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador="", numero_sei=""):
     """Extrai texto da página de um processo + IA. Retorna o dict de resultado.
     texto_marcador: anotação que o servidor deixou junto do marcador (via
     'Marcadores do Processo') — CEGOC usa p/ dizer circulação/reciclagem, SEI usa
     p/ dizer o nome do responsável. Essas duas regras são determinísticas, não
-    perguntadas pra IA."""
+    perguntadas pra IA.
+    numero_sei: nº do processo tal como aparece no link da listagem (descoberta
+    por marcador) — mais confiável que o regex sobre o texto do documento, que
+    pode confundir formato SEI com CNJ dependendo da lista (foi o caso da DPJ)."""
     schema = SCHEMAS[lista]
     proc = extrair_processo(page, cfg_sei, debug=args.debug)
     npdf = len(proc.get("pdfs", []))
@@ -812,6 +818,12 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador=""):
     campos = ia.get("campos", {}) or {}
     alertas = list(ia.get("_alertas", []))
     campos.setdefault("RESPONSAVEL", "__AUTO__")  # SIGNU resolve o servidor na ingestão
+
+    # Nº do processo SEI: prioriza o valor já capturado na listagem (descoberta
+    # por marcador) sobre o regex feito em cima do texto do documento.
+    if numero_sei:
+        campo_num = "PA" if lista == "dpj" else "ID_PASEI"
+        campos[campo_num] = numero_sei
 
     # INFOSEG: decidido pelo NOME do documento na árvore (não por palpite da IA
     # sobre o conteúdo) — evita falso positivo tipo "achei menção a base nacional"
@@ -1086,7 +1098,8 @@ def main():
                     if not _goto_seguro(work, item["url"], espera_pos=800, debug=args.debug):
                         print("    [x] não abriu (processo) — pulando.")
                         continue
-                    resultados.append(processar(work, cfg_sei, api_key, model, item["lista"], args, texto_marcador=texto_marcador))
+                    resultados.append(processar(work, cfg_sei, api_key, model, item["lista"], args,
+                                                 texto_marcador=texto_marcador, numero_sei=item.get("numero", "")))
             finally:
                 work.close()
 
