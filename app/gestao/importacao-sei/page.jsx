@@ -19,6 +19,18 @@ const SERVIDORES = [
   "Carla Araújo", "Amanda Junqueira", "Carlos Caetano",
   "Cláudia Santos", "Loara Passo", "Letícia Mota", "Marcelo Oliveira",
 ];
+const RENAJUD_SERVIDORES = ["Amanda Junqueira", "Letícia Mota"];
+// Mesma regra de app/cadastro/page.jsx — servidoras fora do rateio automático
+// nessas listas (ainda podem ser atribuídas na mão).
+const EXCLUIR_AUTO_DISTRIBUICAO = {
+  cegoc: ["Amanda Junqueira", "Letícia Mota", "Cláudia Santos"],
+  pcdf1: ["Amanda Junqueira", "Letícia Mota", "Cláudia Santos"],
+  pcdf2: ["Amanda Junqueira", "Letícia Mota", "Cláudia Santos"],
+};
+const poolDistribuicao = (lista) => {
+  const excluir = new Set(EXCLUIR_AUTO_DISTRIBUICAO[lista] || []);
+  return SERVIDORES.filter(s => !excluir.has(s));
+};
 
 function Campo({ label, value, onChange, mono }) {
   return (
@@ -42,11 +54,55 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
   const [campos, setCampos] = useState(item.campos || {});
   const [salvando, setSalvando] = useState(false);
   const [duplicata, setDuplicata] = useState(null); // { encontrados: [...] } | "buscando" | null
+  const [autoResp, setAutoResp] = useState(null); // { servidor, contagens, candidatos, motivo }
+  const [autoLoading, setAutoLoading] = useState(false);
   const upd = (k, v) => setCampos(prev => ({ ...prev, [k]: v }));
 
   const alertas = (item.ALERTAS || "").split(" ; ").filter(Boolean);
   const incertos = (item.CAMPOS_INCERTOS || "").split(" ; ").filter(Boolean);
   const confianca = Number(item.CONFIANCA || 0);
+
+  const calcularDistribuicao = async (candidatos, motivo) => {
+    setAutoLoading(true);
+    setAutoResp(null);
+    try {
+      const contagens = Object.fromEntries(SERVIDORES.map(s => [s, 0]));
+      await Promise.allSettled(TODAS_LISTAS_ROTA.map(async (rota) => {
+        try {
+          const res = await fetch(`/api/bens/${rota}`);
+          const json = await res.json();
+          (json.dados || []).forEach(row => {
+            const resp = row.RESPONSAVEL || row.Responsavel || "";
+            if (contagens[resp] !== undefined) contagens[resp]++;
+          });
+        } catch { /* ignora erro de rede de uma lista */ }
+      }));
+      const servidor = candidatos.reduce((a, b) => contagens[a] <= contagens[b] ? a : b);
+      setAutoResp({ servidor, contagens, candidatos, motivo });
+    } catch { /* deixa autoResp null — promover fica bloqueado até resolver */ }
+    setAutoLoading(false);
+  };
+
+  const onRespChange = (v) => {
+    upd("RESPONSAVEL", v);
+    if (v === "__AUTO__") {
+      if ((campos.STATUS_DILIGENCIA || "") === "RENAJUD") {
+        calcularDistribuicao(RENAJUD_SERVIDORES, "processos RENAJUD");
+      } else {
+        const pool = poolDistribuicao(item.LISTA_DESTINO);
+        calcularDistribuicao(pool, EXCLUIR_AUTO_DISTRIBUICAO[item.LISTA_DESTINO] ? "regra de distribuição da lista" : "");
+      }
+    } else {
+      setAutoResp(null);
+    }
+  };
+
+  // Extração pode já ter deixado RESPONSAVEL="__AUTO__" (a IA não decide isso) —
+  // calcula a distribuição assim que o card monta, sem esperar o servidor mexer no select.
+  useEffect(() => {
+    if (campos.RESPONSAVEL === "__AUTO__") onRespChange("__AUTO__");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const verificarDuplicidade = async () => {
     setDuplicata("buscando");
@@ -77,15 +133,24 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
   };
 
   const promover = async () => {
-    if (!campos.RESPONSAVEL || campos.RESPONSAVEL === "__AUTO__") {
+    let responsavelFinal = campos.RESPONSAVEL;
+    if (responsavelFinal === "__AUTO__") {
+      if (!autoResp?.servidor) {
+        showToast("Aguarde o cálculo da distribuição automática.", "error");
+        return;
+      }
+      responsavelFinal = autoResp.servidor;
+    }
+    if (!responsavelFinal) {
       showToast("Escolha um responsável antes de promover.", "error");
       return;
     }
+    const camposFinais = { ...campos, RESPONSAVEL: responsavelFinal };
     setSalvando(true);
     try {
       const res = await fetch(`/api/importacao-sei/${item._rowNumber}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acao: "promover", campos }),
+        body: JSON.stringify({ acao: "promover", campos: camposFinais }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.erro || "Erro ao promover");
@@ -153,13 +218,45 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
         ))}
         <div>
           <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Responsável *</div>
-          <select value={campos.RESPONSAVEL === "__AUTO__" ? "" : (campos.RESPONSAVEL || "")} onChange={e => upd("RESPONSAVEL", e.target.value)}
-            style={{ width: "100%", boxSizing: "border-box", padding: "7px 9px", background: "#f9fafb", border: `1px solid ${!campos.RESPONSAVEL || campos.RESPONSAVEL === "__AUTO__" ? "#fca5a5" : "#d1d5db"}`, borderRadius: 7, fontSize: 12, color: "#0f172a", cursor: "pointer" }}>
-            <option value="">— Selecione —</option>
-            {SERVIDORES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          {(() => {
+            const pendente = !campos.RESPONSAVEL || (campos.RESPONSAVEL === "__AUTO__" && !autoResp?.servidor);
+            const isAuto = campos.RESPONSAVEL === "__AUTO__";
+            return (
+              <select value={campos.RESPONSAVEL || ""} onChange={e => onRespChange(e.target.value)}
+                style={{ width: "100%", boxSizing: "border-box", padding: "7px 9px", background: "#f9fafb", border: `1px solid ${pendente ? "#fca5a5" : "#d1d5db"}`, borderRadius: 7, fontSize: 12, color: isAuto ? "#2563eb" : "#0f172a", fontWeight: isAuto ? 700 : 400, cursor: "pointer" }}>
+                <option value="">— Selecione —</option>
+                <option value="__AUTO__">⚡ Distribuição automática</option>
+                {SERVIDORES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            );
+          })()}
         </div>
       </div>
+
+      {(autoLoading || autoResp) && (
+        <div style={{ marginBottom: 14, borderRadius: 8, overflow: "hidden", border: "1px solid rgba(37,99,235,0.3)", background: "rgba(37,99,235,0.05)" }}>
+          {autoLoading && (
+            <div style={{ padding: "8px 12px", fontSize: 11, color: "#374151" }}>⟳ Calculando distribuição de carga…</div>
+          )}
+          {!autoLoading && autoResp && (
+            <div style={{ padding: "8px 12px" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#2563eb", marginBottom: 4 }}>🎯 {autoResp.servidor}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {autoResp.candidatos.map(s => {
+                  const n = autoResp.contagens[s] ?? 0;
+                  const atual = s === autoResp.servidor;
+                  return (
+                    <span key={s} style={{ padding: "2px 8px", borderRadius: 14, fontSize: 10, background: atual ? "rgba(37,99,235,0.12)" : "#f3f4f6", border: `1px solid ${atual ? "rgba(37,99,235,0.5)" : "#e5e7eb"}`, color: atual ? "#2563eb" : "#4b5563", fontWeight: atual ? 700 : 400 }}>
+                      {atual && "★ "}{s.split(" ")[0]} ({n})
+                    </span>
+                  );
+                })}
+              </div>
+              {autoResp.motivo && <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>Restrito a: {autoResp.motivo}</div>}
+            </div>
+          )}
+        </div>
+      )}
 
       {duplicata && duplicata !== "buscando" && (
         <div style={{ marginBottom: 12, fontSize: 11 }}>
