@@ -351,9 +351,13 @@ def ler_texto_marcador(page, url, nome_marcador, debug=False):
             valores = [re.sub(r"\s+", " ", (celulas.nth(k).inner_text() or "")).strip() for k in range(n)]
             if debug:
                 print(f"    [debug] linha do marcador: {valores}")
-            # colunas esperadas: Marcador | Texto | Usuário | Data/Hora | Ações
+            # acha a célula com o NOME do marcador (a linha tem uma coluna extra de
+            # ícone/checkbox antes, então o índice não é fixo) — o texto é a próxima
+            idx_marc = next((k for k, v in enumerate(valores) if v and alvo in _norm(v)), None)
+            if idx_marc is not None and idx_marc + 1 < n:
+                return valores[idx_marc + 1]
             if n >= 2:
-                return valores[1]
+                return valores[1]  # fallback se não achou a célula do nome
     except Exception as e:
         if debug:
             print(f"    [debug] ler texto do marcador: {e}")
@@ -395,7 +399,15 @@ def ir_para_controle_processos(page, debug=False):
             page.get_by_role("link", name=re.compile("Controle de Processos", re.I)).first.click(timeout=5000)
     except Exception as e:
         if debug:
-            print(f"    [debug] navegação p/ Controle de Processos falhou: {e}")
+            print(f"    [debug] navegação p/ Controle de Processos (menu) falhou: {e}")
+    # confere se realmente chegou lá; se não, tenta clicar no link do menu direto
+    if "acao=procedimento_controlar" not in page.url:
+        try:
+            page.get_by_role("link", name=re.compile("Controle de Processos", re.I)).first.click(timeout=5000)
+            page.wait_for_timeout(1000)
+        except Exception as e:
+            if debug:
+                print(f"    [debug] navegação p/ Controle de Processos (clique) falhou: {e}")
     for st in ("domcontentloaded", "networkidle"):
         try:
             page.wait_for_load_state(st, timeout=8000)
@@ -954,7 +966,7 @@ def main():
             filtro = args.lista.lower() if args.lista else None
             sei_page = abas_sei[0]
             sei_page.bring_to_front()
-            if sei_page.locator("table tr").count() < 2:
+            if "acao=procedimento_controlar" not in sei_page.url or sei_page.locator("table tr").count() < 2:
                 print("[i] indo para 'Controle de Processos'…")
                 ir_para_controle_processos(sei_page, debug=args.debug)
             print(f"[i] procurando marcadores na listagem: {sei_page.url[:90]}")
