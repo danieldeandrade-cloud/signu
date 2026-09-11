@@ -140,8 +140,8 @@ SCHEMAS["doacoes"] = SCHEMAS["doacoes_diligencia"]
 MARCADOR_LISTA = {
     "CADASTRAR SIGNU CEGOC":   "cegoc",
     "CADASTRAR SIGNU DPJ":     "dpj",
-    "CADASTRAR SIGNU PCDF 1":  "pcdf1",
     "CADASTRAR SIGNU PCDF 2":  "pcdf2",
+    # PCDF 1ª não recebe mais cadastro novo — marcador foi excluído no SEI.
     "CADASTRAR SIGNU SEI":     "sei",
 }
 # Marcador aplicado depois de processar (troca feita à mão por enquanto — ver README).
@@ -301,8 +301,12 @@ def descobrir_por_marcador(sei_page, mapa, filtro_lista=None, max_paginas=12, de
                 if chave in vistos:
                     continue
                 vistos.add(chave)
+                # link p/ "Marcadores do Processo" — é onde fica o texto anotado no marcador
+                link_marc = row.locator("a[href*='andamento_marcador_gerenciar']").first
+                href_marc = link_marc.get_attribute("href") if link_marc.count() else None
+                url_marc  = _abs_url(sei_page.url, href_marc) if href_marc else None
                 achados.append({"numero": link.inner_text().strip(), "url": url,
-                                "lista": lista, "marcador": marc_encontrado})
+                                "lista": lista, "marcador": marc_encontrado, "url_marcador": url_marc})
             except Exception as e:
                 if debug:
                     print(f"    [debug] linha {i}: {e}")
@@ -320,6 +324,59 @@ def descobrir_por_marcador(sei_page, mapa, filtro_lista=None, max_paginas=12, de
 def _abs_url(base, href):
     from urllib.parse import urljoin
     return urljoin(base, href)
+
+
+def ler_texto_marcador(page, url, nome_marcador, debug=False):
+    """Abre 'Marcadores do Processo' (tela de gerenciar) e devolve o texto que o
+    servidor anotou junto do marcador — é ali que a CEGOC diz circulação/reciclagem
+    e o Caixa SEI recebe o nome do responsável."""
+    if not url:
+        return ""
+    try:
+        page.goto(url, wait_until="domcontentloaded", timeout=20000)
+        page.wait_for_timeout(900)
+    except Exception as e:
+        if debug:
+            print(f"    [debug] abrir marcadores do processo: {e}")
+        return ""
+    alvo = _norm(nome_marcador)
+    try:
+        linhas = page.locator("table tr")
+        for i in range(linhas.count()):
+            row = linhas.nth(i)
+            if alvo not in _norm(row.inner_text() or ""):
+                continue
+            celulas = row.locator("td")
+            n = celulas.count()
+            valores = [re.sub(r"\s+", " ", (celulas.nth(k).inner_text() or "")).strip() for k in range(n)]
+            if debug:
+                print(f"    [debug] linha do marcador: {valores}")
+            # colunas esperadas: Marcador | Texto | Usuário | Data/Hora | Ações
+            if n >= 2:
+                return valores[1]
+    except Exception as e:
+        if debug:
+            print(f"    [debug] ler texto do marcador: {e}")
+    return ""
+
+
+# Servidores do NULEJ (mesma lista do SIGNU) — usados p/ casar o nome anotado no
+# marcador "CADASTRAR SIGNU SEI" com o responsável a atribuir.
+SERVIDORES = ["Carla Araújo", "Amanda Junqueira", "Carlos Caetano",
+              "Cláudia Santos", "Loara Passo", "Letícia Mota", "Marcelo Oliveira"]
+
+
+def casar_servidor(texto):
+    """Casa o texto livre anotado no marcador com um nome da lista SERVIDORES
+    (case/acento-insensível, substring nos dois sentidos). None se não achar."""
+    t = _norm(texto)
+    if not t:
+        return None
+    for s in SERVIDORES:
+        sn = _norm(s)
+        if sn in t or t in sn or _norm(s.split(" ")[0]) == t:
+            return s
+    return None
 
 
 def ir_para_controle_processos(page, debug=False):
@@ -654,13 +711,19 @@ TEXTO DO PROCESSO (pode estar truncado):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-def processar(page, cfg_sei, api_key, model, lista, args):
-    """Extrai texto da página de um processo + IA. Retorna o dict de resultado."""
+def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador=""):
+    """Extrai texto da página de um processo + IA. Retorna o dict de resultado.
+    texto_marcador: anotação que o servidor deixou junto do marcador (via
+    'Marcadores do Processo') — CEGOC usa p/ dizer circulação/reciclagem, SEI usa
+    p/ dizer o nome do responsável. Essas duas regras são determinísticas, não
+    perguntadas pra IA."""
     schema = SCHEMAS[lista]
     proc = extrair_processo(page, cfg_sei, debug=args.debug)
     npdf = len(proc.get("pdfs", []))
     print(f"    processo: {proc['numero'] or '??'} | lista: {lista} | "
           f"docs lidos: {proc['docs_lidos']} | texto: {len(proc['texto'])} chars | PDFs: {npdf}")
+    if texto_marcador:
+        print(f"    texto do marcador: {texto_marcador!r}")
     if len(proc["texto"]) < 200 and npdf == 0:
         print("    [!] pouco texto e nenhum PDF — seletor de frame errado ou processo vazio.")
 
@@ -671,6 +734,7 @@ def processar(page, cfg_sei, api_key, model, lista, args):
         ia = {"campos": {}, "_confianca": 0, "_alertas": [f"erro IA: {e}"], "_campos_incertos": []}
 
     campos = ia.get("campos", {}) or {}
+    alertas = list(ia.get("_alertas", []))
     campos.setdefault("RESPONSAVEL", "__AUTO__")  # SIGNU resolve o servidor na ingestão
 
     infoseg = bool(ia.get("_infoseg"))
@@ -680,9 +744,31 @@ def processar(page, cfg_sei, api_key, model, lista, args):
         if not campos.get("NIV"):
             campos["NIV"] = "N/A"
 
+    # CEGOC: o servidor escreve CIRCULAÇÃO/RECICLAGEM no texto do marcador — isso
+    # decide DESTINACAO e STATUS_DILIGENCIA, não é palpite da IA.
+    if lista == "cegoc":
+        tm = _norm(texto_marcador)
+        if "CIRCUL" in tm:
+            campos["DESTINACAO"], campos["STATUS_DILIGENCIA"] = "CIRCULAÇÃO", "LPC"
+        elif "RECICL" in tm:
+            campos["DESTINACAO"], campos["STATUS_DILIGENCIA"] = "RECICLAGEM", "EM DILIGÊNCIA"
+        else:
+            alertas.append(f"marcador sem CIRCULAÇÃO/RECICLAGEM no texto ({texto_marcador!r}) "
+                            f"— destinação/status ficaram com o palpite da IA, confira.")
+
+    # Caixa SEI: o texto do marcador traz o nome do responsável a quem vincular
+    # (processo já cadastrado / resposta de ofício — não é distribuição automática).
+    if lista == "sei" and texto_marcador:
+        servidor = casar_servidor(texto_marcador)
+        if servidor:
+            campos["RESPONSAVEL"] = servidor
+        else:
+            alertas.append(f"não achei servidor correspondente ao texto do marcador ({texto_marcador!r}) "
+                            f"— atribua manualmente.")
+
     conf = ia.get("_confianca", 0)
     print(f"    confiança: {conf}  INFOSEG: {infoseg}  incertos: {ia.get('_campos_incertos')}")
-    for a in ia.get("_alertas", []):
+    for a in alertas:
         print(f"      · {a}")
 
     return {
@@ -691,8 +777,9 @@ def processar(page, cfg_sei, api_key, model, lista, args):
         "campos": campos,
         "_infoseg": infoseg,
         "_confianca": conf,
+        "_texto_marcador": texto_marcador,
         "_campos_incertos": ia.get("_campos_incertos", []),
-        "_alertas": ia.get("_alertas", []),
+        "_alertas": alertas,
         "fonte": {"url": proc["url"], "titulo_aba": proc["titulo_aba"], "docs_lidos": proc["docs_lidos"]},
         "texto_bruto_prefixo": proc["texto"][:2000],
     }
@@ -888,13 +975,16 @@ def main():
             try:
                 for idx, item in enumerate(fila, 1):
                     print(f"\n[{idx}/{len(fila)}] {item['numero']}  ({item['marcador']} -> {item['lista']})")
+                    texto_marcador = ""
+                    if item.get("url_marcador") and item["lista"] in ("cegoc", "sei"):
+                        texto_marcador = ler_texto_marcador(work, item["url_marcador"], item["marcador"], debug=args.debug)
                     try:
                         work.goto(item["url"], wait_until="domcontentloaded", timeout=20000)
                     except Exception as e:
                         print(f"    [x] não abriu: {e}")
                         continue
                     work.wait_for_timeout(800)
-                    resultados.append(processar(work, cfg_sei, api_key, model, item["lista"], args))
+                    resultados.append(processar(work, cfg_sei, api_key, model, item["lista"], args, texto_marcador=texto_marcador))
             finally:
                 work.close()
 
@@ -916,13 +1006,14 @@ def main():
         for k in r["campos"]:
             if k not in todas_chaves:
                 todas_chaves.append(k)
-    cols = ["processo", "lista", "_confianca", "_infoseg"] + todas_chaves + ["_campos_incertos", "_alertas", "fonte_url"]
+    cols = ["processo", "lista", "_confianca", "_infoseg", "_texto_marcador"] + todas_chaves + ["_campos_incertos", "_alertas", "fonte_url"]
     with fcsv.open("w", newline="", encoding="utf-8-sig") as fh:
         w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
         w.writeheader()
         for r in resultados:
             linha = {"processo": r["processo"], "lista": r["lista"], "_confianca": r["_confianca"],
                      "_infoseg": r.get("_infoseg", ""),
+                     "_texto_marcador": r.get("_texto_marcador", ""),
                      "_campos_incertos": " ; ".join(r["_campos_incertos"]),
                      "_alertas": " ; ".join(r["_alertas"]),
                      "fonte_url": r["fonte"]["url"]}

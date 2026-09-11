@@ -52,7 +52,23 @@ disponível na sua conta, ex. `gemini-2.5-flash`).
 ### 3. Marcar os processos no SEI
 
 Aplique em cada processo o marcador da lista de destino:
-`CADASTRAR SIGNU CEGOC` · `... DPJ` · `... PCDF 1ª` · `... PCDF 2ª` · `... SEI`.
+`CADASTRAR SIGNU CEGOC` · `... DPJ` · `... PCDF 2ª` · `... SEI`.
+(PCDF 1ª não recebe mais cadastro novo — marcador foi excluído.)
+
+Para **CEGOC** e **SEI**, escreva algo na **caixa de texto do marcador**
+(tela "Marcadores do Processo" → editar o marcador aplicado) — é o script que lê
+esse texto, não só o nome do marcador:
+- `CADASTRAR SIGNU CEGOC`: escreva **"circulação"** ou **"reciclagem"**. Decide
+  `DESTINACAO` + `STATUS_DILIGENCIA` (circulação → LPC; reciclagem → EM DILIGÊNCIA)
+  — regra fixa no script, não é a IA que decide.
+- `CADASTRAR SIGNU SEI`: escreva o **nome do responsável** (processo já
+  cadastrado em outra lista, ou resposta/barramento de um ofício nosso). O
+  script casa o nome com a lista de servidores e preenche `RESPONSAVEL` (em
+  vez de `__AUTO__`).
+
+Sem o texto (ou sem achar o servidor), o item ainda sai no CSV — só que com
+`DESTINACAO`/`STATUS_DILIGENCIA` no palpite da IA (CEGOC) ou `RESPONSAVEL` em
+`__AUTO__` (SEI), e um alerta avisando pra conferir na mão.
 
 ### 4. Rodar
 
@@ -70,8 +86,9 @@ Modos:
 ### 5. Conferir a saída
 
 `saida/revisao_<lista>_<timestamp>.csv` — abra no Excel/Sheets. Colunas:
-número do processo, lista, `_confianca` (0–1), `_infoseg`, um campo por coluna
-do SIGNU, `_campos_incertos`, `_alertas`, link de origem.
+número do processo, lista, `_confianca` (0–1), `_infoseg`, `_texto_marcador`
+(o que o servidor escreveu no marcador), um campo por coluna do SIGNU,
+`_campos_incertos`, `_alertas`, link de origem.
 
 `saida/revisao_<lista>_<timestamp>.json` — o mesmo, com um trecho do texto bruto
 lido de cada processo (para auditar o que a IA viu).
@@ -102,6 +119,11 @@ Percorre a árvore (`ifrArvore`), e para cada documento:
   processo sem assinatura. O script sempre usa a href assinada da listagem.
 - **Sem checagem de duplicidade**: conferência manual; dedup automática entra no
   passo 2.
+- **Texto do marcador**: `ler_texto_marcador()` assume a ordem de colunas
+  "Marcador | Texto | Usuário | Data/Hora | Ações" da tela "Marcadores do
+  Processo". Ainda não testado contra um marcador com texto de verdade
+  preenchido (só vi a tela vazia) — rode com `--debug` na primeira leva real
+  pra conferir se pegou a coluna certa.
 - **DPJ com vários bens no mesmo lote**: o schema `dpj` extrai só o item
   principal/1º bem do processo. A tela de cadastro do SIGNU já suporta vários
   itens por lote (com descrição, quantidade e avaliação individual/total cada
