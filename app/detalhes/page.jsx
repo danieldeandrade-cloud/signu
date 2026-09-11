@@ -1226,6 +1226,17 @@ function DetalhesContent() {
                         Usada para montar o catálogo do leilão público coletivo.
                       </div>
                       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+                        {/* DPJ não tem seção "Identificação" própria (fica com CEGOC/PCDF1/PCDF2) —
+                            NIV/Placa/Peso do item entram aqui, junto do resto da descrição do veículo. */}
+                        {listaKey === "DPJ_GC99" && (editMode ? <>
+                          <FieldEdit label="NIV / Chassi" value={editData?.NIV} onChange={v=>upd("NIV",v)} mono/>
+                          <FieldEdit label="Placa" hint="sem ponto, traço ou espaço · Ex: ABC1234" placeholder="Ex: ABC1234" value={editData?.PLACA} onChange={v=>upd("PLACA", v.toUpperCase().replace(/[^A-Z0-9]/g,""))} mono/>
+                          <FieldEdit label="Peso estimado (kg)" value={editData?.PESO_KG} onChange={v=>upd("PESO_KG",v)} type="number"/>
+                        </> : <>
+                          <FieldView label="NIV / Chassi" value={current?.NIV} mono/>
+                          <FieldView label="Placa" value={current?.PLACA} mono/>
+                          <FieldView label="Peso estimado (kg)" value={current?.PESO_KG ? `${current.PESO_KG} kg` : null}/>
+                        </>)}
                         {editMode ? <>
                           <FieldEdit label="Marca / Modelo" value={editData?.MARCA_MODELO} onChange={v=>upd("MARCA_MODELO",v)} placeholder="Ex: GM/Corsa Wind"/>
                           <FieldEdit label="Ano fab./modelo" value={editData?.ANO_FAB_MODELO} onChange={v=>upd("ANO_FAB_MODELO",v)} placeholder="Ex: 2005/2006"/>
