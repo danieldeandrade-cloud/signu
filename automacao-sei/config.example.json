@@ -32,9 +32,9 @@
     },
     "pos_processado": "REVISAR - CADASTRADO SIGNU"
   },
-  "_comentario_signu": "base_url e import_token só serão usados no passo 2 (ingestão). O protótipo v0 NÃO grava no SIGNU.",
+  "_comentario_signu": "usado pelo --enviar (passo 2): POST /api/importacao-sei com header x-import-token. Cole o mesmo valor que está em SEI_IMPORT_TOKEN no Vercel (vercel env add SEI_IMPORT_TOKEN production).",
   "signu": {
-    "base_url": "https://signu.vercel.app",
-    "import_token": ""
+    "base_url": "https://signu-seven.vercel.app",
+    "import_token": "COLE_AQUI_O_MESMO_TOKEN_DO_VERCEL"
   }
 }

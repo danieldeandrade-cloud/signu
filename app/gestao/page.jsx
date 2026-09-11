@@ -581,6 +581,10 @@ export default function GestaoPage() {
             style={{ padding:"5px 10px", background:"rgba(37,99,235,0.07)", border:"1.5px solid #b0b8c4", borderRadius:6, color:"#2563eb", fontSize:11, cursor:"pointer", fontWeight:600 }}>
             ↻ Atualizar
           </button>
+          <button onClick={() => router.push("/gestao/importacao-sei")} title="Itens extraídos do SEI aguardando revisão"
+            style={{ padding:"5px 10px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.35)", borderRadius:6, color:"#a78bfa", fontSize:11, cursor:"pointer", fontWeight:600 }}>
+            📥 Importação SEI
+          </button>
         </header>
 
         {/* ABAS */}

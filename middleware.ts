@@ -42,6 +42,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api/auth|api/notificacoes|_next/static|_next/image|favicon.ico).*)',
+    // api/importacao-sei fica de fora: o POST (usado pelo script Python da
+    // automação SEI, sem sessão) e o GET (sessão de gestor) fazem a própria
+    // autenticação dentro da rota — ver app/api/importacao-sei/route.js.
+    '/((?!api/auth|api/notificacoes|api/importacao-sei|_next/static|_next/image|favicon.ico).*)',
   ],
 };

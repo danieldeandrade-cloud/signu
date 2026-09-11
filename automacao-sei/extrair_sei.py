@@ -664,6 +664,42 @@ def _extrair_json(raw):
     return json.loads(s[i:] + "}" * prof)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Passo 2 — envia pro staging do SIGNU (POST /api/importacao-sei)
+# ─────────────────────────────────────────────────────────────────────────────
+def enviar_para_signu(cfg_signu, resultado):
+    """POST de 1 item extraído pro staging. Não grava na lista real — só fica
+    pendente de revisão em /gestao/importacao-sei. Retorna (ok, mensagem)."""
+    import urllib.request
+    import urllib.error
+
+    url = cfg_signu["base_url"].rstrip("/") + "/api/importacao-sei"
+    body = {
+        "processo": resultado["processo"],
+        "lista": resultado["lista"],
+        "campos": resultado["campos"],
+        "confianca": resultado["_confianca"],
+        "infoseg": resultado["_infoseg"],
+        "texto_marcador": resultado.get("_texto_marcador", ""),
+        "campos_incertos": resultado["_campos_incertos"],
+        "alertas": resultado["_alertas"],
+        "fonte_url": resultado["fonte"]["url"],
+    }
+    req = urllib.request.Request(
+        url, data=json.dumps(body).encode("utf-8"), method="POST",
+        headers={"Content-Type": "application/json", "x-import-token": cfg_signu["import_token"]},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            json.loads(resp.read().decode("utf-8"))
+        return True, "ok"
+    except urllib.error.HTTPError as e:
+        detalhe = e.read().decode("utf-8", "replace")[:300]
+        return False, f"HTTP {e.code}: {detalhe}"
+    except urllib.error.URLError as e:
+        return False, f"sem conexão: {e.reason}"
+
+
 def montar_schema_texto(schema):
     linhas = []
     for campo, meta in schema.items():
@@ -859,6 +895,10 @@ def main():
     ap.add_argument("--debug", action="store_true")
     ap.add_argument("--dump", nargs="?", const="cp", default=None,
                     help="diagnóstico e sai. --dump (Controle de Processos) | --dump marcadores | --dump aqui")
+    ap.add_argument("--enviar", action="store_true",
+                    help="passo 2: além de gravar o CSV/JSON, envia cada item pro SIGNU "
+                         "(POST /api/importacao-sei) — vira staging, fica pendente de revisão "
+                         "na Gestão. Precisa de signu.base_url + signu.import_token no config.json.")
     args = ap.parse_args()
 
     if args.lista and args.lista.lower() not in SCHEMAS:
@@ -878,6 +918,10 @@ def main():
     if not args.dump and not api_key:
         sys.exit("[x] sem chave do Gemini. Cole o valor em \"gemini_api_key\" no config.json\n"
                  "    (ou defina a env GEMINI_API_KEY / GOOGLE_API_KEY).")
+
+    cfg_signu = cfg.get("signu") or {}
+    if args.enviar and not (cfg_signu.get("base_url") and cfg_signu.get("import_token")):
+        sys.exit("[x] --enviar precisa de \"signu.base_url\" e \"signu.import_token\" no config.json.")
 
     try:
         from playwright.sync_api import sync_playwright
@@ -1080,11 +1124,31 @@ def main():
 
     print(f"\n[ok] {len(resultados)} processo(s) -> {fjson}")
     print(f"[ok]                            -> {fcsv}")
-    print(f"\nPróximo passo manual: nos processos abaixo, troque o marcador verde "
-          f"pelo rosa «{MARCADOR_POS}» no SEI:")
-    for r in resultados:
-        print(f"  - {r['processo'] or r['fonte']['url']}")
-    print("\nNada foi gravado no SIGNU. Confira o CSV/JSON antes de cadastrar.")
+
+    if args.enviar:
+        print(f"\n[i] enviando {len(resultados)} item(ns) pro SIGNU (staging)…")
+        enviados, falhas = [], []
+        for r in resultados:
+            ok, msg = enviar_para_signu(cfg_signu, r)
+            tag = "✓" if ok else "✗"
+            print(f"    {tag} {r['processo'] or '??'} ({r['lista']}): {msg}")
+            (enviados if ok else falhas).append(r)
+        print(f"\n[ok] {len(enviados)} enviado(s) -> pendentes em /gestao/importacao-sei")
+        if falhas:
+            print(f"[!] {len(falhas)} falharam — ficaram só no CSV/JSON local, tente de novo depois.")
+        if enviados:
+            print(f"\nPróximo passo manual: nos processos abaixo, troque o marcador verde "
+                  f"pelo rosa «{MARCADOR_POS}» no SEI:")
+            for r in enviados:
+                print(f"  - {r['processo'] or r['fonte']['url']}")
+        print("\nNada foi gravado nas listas reais — os itens enviados ficam pendentes de "
+              "revisão (promover/descartar) em /gestao/importacao-sei.")
+    else:
+        print(f"\nPróximo passo manual: nos processos abaixo, troque o marcador verde "
+              f"pelo rosa «{MARCADOR_POS}» no SEI:")
+        for r in resultados:
+            print(f"  - {r['processo'] or r['fonte']['url']}")
+        print("\nNada foi gravado no SIGNU. Confira o CSV/JSON e rode com --enviar quando estiver pronto.")
 
 
 if __name__ == "__main__":
