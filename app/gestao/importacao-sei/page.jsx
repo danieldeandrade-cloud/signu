@@ -83,8 +83,11 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
     setAutoLoading(false);
   };
 
+  const [herdouResponsavel, setHerdouResponsavel] = useState(null); // rota de onde veio, se herdado
+
   const onRespChange = (v) => {
     upd("RESPONSAVEL", v);
+    setHerdouResponsavel(null);
     if (v === "__AUTO__") {
       if ((campos.STATUS_DILIGENCIA || "") === "RENAJUD") {
         calcularDistribuicao(RENAJUD_SERVIDORES, "processos RENAJUD");
@@ -96,13 +99,6 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
       setAutoResp(null);
     }
   };
-
-  // Extração pode já ter deixado RESPONSAVEL="__AUTO__" (a IA não decide isso) —
-  // calcula a distribuição assim que o card monta, sem esperar o servidor mexer no select.
-  useEffect(() => {
-    if (campos.RESPONSAVEL === "__AUTO__") onRespChange("__AUTO__");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const verificarDuplicidade = async () => {
     setDuplicata("buscando");
@@ -130,7 +126,29 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
       } catch { /* ignora erro de rede de uma lista */ }
     }));
     setDuplicata({ encontrados });
+    return encontrados;
   };
+
+  // Ao montar: confere duplicidade PRIMEIRO. Se o processo já existe em outra
+  // lista (ex.: devolução da PCDF, resposta de ofício) e já tem responsável,
+  // o cadastro existente manda — nunca sorteia um novo por distribuição
+  // automática. Só recorre à distribuição automática se for item genuinamente
+  // novo (sem duplicata com responsável já definido).
+  useEffect(() => {
+    (async () => {
+      const encontrados = await verificarDuplicidade();
+      const jaResponsavel = encontrados
+        .map(d => d.item.RESPONSAVEL || d.item.Responsavel || "")
+        .find(Boolean);
+      if (jaResponsavel) {
+        upd("RESPONSAVEL", jaResponsavel);
+        setHerdouResponsavel(encontrados.find(d => (d.item.RESPONSAVEL || d.item.Responsavel) === jaResponsavel)?.rota);
+      } else if (campos.RESPONSAVEL === "__AUTO__") {
+        onRespChange("__AUTO__");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const promover = async () => {
     let responsavelFinal = campos.RESPONSAVEL;
@@ -223,13 +241,18 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
             const isAuto = campos.RESPONSAVEL === "__AUTO__";
             return (
               <select value={campos.RESPONSAVEL || ""} onChange={e => onRespChange(e.target.value)}
-                style={{ width: "100%", boxSizing: "border-box", padding: "7px 9px", background: "#f9fafb", border: `1px solid ${pendente ? "#fca5a5" : "#d1d5db"}`, borderRadius: 7, fontSize: 12, color: isAuto ? "#2563eb" : "#0f172a", fontWeight: isAuto ? 700 : 400, cursor: "pointer" }}>
+                style={{ width: "100%", boxSizing: "border-box", padding: "7px 9px", background: "#f9fafb", border: `1px solid ${herdouResponsavel ? "#22c55e" : pendente ? "#fca5a5" : "#d1d5db"}`, borderRadius: 7, fontSize: 12, color: isAuto ? "#2563eb" : "#0f172a", fontWeight: isAuto ? 700 : 400, cursor: "pointer" }}>
                 <option value="">— Selecione —</option>
                 <option value="__AUTO__">⚡ Distribuição automática</option>
                 {SERVIDORES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             );
           })()}
+          {herdouResponsavel && (
+            <div style={{ fontSize: 10, color: "#22c55e", marginTop: 4 }}>
+              ✓ Herdado do cadastro já existente em {herdouResponsavel} — não sorteado por distribuição automática.
+            </div>
+          )}
         </div>
       </div>
 
