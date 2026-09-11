@@ -383,6 +383,78 @@ def ler_texto_marcador(page, url, nome_marcador, debug=False):
     return ""
 
 
+def trocar_marcador(page, url_marcador, nome_pos, texto_pos="", debug=False):
+    """Depois que o item já foi enviado pro staging: adiciona o marcador
+    'pos_processado' (ex.: REVISAR - CADASTRADO SIGNU) e remove os marcadores
+    CADASTRAR SIGNU * que estavam no processo. Mexe de verdade no SEI —
+    só chama isso quando o POST /api/importacao-sei já confirmou sucesso."""
+    if not _goto_seguro(page, url_marcador, espera_pos=1200, debug=debug):
+        return False, "não abriu tela de marcadores"
+
+    try:
+        ids_atuais = page.locator("table tr input[type=checkbox]").evaluate_all("els => els.map(e => e.value)")
+    except Exception as e:
+        return False, f"não consegui ler os marcadores atuais: {e}"
+    if debug:
+        print(f"    [debug] marcadores atuais no processo: {ids_atuais}")
+
+    href_add = page.evaluate("""() => {
+        const btns = [...document.querySelectorAll('input,button,a')];
+        const b = btns.find(x => (x.value||x.innerText||'').trim() === 'Adicionar');
+        const oc = b ? b.getAttribute('onclick') : '';
+        const m = oc && oc.match(/location\\.href=['"]([^'"]+)['"]/);
+        return m ? m[1] : null;
+    }""")
+    if not href_add:
+        return False, "botão Adicionar não encontrado"
+    if not _goto_seguro(page, _abs_url(page.url, href_add), espera_pos=1200, debug=debug):
+        return False, "não abriu tela de Adicionar Marcador"
+
+    try:
+        page.locator("#selMarcador .dd-select").click(timeout=5000)
+        page.wait_for_timeout(300)
+        page.get_by_text(nome_pos, exact=True).click(timeout=5000)
+        if texto_pos:
+            page.fill("#txaTexto", texto_pos[:500])
+        page.click("#sbmSalvar", timeout=8000)
+        page.wait_for_timeout(1200)
+    except Exception as e:
+        return False, f"falhou adicionar '{nome_pos}': {e}"
+
+    # navega de novo pra 'gerenciar' sempre (garantido, em vez de confiar no
+    # redirect do Salvar) — foi exatamente aí que a 1ª tentativa falhou: a URL
+    # já batia com "andamento_marcador_gerenciar" mas os checkboxes ainda não
+    # tinham renderizado.
+    if not _goto_seguro(page, url_marcador, espera_pos=1500, debug=debug):
+        return True, f"'{nome_pos}' adicionado, mas não voltei pra remover os antigos — remova manualmente"
+
+    for id_antigo in ids_atuais:
+        try:
+            chk = page.locator(f"input[type=checkbox][value='{id_antigo}']").first
+            if not chk.count():
+                continue
+            # o <input> fica visualmente atrás do <label> (checkbox customizado do
+            # SEI) — clicar direto no input falha ("intercepts pointer events").
+            chk_id = chk.get_attribute("id")
+            if chk_id:
+                page.locator(f"label[for='{chk_id}']").click(timeout=3000)
+            else:
+                chk.check(timeout=3000, force=True)
+        except Exception:
+            pass
+
+    try:
+        marcados = page.locator("input[type=checkbox]:checked").count()
+        if not marcados:
+            return True, f"'{nome_pos}' adicionado, mas não achei os antigos pra marcar remoção"
+        page.once("dialog", lambda d: d.accept())
+        page.evaluate("acaoRemocaoMultipla()")
+        page.wait_for_timeout(1500)
+        return True, f"'{nome_pos}' adicionado, {marcados} marcador(es) antigo(s) removido(s)"
+    except Exception as e:
+        return True, f"'{nome_pos}' adicionado, mas falhou remover os antigos: {e}"
+
+
 # Servidores do NULEJ (mesma lista do SIGNU) — usados p/ casar o nome anotado no
 # marcador "CADASTRAR SIGNU SEI" com o responsável a atribuir.
 SERVIDORES = ["Carla Araújo", "Amanda Junqueira", "Carlos Caetano",
@@ -701,6 +773,26 @@ def enviar_para_signu(cfg_signu, resultado):
         return False, f"HTTP {e.code}: {detalhe}"
     except urllib.error.URLError as e:
         return False, f"sem conexão: {e.reason}"
+
+
+def enviar_resultados(cfg_signu, resultados, page_marcador=None, debug=False):
+    """POST de cada resultado pro staging. Se page_marcador for dado (o navegador
+    ainda está aberto) e o item tiver _url_marcador (só modo marcador), troca o
+    marcador verde pelo rosa também — precisa ser feito ANTES do navegador
+    fechar, por isso mora dentro do 'with sync_playwright()', não depois."""
+    print(f"\n[i] enviando {len(resultados)} item(ns) pro SIGNU (staging)…")
+    for r in resultados:
+        ok, msg = enviar_para_signu(cfg_signu, r)
+        tag = "✓" if ok else "✗"
+        print(f"    {tag} {r['processo'] or '??'} ({r['lista']}): {msg}")
+        r["_enviado"] = ok
+        if ok and page_marcador is not None and r.get("_url_marcador"):
+            ok2, msg2 = trocar_marcador(
+                page_marcador, r["_url_marcador"], MARCADOR_POS,
+                texto_pos=f"Enviado ao SIGNU em {dt.datetime.now():%d/%m/%Y %H:%M}", debug=debug,
+            )
+            print(f"       marcador: {'✓' if ok2 else '✗'} {msg2}")
+            r["_marcador_trocado"] = ok2
 
 
 def montar_schema_texto(schema):
@@ -1066,6 +1158,10 @@ def main():
             for idx, page in enumerate(alvos, 1):
                 print(f"\n[{idx}/{len(alvos)}] {page.url[:90]}")
                 resultados.append(processar(page, cfg_sei, api_key, model, args.lista.lower(), args))
+            # modo abas não tem marcador (não passou pela descoberta) — só envia,
+            # sem trocar marcador nenhum.
+            if args.enviar and resultados:
+                enviar_resultados(cfg_signu, resultados, page_marcador=None, debug=args.debug)
 
         else:  # modo marcador
             filtro = args.lista.lower() if args.lista else None
@@ -1098,8 +1194,15 @@ def main():
                     if not _goto_seguro(work, item["url"], espera_pos=800, debug=args.debug):
                         print("    [x] não abriu (processo) — pulando.")
                         continue
-                    resultados.append(processar(work, cfg_sei, api_key, model, item["lista"], args,
-                                                 texto_marcador=texto_marcador, numero_sei=item.get("numero", "")))
+                    resultado = processar(work, cfg_sei, api_key, model, item["lista"], args,
+                                           texto_marcador=texto_marcador, numero_sei=item.get("numero", ""))
+                    resultado["_url_marcador"] = item.get("url_marcador", "")
+                    resultado["_nome_marcador"] = item.get("marcador", "")
+                    resultados.append(resultado)
+
+                # passo 2 ainda aqui dentro (precisa do navegador aberto pra trocar o marcador)
+                if args.enviar and resultados:
+                    enviar_resultados(cfg_signu, resultados, page_marcador=work, debug=args.debug)
             finally:
                 work.close()
 
@@ -1139,20 +1242,18 @@ def main():
     print(f"[ok]                            -> {fcsv}")
 
     if args.enviar:
-        print(f"\n[i] enviando {len(resultados)} item(ns) pro SIGNU (staging)…")
-        enviados, falhas = [], []
-        for r in resultados:
-            ok, msg = enviar_para_signu(cfg_signu, r)
-            tag = "✓" if ok else "✗"
-            print(f"    {tag} {r['processo'] or '??'} ({r['lista']}): {msg}")
-            (enviados if ok else falhas).append(r)
+        enviados = [r for r in resultados if r.get("_enviado")]
+        falhas = [r for r in resultados if not r.get("_enviado")]
+        trocados = [r for r in enviados if r.get("_marcador_trocado")]
+        pendentes_marcador = [r for r in enviados if r.get("_url_marcador") and not r.get("_marcador_trocado")]
         print(f"\n[ok] {len(enviados)} enviado(s) -> pendentes em /gestao/importacao-sei")
+        if trocados:
+            print(f"[ok] {len(trocados)} marcador(es) trocado(s) pro rosa «{MARCADOR_POS}»")
         if falhas:
             print(f"[!] {len(falhas)} falharam — ficaram só no CSV/JSON local, tente de novo depois.")
-        if enviados:
-            print(f"\nPróximo passo manual: nos processos abaixo, troque o marcador verde "
-                  f"pelo rosa «{MARCADOR_POS}» no SEI:")
-            for r in enviados:
+        if pendentes_marcador:
+            print(f"\nTroca de marcador não confirmada nos processos abaixo — confira/troque na mão no SEI:")
+            for r in pendentes_marcador:
                 print(f"  - {r['processo'] or r['fonte']['url']}")
         print("\nNada foi gravado nas listas reais — os itens enviados ficam pendentes de "
               "revisão (promover/descartar) em /gestao/importacao-sei.")
