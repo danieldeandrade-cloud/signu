@@ -960,6 +960,15 @@ function DetalhesContent() {
       return next;
     });
   };
+  // DPJ: preencher a Data de Saída marca o item como RETIRADO — usado no
+  // relatório de gestão (saída de bens do depósito).
+  const handleDataSaidaDPJ = (v) => {
+    setEditData(prev => {
+      const next = { ...prev, DATA_SAIDA: v };
+      if (v) next.STATUS_DILIGENCIA = "RETIRADO";
+      return next;
+    });
+  };
   const current = editMode ? editData : bem;
 
   // DPJ: lista os outros itens do mesmo lote (linhas irmãs) e permite adicionar mais um.
@@ -1600,6 +1609,16 @@ function DetalhesContent() {
                         {editMode
                           ? <FieldEdit label="Motivo de Saída" value={editData?.MOTIVO_SAIDA||""} onChange={v=>upd("MOTIVO_SAIDA",v)} options={["","DOAÇÃO","LEILÃO INDIVIDUAL","LEILÃO COLETIVO","ADJUDICAÇÃO","RESTITUIÇÃO","ALIENAÇÃO PARTICULAR"]}/>
                           : <FieldView label="Motivo de Saída" value={current?.MOTIVO_SAIDA}/>}
+                        <div>
+                          {editMode
+                            ? <FieldEdit label="Data de Saída" type="date" value={editData?.DATA_SAIDA||""} onChange={handleDataSaidaDPJ}/>
+                            : <FieldView label="Data de Saída" value={current?.DATA_SAIDA}/>}
+                          {editMode && (
+                            <div style={{ fontSize:10, color:"#6b7280", marginTop:4 }}>
+                              Preencher marca o item como RETIRADO (usado no relatório de gestão).
+                            </div>
+                          )}
+                        </div>
                         <div style={{ gridColumn:"1 / -1" }}>
                           {editMode
                             ? <FieldEdit label="Descrição do item" value={editData?.DESCRICAO} onChange={v=>upd("DESCRICAO",v)} placeholder="Ex: 5 cadeiras de escritório, sofá 3 lugares..."/>
