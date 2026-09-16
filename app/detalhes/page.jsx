@@ -1269,12 +1269,12 @@ function DetalhesContent() {
                         ? <FieldEdit label="NIV / Chassi" value={editData?.NIV} onChange={v=>upd("NIV",v)} mono/>
                         : <FieldView label="NIV / Chassi" value={current?.NIV} mono/>)}
                       {listaKey !== "CAIXA_SEI" && (editMode
-                        ? <FieldEdit label="Placa" hint="sem ponto, traço ou espaço · Ex: ABC1234" placeholder="Ex: ABC1234" value={editData?.PLACA} onChange={v=>upd("PLACA", v.toUpperCase().replace(/[^A-Z0-9]/g,""))} mono/>
+                        ? <FieldEdit label="Placa" hint="sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF" placeholder="Ex: ABC1234 ou ABC1234/DF" value={editData?.PLACA} onChange={v=>upd("PLACA", v.toUpperCase().replace(/[^A-Z0-9/]/g,""))} mono/>
                         : <FieldView label="Placa" value={current?.PLACA} mono/>)}
                       {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") && (
                         boolVal(current?.NIV_NAO_AFLORADO) || (editMode && boolVal(editData?.NIV_NAO_AFLORADO))
                       ) && (editMode
-                        ? <FieldEdit label="Placa ostentada (só p/ busca)" hint="sem ponto, traço ou espaço · Ex: ABC1234" placeholder="Ex: ABC1234" value={editData?.PLACA_OSTENTADA} onChange={v=>upd("PLACA_OSTENTADA", v.toUpperCase().replace(/[^A-Z0-9]/g,""))}/>
+                        ? <FieldEdit label="Placa ostentada (só p/ busca)" hint="sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF" placeholder="Ex: ABC1234 ou ABC1234/DF" value={editData?.PLACA_OSTENTADA} onChange={v=>upd("PLACA_OSTENTADA", v.toUpperCase().replace(/[^A-Z0-9/]/g,""))}/>
                         : <FieldView label="Placa ostentada" value={current?.PLACA_OSTENTADA} mono/>)}
                       {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA")
                         ? <FieldView label="Destinação" value="RECICLAGEM"/>
@@ -1304,7 +1304,7 @@ function DetalhesContent() {
                             NIV/Placa/Peso do item entram aqui, junto do resto da descrição do veículo. */}
                         {listaKey === "DPJ_GC99" && (editMode ? <>
                           <FieldEdit label="NIV / Chassi" value={editData?.NIV} onChange={v=>upd("NIV",v)} mono/>
-                          <FieldEdit label="Placa" hint="sem ponto, traço ou espaço · Ex: ABC1234" placeholder="Ex: ABC1234" value={editData?.PLACA} onChange={v=>upd("PLACA", v.toUpperCase().replace(/[^A-Z0-9]/g,""))} mono/>
+                          <FieldEdit label="Placa" hint="sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF" placeholder="Ex: ABC1234 ou ABC1234/DF" value={editData?.PLACA} onChange={v=>upd("PLACA", v.toUpperCase().replace(/[^A-Z0-9/]/g,""))} mono/>
                           <FieldEdit label="Peso estimado (kg)" value={editData?.PESO_KG} onChange={v=>upd("PESO_KG",v)} type="number"/>
                         </> : <>
                           <FieldView label="NIV / Chassi" value={current?.NIV} mono/>
@@ -1693,7 +1693,7 @@ function DetalhesContent() {
                           <div style={{ fontSize:10, color:"#9ca3af", marginBottom:6 }}>Se for veículo (opcional):</div>
                           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:10 }}>
                             <div><label style={lblSt}>NIV / Chassi</label><input value={novoItem.NIV} onChange={e => setNovoItem(p => ({ ...p, NIV: e.target.value }))} maxLength={18} style={inputStDPJ}/></div>
-                            <div><label style={lblSt}>Placa</label><input value={novoItem.PLACA} onChange={e => setNovoItem(p => ({ ...p, PLACA: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"") }))} style={inputStDPJ}/></div>
+                            <div><label style={lblSt}>Placa</label><input value={novoItem.PLACA} onChange={e => setNovoItem(p => ({ ...p, PLACA: e.target.value.toUpperCase().replace(/[^A-Z0-9/]/g,"") }))} style={inputStDPJ}/></div>
                             <div><label style={lblSt}>Marca / Modelo</label><input value={novoItem.MARCA_MODELO} onChange={e => setNovoItem(p => ({ ...p, MARCA_MODELO: e.target.value }))} style={inputStDPJ}/></div>
                             <div><label style={lblSt}>Ano fab./modelo</label><input value={novoItem.ANO_FAB_MODELO} onChange={e => setNovoItem(p => ({ ...p, ANO_FAB_MODELO: e.target.value }))} style={inputStDPJ}/></div>
                             <div><label style={lblSt}>Cor</label><input value={novoItem.COR} onChange={e => setNovoItem(p => ({ ...p, COR: e.target.value }))} style={inputStDPJ}/></div>

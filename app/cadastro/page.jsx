@@ -79,7 +79,7 @@ const CAMPOS = {
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0038491-22.2024.8.07.0001" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
-    { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
+    { id:"PLACA",             label:"PLACA", hint:"sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF", type:"text", placeholder:"Ex: ABC1234 ou ABC1234/DF" },
     ...DESC_VEICULO,
     { id:"PESO_KG",           label:"Peso estimado (kg)",  type:"number",   placeholder:"Ex: 800", hint:"Para estatística de reciclagem" },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
@@ -105,7 +105,7 @@ const CAMPOS = {
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0054812-11.2022.8.07.0003" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
-    { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
+    { id:"PLACA",             label:"PLACA", hint:"sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF", type:"text", placeholder:"Ex: ABC1234 ou ABC1234/DF" },
     ...DESC_VEICULO,
     { id:"DEPOSITO",          label:"Depósito *",          type:"select",   required:true,  options:DEPOSITOS },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
@@ -120,7 +120,7 @@ const CAMPOS = {
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0071009-44.2024.8.07.0007" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
-    { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
+    { id:"PLACA",             label:"PLACA", hint:"sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF", type:"text", placeholder:"Ex: ABC1234 ou ABC1234/DF" },
     ...DESC_VEICULO,
     { id:"DEPOSITO",          label:"Depósito *",          type:"select",   required:true,  options:DEPOSITOS },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
@@ -140,7 +140,7 @@ const CAMPOS = {
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0038491-22.2024.8.07.0001" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
-    { id:"PLACA",             label:"PLACA (colocar sem ponto, traço ou espaço)", type:"text", placeholder:"Ex: ABC1234" },
+    { id:"PLACA",             label:"PLACA", hint:"sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF", type:"text", placeholder:"Ex: ABC1234 ou ABC1234/DF" },
     { id:"STATUS_LOCAL_PA",   label:"Status Local PA",     type:"select",   options:STATUS_LOCAL },
     { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Detalhes da doação..." },
@@ -330,7 +330,7 @@ function ItemLoteCard({ item, idx, onChange, onRemove, podeRemover, accentColor,
       <div style={{ fontSize:10, color:"#9ca3af", marginBottom:6 }}>Se for veículo (opcional):</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:10 }}>
         <div>{lbl("NIV / Chassi")}<input value={item.NIV} onChange={e => upd("NIV", e.target.value)} maxLength={18} style={stTxt}/></div>
-        <div>{lbl("Placa")}<input value={item.PLACA} onChange={e => upd("PLACA", e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))} style={stTxt}/></div>
+        <div>{lbl("Placa")}<input value={item.PLACA} onChange={e => upd("PLACA", e.target.value.toUpperCase().replace(/[^A-Z0-9/]/g,""))} style={stTxt}/></div>
         <div>{lbl("Marca / Modelo")}<input value={item.MARCA_MODELO} onChange={e => upd("MARCA_MODELO", e.target.value)} style={stTxt}/></div>
         <div>{lbl("Ano fab./modelo")}<input value={item.ANO_FAB_MODELO} onChange={e => upd("ANO_FAB_MODELO", e.target.value)} style={stTxt}/></div>
         <div>{lbl("Cor")}<input value={item.COR} onChange={e => upd("COR", e.target.value)} style={stTxt}/></div>
@@ -525,8 +525,8 @@ export default function CadastroPage() {
 
   // Calcula prazo 6 meses automaticamente para DPJ
   const handleChange = (id, val) => {
-    // Placa: sempre em maiúsculas e sem ponto/traço/espaço (consistência p/ busca)
-    if (id === "PLACA") val = String(val).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    // Placa: sempre em maiúsculas e sem ponto/traço/espaço (consistência p/ busca); "/" liberado p/ indicar UF (ex: ABC1234/DF)
+    if (id === "PLACA") val = String(val).toUpperCase().replace(/[^A-Z0-9/]/g, "");
     if (id === "RENAVAM") val = String(val).replace(/\D/g, "");
     const next = { ...formData, [id]: val };
     if (id === "DATA_ENTRADA" && listaKey === "DPJ_GC99" && val) {
