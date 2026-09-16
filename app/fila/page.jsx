@@ -915,13 +915,24 @@ export default function SIGNUMinhaFila() {
                       ? (() => { const d=new Date(item.ULTIMA_ANALISE); return isNaN(d)?item.ULTIMA_ANALISE:d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"})+"\n"+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); })()
                       : "—";
                     const flags = [];
-                    if (item.FIB==="TRUE"||item.FIB===true)              flags.push({t:"FIB",c:"#22c55e"});
-                    if (item.CEB_TEP_TIV==="TRUE"||item.CEB_TEP_TIV===true) flags.push({t:"CEB",c:"#60a5fa"});
-                    if (item.OFICIO_BAIXA==="TRUE"||item.OFICIO_BAIXA===true) flags.push({t:"OF.BX",c:"#f472b6"});
-                    const rInfo = renajudInfo(item);
-                    if (rInfo) flags.push(rInfo.pendentes > 0
-                      ? { t:`🔒 ${rInfo.pendentes}p`, c:"#f59e0b" }
-                      : { t:"🔒 ✓", c:"#22c55e" });
+                    const cegocCirculacao = item.listaOrigem === "CEGOC" && item.DESTINACAO === "CIRCULAÇÃO";
+                    if (cegocCirculacao) {
+                      // FIB/CEB/OFÍCIO/RENAJUD são do fluxo de reciclagem — não fazem
+                      // sentido aqui. Circulação tem seu próprio par de sinalizações.
+                      const restr = ["RESTRICAO_ROUBO","RESTRICAO_ALIEN_FIDUC","RESTRICAO_ADMIN"]
+                        .filter(k => item[k]==="TRUE"||item[k]===true).length;
+                      if (restr > 0) flags.push({ t:`🔒 ${restr} restr.`, c:"#f87171" });
+                      const temAvaliacao = String(item.AVALIACAO_VALOR||"").trim().length > 0;
+                      flags.push(temAvaliacao ? { t:"✅ Aval.", c:"#22c55e" } : { t:"⚠️ s/aval.", c:"#f59e0b" });
+                    } else {
+                      if (item.FIB==="TRUE"||item.FIB===true)              flags.push({t:"FIB",c:"#22c55e"});
+                      if (item.CEB_TEP_TIV==="TRUE"||item.CEB_TEP_TIV===true) flags.push({t:"CEB",c:"#60a5fa"});
+                      if (item.OFICIO_BAIXA==="TRUE"||item.OFICIO_BAIXA===true) flags.push({t:"OF.BX",c:"#f472b6"});
+                      const rInfo = renajudInfo(item);
+                      if (rInfo) flags.push(rInfo.pendentes > 0
+                        ? { t:`🔒 ${rInfo.pendentes}p`, c:"#f59e0b" }
+                        : { t:"🔒 ✓", c:"#22c55e" });
+                    }
                     return (
                       <tr key={item.id} onClick={() => abrirDrawer(item)}
                         style={{ borderBottom:"1px solid #f3f4f6", cursor:"pointer", background: idx%2===0?"transparent":"#fafafa", transition:"background 0.1s" }}
