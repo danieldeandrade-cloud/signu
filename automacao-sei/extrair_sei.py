@@ -573,6 +573,10 @@ def extrair_processo(page, cfg_sei, debug=False):
                 pass
         return alvos[0] if alvos else None
 
+    def _id_anexo(url):
+        m = re.search(r"id_anexo=(\d+)", url or "")
+        return m.group(1) if m else url
+
     partes = []
     docs_lidos = 0
     pdfs = []
@@ -606,6 +610,9 @@ def extrair_processo(page, cfg_sei, debug=False):
 
         max_pdf_mb = float(cfg_sei.get("max_pdf_mb", 12))
         max_pdfs = int(cfg_sei.get("max_pdfs", 6))
+        pdf_ids_usados = set()  # id_anexo já baixado — troca de doc é mais lenta que
+                                 # o clique+espera fixa; sem isso, o PDF anterior ainda
+                                 # está no DOM e a gente manda o mesmo arquivo 2x pro Gemini
         if cfg_sei.get("percorrer_arvore"):
             for i in ordem:
                 try:
@@ -616,8 +623,16 @@ def extrair_processo(page, cfg_sei, debug=False):
                         partes.append(f"### DOC — {titulos[i]}\n{txt}")
                         docs_lidos += 1
                         continue
-                    # sem texto no DOM -> tentar baixar o PDF e mandar pro Gemini
-                    pdf_url = _achar_pdf_url()
+                    # sem texto no DOM -> tentar baixar o PDF e mandar pro Gemini.
+                    # espera até achar uma URL de PDF que ainda não usamos (o iframe
+                    # do documento anterior pode continuar no DOM por +1s depois do clique).
+                    pdf_url = None
+                    for _tentativa in range(6):
+                        candidato = _achar_pdf_url()
+                        if candidato and _id_anexo(candidato) not in pdf_ids_usados:
+                            pdf_url = candidato
+                            break
+                        page.wait_for_timeout(500)
                     if pdf_url and len(pdfs) < max_pdfs:
                         try:
                             resp = page.context.request.get(pdf_url, timeout=30000)
@@ -629,13 +644,15 @@ def extrair_processo(page, cfg_sei, debug=False):
                         if body and len(body) <= max_pdf_mb * 1_000_000:
                             pdfs.append({"titulo": titulos[i],
                                          "b64": base64.b64encode(body).decode()})
+                            pdf_ids_usados.add(_id_anexo(pdf_url))
                             docs_lidos += 1
                             if debug:
                                 print(f"    '{titulos[i]}': PDF {len(body)//1024} KB -> Gemini")
                         elif debug:
                             print(f"    '{titulos[i]}': PDF {len(body)} bytes (fora do limite / vazio)")
                     elif debug:
-                        print(f"    '{titulos[i]}': sem texto e sem PDF localizável")
+                        motivo = "só achei o PDF do doc anterior (repetido)" if _achar_pdf_url() else "sem texto e sem PDF localizável"
+                        print(f"    '{titulos[i]}': {motivo}")
                 except Exception as e:
                     if debug:
                         print(f"    nó '{titulos[i]}': {e}")
