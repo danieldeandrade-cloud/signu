@@ -149,3 +149,23 @@ Percorre a árvore (`ifrArvore`), e para cada documento:
 Tudo isso já rodou de ponta a ponta em processos reais (CEGOC, PCDF 2ª, DPJ,
 Caixa SEI) sem gravar nada indevido — só chega na lista real quando um gestor
 clica em "Promover".
+
+### Retorno de TEP/CEB/TIV — atualiza cadastro existente em vez de criar um novo
+
+Quando a PCDF devolve um processo (`CADASTRAR SIGNU SEI`) entregando os termos
+de inutilização (CEB/TIV/TEP) de um veículo **já cadastrado** em PCDF 1ª/2ª
+HIGEIA, não é cadastro novo — é atualização. O nº do processo de retorno é
+novo (diferente do cadastro original), então não dá pra achar o registro
+existente por ID_PASEI: o schema `sei` pede pra IA marcar `EH_RETORNO_TEP` e
+extrair NIV/PLACA/RENAVAM do veículo citado nos termos, e `processar()` seta
+`TEP_SEI` = nº deste processo de retorno (é ele que carrega os termos).
+
+Na tela de revisão, um item com `EH_RETORNO_TEP=TRUE` mostra um painel roxo
+"Retorno de TEP/CEB/TIV" com botão **Buscar cadastro correspondente**
+(`GET /api/importacao-sei/tep-match?niv=&placa=&renavam=`, casa contra
+`Bens_PCDF_1HIGEIA`/`Bens_PCDF_2HIGEIA`). O gestor escolhe o candidato certo
+(pode haver mais de um, ou nenhum — aí trata como triagem normal pelos botões
+de sempre), confere/ajusta Nº SEI do TEP / Valor / Data, e clica em
+**Registrar TEP** — `PATCH /api/importacao-sei/[rowNumber]` com
+`acao:"registrar_tep"` faz `updateRow` na lista de destino (não `addRow`) e
+marca o staging `PROMOVIDO`.

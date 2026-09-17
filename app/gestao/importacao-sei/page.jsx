@@ -58,6 +58,63 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
   const [autoLoading, setAutoLoading] = useState(false);
   const upd = (k, v) => setCampos(prev => ({ ...prev, [k]: v }));
 
+  // Retorno de TEP/CEB/TIV da PCDF (item.campos.EH_RETORNO_TEP === "TRUE"):
+  // não é cadastro novo, é atualização de um veículo já em PCDF 1ª/2ª — achado
+  // por NIV/placa/RENAVAM (não por nº de processo, que é novo neste retorno).
+  const ehRetornoTep = String(item.campos?.EH_RETORNO_TEP || "").toUpperCase() === "TRUE";
+  const [tepCandidatos, setTepCandidatos] = useState(null); // null | "buscando" | []
+  const [tepSelecionado, setTepSelecionado] = useState(null); // candidato escolhido
+  const [tepValor, setTepValor] = useState(item.campos?.TEP_VALOR || "");
+  const [tepData, setTepData] = useState(new Date().toISOString().split("T")[0]);
+  const [tepSalvando, setTepSalvando] = useState(false);
+
+  const buscarTepMatch = async () => {
+    setTepCandidatos("buscando");
+    setTepSelecionado(null);
+    try {
+      const qs = new URLSearchParams({
+        niv: campos.NIV || "", placa: campos.PLACA || "", renavam: campos.RENAVAM || "",
+      });
+      const res = await fetch(`/api/importacao-sei/tep-match?${qs}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.erro || "Erro ao buscar");
+      setTepCandidatos(json.candidatos || []);
+      if ((json.candidatos || []).length === 1) setTepSelecionado(json.candidatos[0]);
+    } catch (e) {
+      showToast(e.message, "error");
+      setTepCandidatos([]);
+    }
+  };
+
+  const registrarTep = async () => {
+    if (!tepSelecionado) { showToast("Selecione o cadastro correspondente.", "error"); return; }
+    setTepSalvando(true);
+    try {
+      const res = await fetch(`/api/importacao-sei/${item._rowNumber}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acao: "registrar_tep",
+          lista: tepSelecionado.lista,
+          targetRowNumber: tepSelecionado.rowNumber,
+          campos: {
+            CEB_TEP_TIV: "TRUE",
+            TEP_SEI: campos.TEP_SEI || item.PROCESSO_SEI || "",
+            TEP_VALOR: tepValor,
+            DATA_TEP: tepData,
+          },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.erro || "Erro ao registrar TEP");
+      showToast(`TEP registrado em ${LISTA_META[tepSelecionado.lista]?.label}`);
+      onPromovido(item._rowNumber);
+    } catch (e) {
+      showToast(e.message, "error");
+    } finally {
+      setTepSalvando(false);
+    }
+  };
+
   const alertas = (item.ALERTAS || "").split(" ; ").filter(Boolean);
   const incertos = (item.CAMPOS_INCERTOS || "").split(" ; ").filter(Boolean);
   const confianca = Number(item.CONFIANCA || 0);
@@ -230,8 +287,69 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
         <div style={{ fontSize: 10, color: "#f87171", marginBottom: 12 }}>Campos incertos: {incertos.join(", ")}</div>
       )}
 
+      {ehRetornoTep && (
+        <div style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.35)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed", marginBottom: 8 }}>
+            🔧 Retorno de TEP/CEB/TIV — atualizar cadastro já existente (não é cadastro novo)
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <Campo label="NIV" value={campos.NIV} onChange={v => upd("NIV", v)} mono />
+            <Campo label="Placa" value={campos.PLACA} onChange={v => upd("PLACA", v)} mono />
+            <Campo label="RENAVAM" value={campos.RENAVAM} onChange={v => upd("RENAVAM", v)} mono />
+          </div>
+          <button onClick={buscarTepMatch} disabled={tepCandidatos === "buscando"}
+            style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(124,58,237,0.4)", background: "rgba(124,58,237,0.1)", color: "#7c3aed", fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 10 }}>
+            {tepCandidatos === "buscando" ? "Buscando…" : "🔍 Buscar cadastro correspondente"}
+          </button>
+
+          {Array.isArray(tepCandidatos) && tepCandidatos.length === 0 && (
+            <div style={{ fontSize: 11, color: "#92400e" }}>
+              Nenhum cadastro correspondente achado por NIV/placa/RENAVAM em PCDF 1ª/2ª. Confira os campos acima
+              ou trate como triagem normal (botões no fim do card).
+            </div>
+          )}
+
+          {Array.isArray(tepCandidatos) && tepCandidatos.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+              {tepCandidatos.map((c) => {
+                const sel = tepSelecionado && tepSelecionado.lista === c.lista && tepSelecionado.rowNumber === c.rowNumber;
+                return (
+                  <label key={`${c.lista}-${c.rowNumber}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: `1px solid ${sel ? "#7c3aed" : "#d1d5db"}`, background: sel ? "rgba(124,58,237,0.08)" : "#f9fafb", cursor: "pointer", fontSize: 11 }}>
+                    <input type="radio" checked={!!sel} onChange={() => setTepSelecionado(c)} />
+                    <span style={{ fontWeight: 700, color: LISTA_META[c.lista]?.color }}>{LISTA_META[c.lista]?.label}</span>
+                    <span style={{ fontFamily: "'IBM Plex Mono',monospace" }}>{c.ID_PASEI}</span>
+                    <span>{c.MARCA_MODELO} · {c.PLACA}</span>
+                    <span style={{ color: "#6b7280" }}>resp.: {c.RESPONSAVEL || "—"}</span>
+                    <span style={{ color: "#6b7280" }}>match: {c.criterioMatch}</span>
+                    {c.CEB_TEP_TIV === "TRUE" && <span style={{ color: "#f59e0b" }}>⚠️ já tem CEB/TEP/TIV marcado</span>}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          {tepSelecionado && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, alignItems: "end" }}>
+              <Campo label="Nº SEI do TEP" value={campos.TEP_SEI || item.PROCESSO_SEI} onChange={v => upd("TEP_SEI", v)} mono />
+              <Campo label="Valor TEP (R$)" value={tepValor} onChange={setTepValor} />
+              <div>
+                <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Data TEP</div>
+                <input type="date" value={tepData} onChange={e => setTepData(e.target.value)}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "7px 9px", background: "#f9fafb", border: "1px solid #d1d5db", borderRadius: 7, fontSize: 12, color: "#0f172a" }} />
+              </div>
+              <button onClick={registrarTep} disabled={tepSalvando}
+                style={{ gridColumn: "1 / -1", padding: "9px 16px", borderRadius: 8, border: "none", background: tepSalvando ? "#e5e7eb" : "#7c3aed", color: "#fff", fontSize: 12, fontWeight: 700, cursor: tepSalvando ? "not-allowed" : "pointer" }}>
+                ✅ Registrar TEP em {LISTA_META[tepSelecionado.lista]?.label} — {tepSelecionado.ID_PASEI}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
-        {Object.keys(campos).filter(k => k !== "RESPONSAVEL").map(k => (
+        {Object.keys(campos)
+          .filter(k => k !== "RESPONSAVEL" && !(ehRetornoTep && ["EH_RETORNO_TEP", "NIV", "PLACA", "RENAVAM", "TEP_SEI", "TEP_VALOR"].includes(k)))
+          .map(k => (
           <Campo key={k} label={k} value={campos[k]} onChange={v => upd(k, v)} mono={/NIV|PLACA|RENAVAM|ID_PASEI|^PA$|^PJE$/.test(k)} />
         ))}
         <div>

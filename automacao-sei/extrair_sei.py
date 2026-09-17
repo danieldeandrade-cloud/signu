@@ -128,10 +128,21 @@ SCHEMAS = {
         "OBSERVACOES":  CAMPO("Resumo em 1-2 frases"),
     },
     "sei": {
-        "ID_PASEI":    CAMPO("Número do processo SEI/PA"),
-        "TIPO_BEM":    CAMPO("Tipo do bem, se identificável", TIPOS_BEM),
-        "ACAO":        CAMPO("Ação de triagem sugerida pelo conteúdo", ACOES_SEI),
-        "OBSERVACOES": CAMPO("Resumo em 1-2 frases do que o PA pede"),
+        "ID_PASEI":       CAMPO("Número do processo SEI/PA"),
+        "TIPO_BEM":       CAMPO("Tipo do bem, se identificável", TIPOS_BEM),
+        "ACAO":           CAMPO("Ação de triagem sugerida pelo conteúdo", ACOES_SEI),
+        "EH_RETORNO_TEP": CAMPO("'TRUE' se o processo é uma devolução da PCDF entregando os termos de "
+                                 "inutilização (CEB/TIV/TEP) de um veículo JÁ CADASTRADO anteriormente "
+                                 "no NULEJ (não é um cadastro novo); 'FALSE' caso contrário",
+                                 ["TRUE", "FALSE"]),
+        "NIV":            CAMPO("NIV/chassi do veículo mencionado nos termos, só se EH_RETORNO_TEP=TRUE"),
+        "PLACA":          CAMPO("Placa do veículo mencionado nos termos, só letras e números, "
+                                 "só se EH_RETORNO_TEP=TRUE"),
+        "RENAVAM":        CAMPO("RENAVAM do veículo mencionado nos termos, só dígitos, "
+                                 "só se EH_RETORNO_TEP=TRUE"),
+        "TEP_VALOR":      CAMPO("Valor do TEP em reais, se mencionado (só números, ex: 1500.00), "
+                                 "só se EH_RETORNO_TEP=TRUE"),
+        "OBSERVACOES":    CAMPO("Resumo em 1-2 frases do que o PA pede"),
     },
 }
 # aliases amigáveis
@@ -988,6 +999,17 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador="", num
         else:
             alertas.append(f"não achei servidor correspondente ao texto do marcador ({texto_marcador!r}) "
                             f"— atribua manualmente.")
+
+    # Caixa SEI: retorno de TEP/CEB/TIV da PCDF sobre veículo já cadastrado.
+    # Não dá pra achar o cadastro existente pelo nº do processo (o retorno tem
+    # um SEI novo) — o SIGNU casa por NIV/PLACA/RENAVAM na tela de revisão
+    # (ver app/api/importacao-sei/tep-match). Aqui só extrai e sinaliza; o TEP_SEI
+    # é o próprio nº deste processo (é ele que carrega os termos).
+    if lista == "sei" and str(campos.get("EH_RETORNO_TEP", "")).upper() == "TRUE":
+        campos["TEP_SEI"] = numero_sei or proc["numero"]
+        if not any(campos.get(k) for k in ("NIV", "PLACA", "RENAVAM")):
+            alertas.append("marcado como retorno de TEP/CEB/TIV mas não consegui extrair NIV, placa nem "
+                            "RENAVAM do veículo — não vai dar pra localizar o cadastro existente automaticamente.")
 
     conf = ia.get("_confianca", 0)
     print(f"    confiança: {conf}  INFOSEG: {infoseg}  incertos: {ia.get('_campos_incertos')}")

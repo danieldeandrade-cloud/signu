@@ -6,6 +6,10 @@
 //     este item de staging como PROMOVIDO.
 //   body { acao:"descartar" }               -> marca como DESCARTADO (não apaga,
 //     fica no histórico).
+//   body { acao:"registrar_tep", lista, targetRowNumber, campos:{...} } ->
+//     ATUALIZA uma linha já existente (achada via /api/importacao-sei/tep-match)
+//     em vez de criar uma nova — usado quando o item de staging é um retorno da
+//     PCDF entregando TEP/CEB/TIV de um veículo já cadastrado em PCDF 1ª/2ª.
 //
 // Protegida por sessão de gestor (mesmo padrão de /api/importacao-sei GET).
 
@@ -58,7 +62,26 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ item: staged, promovido: novoItem });
     }
 
-    return NextResponse.json({ erro: 'Ação inválida. Use "promover" ou "descartar".' }, { status: 400 });
+    if (body.acao === 'registrar_tep') {
+      if (staging.STATUS_REVISAO === 'PROMOVIDO') {
+        return NextResponse.json({ erro: 'Este item já foi promovido.' }, { status: 400 });
+      }
+      const { lista, targetRowNumber, campos } = body;
+      if (!lista || !targetRowNumber || !campos) {
+        return NextResponse.json({ erro: 'Campos obrigatórios: lista, targetRowNumber, campos.' }, { status: 400 });
+      }
+      const sheetAlvo = resolveSheetName(lista);
+      const atualizado = await updateRow(sheetAlvo, Number(targetRowNumber), campos);
+
+      const staged = await updateRow(sheetStaging, Number(rowNumber), {
+        STATUS_REVISAO: 'PROMOVIDO',
+        PROMOVIDO_EM: new Date().toISOString(),
+        LISTA_ROW_PROMOVIDA: `${lista}:${targetRowNumber}`,
+      });
+      return NextResponse.json({ item: staged, atualizado });
+    }
+
+    return NextResponse.json({ erro: 'Ação inválida. Use "promover", "descartar" ou "registrar_tep".' }, { status: 400 });
   } catch (error) {
     return NextResponse.json({ erro: error.message }, { status: 400 });
   }
