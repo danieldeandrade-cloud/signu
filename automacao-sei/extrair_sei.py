@@ -71,6 +71,8 @@ SCHEMAS = {
         **DESC_VEICULO,
         "STATUS_DILIGENCIA": CAMPO("Situação atual da diligência", STATUS_DI),
         "DESTINACAO":        CAMPO("Destino do bem", DESTINACOES),
+        "RESTRICAO_ROUBO":   CAMPO("'TRUE' se o Relatório INFOSEG indica restrição ativa de Roubo/Furto "
+                                    "para o veículo, senão 'FALSE'", ["TRUE", "FALSE"]),
         "OBSERVACOES":       CAMPO("Resumo em 1-2 frases do que o processo determina sobre o bem"),
     },
     "pcdf1": {
@@ -953,14 +955,17 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador="", num
             campos["NIV_NAO_AFLORADO"] = "TRUE"
             campos["NIV"] = "N/A"
 
-    # PCDF 1ª/2ª: marcador "BAIXADO" — veículo já baixado no DETRAN/INFOSEG, não
-    # precisa de ofício. Mesma regra do BAIXADO manual no SIGNU: fecha a etapa
-    # HIGEIA direto (senão o item entra "vivo" e convida um ofício desnecessário).
-    if lista in ("pcdf1", "pcdf2") and "BAIXADO" in _norm(texto_marcador):
-        campo_etapa = "STATUS_1HIGEIA" if lista == "pcdf1" else "STATUS_2HIGEIA"
-        campos["STATUS_DILIGENCIA"] = "BAIXADO"
-        campos[campo_etapa] = "FINALIZADO"
-        campos["OFICIO_BAIXA"] = "FALSE"
+    # PCDF 1ª/2ª: cadastro NOVO sempre nasce "EM DILIGÊNCIA" — a FIB ainda não foi
+    # feita, então "BAIXADO" no INFOSEG/marcador (veículo já baixado no DETRAN) não
+    # pode finalizar a etapa sozinho, só é informativo. Também evita a IA "chutar"
+    # status como AGUARDANDO/EM DILIGÊNCIA HIGEIA (esse último é sinal específico
+    # de transição CEGOC→PCDF2, não se aplica a cadastro direto em PCDF).
+    if lista in ("pcdf1", "pcdf2"):
+        if "BAIXADO" in _norm(texto_marcador):
+            alertas.append(f"marcador diz 'BAIXADO' ({texto_marcador!r}) — indica que o veículo já "
+                            f"está baixado no DETRAN/INFOSEG, mas o cadastro é novo e a FIB ainda "
+                            f"precisa ser feita, então o status fica EM DILIGÊNCIA mesmo assim.")
+        campos["STATUS_DILIGENCIA"] = "EM DILIGÊNCIA"
 
     # CEGOC: o servidor escreve CIRCULAÇÃO/RECICLAGEM no texto do marcador — isso
     # decide DESTINACAO e STATUS_DILIGENCIA, não é palpite da IA.
