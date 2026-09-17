@@ -122,6 +122,7 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
   const calcularDistribuicao = async (candidatos, motivo) => {
     setAutoLoading(true);
     setAutoResp(null);
+    let servidor = null;
     try {
       const contagens = Object.fromEntries(SERVIDORES.map(s => [s, 0]));
       await Promise.allSettled(TODAS_LISTAS_ROTA.map(async (rota) => {
@@ -134,10 +135,17 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
           });
         } catch { /* ignora erro de rede de uma lista */ }
       }));
-      const servidor = candidatos.reduce((a, b) => contagens[a] <= contagens[b] ? a : b);
+      // Empate no menor contador sorteia entre os empatados — reduce() sempre
+      // pegava o primeiro do array (Carla, no pool CEGOC/PCDF), então vários
+      // cards da revisão calculados ao mesmo tempo (mesma contagem ainda sem
+      // nenhuma promoção) recomendavam todos a mesma pessoa.
+      const minContagem = Math.min(...candidatos.map(s => contagens[s] ?? 0));
+      const empatados = candidatos.filter(s => (contagens[s] ?? 0) === minContagem);
+      servidor = empatados[Math.floor(Math.random() * empatados.length)];
       setAutoResp({ servidor, contagens, candidatos, motivo });
     } catch { /* deixa autoResp null — promover fica bloqueado até resolver */ }
     setAutoLoading(false);
+    return servidor;
   };
 
   const [herdouResponsavel, setHerdouResponsavel] = useState(null); // rota de onde veio, se herdado
@@ -210,11 +218,19 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
   const promover = async () => {
     let responsavelFinal = campos.RESPONSAVEL;
     if (responsavelFinal === "__AUTO__") {
-      if (!autoResp?.servidor) {
+      if (!autoResp) {
         showToast("Aguarde o cálculo da distribuição automática.", "error");
         return;
       }
-      responsavelFinal = autoResp.servidor;
+      // Recalcula na hora de promover (não reusa o valor já mostrado na tela)
+      // — vários cards desta revisão podem ter sido calculados juntos, no
+      // load da página, antes de qualquer promoção; recalcular agora reflete
+      // as promoções já feitas nesta mesma sessão de revisão.
+      responsavelFinal = await calcularDistribuicao(autoResp.candidatos, autoResp.motivo);
+      if (!responsavelFinal) {
+        showToast("Não foi possível calcular a distribuição automática.", "error");
+        return;
+      }
     }
     if (!responsavelFinal) {
       showToast("Escolha um responsável antes de promover.", "error");

@@ -372,6 +372,7 @@ export default function CadastroPage() {
   const calcularDistribuicao = async (candidatos = SERVIDORES, motivo = "") => {
     setAutoLoading(true);
     setAutoResp(null);
+    let servidor = null;
     try {
       const contagens = Object.fromEntries(SERVIDORES.map(s => [s, 0]));
       await Promise.allSettled(
@@ -386,11 +387,18 @@ export default function CadastroPage() {
           } catch {}
         })
       );
-      // Escolhe apenas entre os candidatos permitidos para este status
-      const servidor = candidatos.reduce((a, b) => contagens[a] <= contagens[b] ? a : b);
+      // Escolhe entre os candidatos permitidos para este status. Em caso de
+      // empate no menor contador, sorteia entre os empatados — reduce()
+      // sempre pegava o primeiro do array (Carla, no pool CEGOC/PCDF), então
+      // qualquer empate (comum logo após um lote de cadastros) mandava tudo
+      // pra mesma pessoa em vez de espalhar.
+      const minContagem = Math.min(...candidatos.map(s => contagens[s] ?? 0));
+      const empatados = candidatos.filter(s => (contagens[s] ?? 0) === minContagem);
+      servidor = empatados[Math.floor(Math.random() * empatados.length)];
       setAutoResp({ servidor, contagens, candidatos, motivo });
     } catch {}
     setAutoLoading(false);
+    return servidor;
   };
 
   const lista = LISTAS_CONFIG.find(l => l.key === listaKey);
@@ -566,11 +574,16 @@ export default function CadastroPage() {
   };
 
   const handleSalvar = async () => {
-    // Resolve distribuição automática antes de validar
+    // Resolve distribuição automática antes de validar — recalcula na hora
+    // (não reusa o autoResp já mostrado na tela) pra refletir contagens de
+    // cadastros feitos enquanto o formulário estava aberto.
     const dadosResolvidos = { ...formData };
     if (dadosResolvidos.Responsavel === "__AUTO__") {
-      if (!autoResp?.servidor) { setErros(["Responsavel"]); return; }
-      dadosResolvidos.Responsavel = autoResp.servidor;
+      const servidor = autoResp
+        ? await calcularDistribuicao(autoResp.candidatos, autoResp.motivo)
+        : null;
+      if (!servidor) { setErros(["Responsavel"]); return; }
+      dadosResolvidos.Responsavel = servidor;
     }
 
     // Validação dos campos obrigatórios do cabeçalho (lote, no caso da DPJ)
