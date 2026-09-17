@@ -10,6 +10,10 @@
 //     ATUALIZA uma linha já existente (achada via /api/importacao-sei/tep-match)
 //     em vez de criar uma nova — usado quando o item de staging é um retorno da
 //     PCDF entregando TEP/CEB/TIV de um veículo já cadastrado em PCDF 1ª/2ª.
+//   body { acao:"marcar_concluido_sei", concluido: true|false } -> marca se o
+//     PA correspondente já foi CONCLUÍDO no próprio SEI (ação manual do
+//     gestor lá, fora do SIGNU) — só um registro de acompanhamento, não mexe
+//     no SEI. Usado pela aba "Concluir no SEI" da tela de importação.
 //
 // Protegida por sessão de gestor (mesmo padrão de /api/importacao-sei GET).
 
@@ -81,7 +85,15 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ item: staged, atualizado });
     }
 
-    return NextResponse.json({ erro: 'Ação inválida. Use "promover", "descartar" ou "registrar_tep".' }, { status: 400 });
+    if (body.acao === 'marcar_concluido_sei') {
+      const item = await updateRow(sheetStaging, Number(rowNumber), {
+        CONCLUIDO_SEI: body.concluido ? 'TRUE' : 'FALSE',
+        CONCLUIDO_SEI_EM: body.concluido ? new Date().toISOString() : '',
+      });
+      return NextResponse.json({ item });
+    }
+
+    return NextResponse.json({ erro: 'Ação inválida. Use "promover", "descartar", "registrar_tep" ou "marcar_concluido_sei".' }, { status: 400 });
   } catch (error) {
     return NextResponse.json({ erro: error.message }, { status: 400 });
   }

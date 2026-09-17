@@ -432,8 +432,95 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
   );
 }
 
+// Aba "Concluir no SEI" — registro dos processos já promovidos no SIGNU, pra
+// o gestor saber quais PAs ainda precisam ser concluídos manualmente no
+// próprio SEI (não mexe no SEI, só acompanha).
+function ConcluirSeiTab({ showToast }) {
+  const [itens, setItens] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [mostrarConcluidos, setMostrarConcluidos] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/importacao-sei?status=PROMOVIDO");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.erro || "Erro ao carregar");
+      setItens(json.dados || []);
+    } catch (e) {
+      showToast(e.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const marcar = async (rowNumber, concluido) => {
+    setItens(prev => prev.map(i => i._rowNumber === rowNumber ? { ...i, CONCLUIDO_SEI: concluido ? "TRUE" : "FALSE" } : i));
+    try {
+      const res = await fetch(`/api/importacao-sei/${rowNumber}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "marcar_concluido_sei", concluido }),
+      });
+      if (!res.ok) throw new Error((await res.json()).erro || "Erro ao salvar");
+    } catch (e) {
+      showToast(e.message, "error");
+      carregar();
+    }
+  };
+
+  const visiveis = itens
+    .filter(i => mostrarConcluidos || i.CONCLUIDO_SEI !== "TRUE")
+    .sort((a, b) => new Date(b.PROMOVIDO_EM || 0) - new Date(a.PROMOVIDO_EM || 0));
+  const pendentes = itens.filter(i => i.CONCLUIDO_SEI !== "TRUE").length;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontSize: 12, color: "#6b7280" }}>
+          {pendentes} processo(s) já importado(s) no SIGNU aguardando conclusão manual no SEI.
+        </div>
+        <label style={{ fontSize: 12, color: "#4b5563", display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+          <input type="checkbox" checked={mostrarConcluidos} onChange={e => setMostrarConcluidos(e.target.checked)} />
+          mostrar já concluídos
+        </label>
+      </div>
+
+      {loading && <div style={{ fontSize: 13, color: "#6b7280" }}>Carregando…</div>}
+      {!loading && visiveis.length === 0 && (
+        <div style={{ fontSize: 13, color: "#9ca3af", fontStyle: "italic", textAlign: "center", padding: "40px 0" }}>
+          Nenhum processo pendente de conclusão no SEI.
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {visiveis.map(item => {
+          const meta = LISTA_META[item.LISTA_DESTINO] || { label: item.LISTA_DESTINO, color: "#6b7280" };
+          const concluido = item.CONCLUIDO_SEI === "TRUE";
+          return (
+            <div key={item._rowNumber} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: "1px solid #d1d5db", borderRadius: 10, padding: "10px 14px", flexWrap: "wrap", opacity: concluido ? 0.55 : 1 }}>
+              <input type="checkbox" checked={concluido} onChange={e => marcar(item._rowNumber, e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer" }} />
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, color: meta.color, background: `${meta.color}18`, border: `1px solid ${meta.color}44` }}>{meta.label}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", fontFamily: "'IBM Plex Mono',monospace" }}>{item.PROCESSO_SEI || "—"}</span>
+              <span style={{ fontSize: 11, color: "#6b7280" }}>promovido em {item.PROMOVIDO_EM ? new Date(item.PROMOVIDO_EM).toLocaleDateString("pt-BR") : "—"}</span>
+              {item.URL_SEI && <a href={item.URL_SEI} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#2563eb", marginLeft: "auto" }}>abrir no SEI ↗</a>}
+              {concluido && (
+                <span style={{ fontSize: 11, color: "#22c55e" }}>
+                  ✓ concluído{item.CONCLUIDO_SEI_EM ? ` em ${new Date(item.CONCLUIDO_SEI_EM).toLocaleDateString("pt-BR")}` : ""}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function ImportacaoSeiPage() {
   const router = useRouter();
+  const [aba, setAba] = useState("revisar"); // "revisar" | "concluir_sei"
   const [itens, setItens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
@@ -469,29 +556,54 @@ export default function ImportacaoSeiPage() {
       <main style={{ marginLeft: 220, padding: "28px 32px", maxWidth: 1100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
           <button onClick={() => router.push("/gestao")} style={{ width: 32, height: 32, borderRadius: 8, background: "#f3f4f6", border: "1.5px solid #b0b8c4", color: "#374151", cursor: "pointer" }}>←</button>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: 0 }}>📥 Importação SEI — a revisar</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: 0 }}>📥 Importação SEI</h1>
         </div>
-        <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 20px 34px" }}>
-          Itens extraídos automaticamente de processos do SEI. Confira os campos, escolha o responsável e promova para a lista real — ou descarte se não for o caso.
-        </p>
 
-        {loading && <div style={{ fontSize: 13, color: "#6b7280" }}>Carregando…</div>}
-        {erro && (
-          <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 10, padding: "12px 16px", fontSize: 12, color: "#f87171", marginBottom: 16 }}>
-            ⚠️ {erro}
-          </div>
-        )}
-        {!loading && !erro && itens.length === 0 && (
-          <div style={{ fontSize: 13, color: "#9ca3af", fontStyle: "italic", textAlign: "center", padding: "40px 0" }}>
-            Nenhum item pendente de revisão.
-          </div>
-        )}
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {itens.map(item => (
-            <CardImportacao key={item._rowNumber} item={item} onPromovido={remover} onDescartado={remover} showToast={showToast} />
-          ))}
+        <div style={{ display: "flex", gap: 8, margin: "0 0 16px 34px" }}>
+          <button onClick={() => setAba("revisar")}
+            style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${aba === "revisar" ? "#2563eb" : "#d1d5db"}`, background: aba === "revisar" ? "rgba(37,99,235,0.1)" : "transparent", color: aba === "revisar" ? "#2563eb" : "#4b5563", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            A revisar
+          </button>
+          <button onClick={() => setAba("concluir_sei")}
+            style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${aba === "concluir_sei" ? "#2563eb" : "#d1d5db"}`, background: aba === "concluir_sei" ? "rgba(37,99,235,0.1)" : "transparent", color: aba === "concluir_sei" ? "#2563eb" : "#4b5563", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            Concluir no SEI
+          </button>
         </div>
+
+        {aba === "revisar" && (
+          <>
+            <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 20px 34px" }}>
+              Itens extraídos automaticamente de processos do SEI. Confira os campos, escolha o responsável e promova para a lista real — ou descarte se não for o caso.
+            </p>
+
+            {loading && <div style={{ fontSize: 13, color: "#6b7280" }}>Carregando…</div>}
+            {erro && (
+              <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 10, padding: "12px 16px", fontSize: 12, color: "#f87171", marginBottom: 16 }}>
+                ⚠️ {erro}
+              </div>
+            )}
+            {!loading && !erro && itens.length === 0 && (
+              <div style={{ fontSize: 13, color: "#9ca3af", fontStyle: "italic", textAlign: "center", padding: "40px 0" }}>
+                Nenhum item pendente de revisão.
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {itens.map(item => (
+                <CardImportacao key={item._rowNumber} item={item} onPromovido={remover} onDescartado={remover} showToast={showToast} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {aba === "concluir_sei" && (
+          <>
+            <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 20px 34px" }}>
+              Processos já importados no SIGNU. Marque aqui quando concluir o PA correspondente no SEI — é só um registro de acompanhamento, não mexe no SEI.
+            </p>
+            <ConcluirSeiTab showToast={showToast} />
+          </>
+        )}
       </main>
 
       {toast.msg && (
