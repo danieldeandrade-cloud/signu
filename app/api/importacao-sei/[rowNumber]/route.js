@@ -21,6 +21,8 @@ import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { getAllRows, addRow, updateRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
+import { getNomePorEmail } from '@/lib/servidores';
+import { registrarHistorico } from '@/lib/historico';
 
 const GESTORES = [
   'danieldeandrade.pessoal@gmail.com',
@@ -34,6 +36,7 @@ export async function PATCH(request, { params }) {
     if (!token || !GESTORES.includes(email)) {
       return NextResponse.json({ erro: 'Acesso restrito a gestores.' }, { status: 403 });
     }
+    const autor = getNomePorEmail(token.email) || 'Desconhecido';
 
     const { rowNumber } = await params;
     const body = await request.json();
@@ -56,12 +59,18 @@ export async function PATCH(request, { params }) {
       }
       const sheetDestino = resolveSheetName(staging.LISTA_DESTINO);
       const campos = body.campos || {};
-      const novoItem = await addRow(sheetDestino, campos);
+      const novoItem = await addRow(sheetDestino, { ...campos, MODIFICADO_POR: autor });
 
       const staged = await updateRow(sheetStaging, Number(rowNumber), {
         STATUS_REVISAO: 'PROMOVIDO',
         PROMOVIDO_EM: new Date().toISOString(),
         LISTA_ROW_PROMOVIDA: String(novoItem._rowNumber),
+      });
+      await registrarHistorico({
+        lista: staging.LISTA_DESTINO, rowNumber: novoItem._rowNumber, autor,
+        itemId: novoItem.ID_PASEI || novoItem.PA || '',
+        acao: 'PROMOVIDO',
+        camposAlterados: { origem: { de: 'importacao_sei', para: staging.LISTA_DESTINO } },
       });
       return NextResponse.json({ item: staged, promovido: novoItem });
     }
@@ -75,12 +84,18 @@ export async function PATCH(request, { params }) {
         return NextResponse.json({ erro: 'Campos obrigatórios: lista, targetRowNumber, campos.' }, { status: 400 });
       }
       const sheetAlvo = resolveSheetName(lista);
-      const atualizado = await updateRow(sheetAlvo, Number(targetRowNumber), campos);
+      const atualizado = await updateRow(sheetAlvo, Number(targetRowNumber), { ...campos, MODIFICADO_POR: autor });
 
       const staged = await updateRow(sheetStaging, Number(rowNumber), {
         STATUS_REVISAO: 'PROMOVIDO',
         PROMOVIDO_EM: new Date().toISOString(),
         LISTA_ROW_PROMOVIDA: `${lista}:${targetRowNumber}`,
+      });
+      await registrarHistorico({
+        lista, rowNumber: targetRowNumber, autor,
+        itemId: atualizado.ID_PASEI || '',
+        acao: 'TEP_REGISTRADO',
+        camposAlterados: campos,
       });
       return NextResponse.json({ item: staged, atualizado });
     }
@@ -90,6 +105,14 @@ export async function PATCH(request, { params }) {
         CONCLUIDO_SEI: body.concluido ? 'TRUE' : 'FALSE',
         CONCLUIDO_SEI_EM: body.concluido ? new Date().toISOString() : '',
       });
+      if (body.concluido) {
+        await registrarHistorico({
+          lista: staging.LISTA_DESTINO, rowNumber, autor,
+          itemId: staging.PROCESSO_SEI || '',
+          acao: 'CONCLUIDO_SEI',
+          camposAlterados: {},
+        });
+      }
       return NextResponse.json({ item });
     }
 

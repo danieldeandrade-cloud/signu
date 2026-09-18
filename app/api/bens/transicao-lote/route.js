@@ -11,12 +11,17 @@
 // Se algum item falha ao ser criado, ele NÃO é apagado da origem (sem perda de dado).
 
 import { NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 import { getAllRows, addRow, deleteRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
+import { getNomePorEmail } from '@/lib/servidores';
+import { registrarHistorico } from '@/lib/historico';
 
 export async function POST(request) {
   try {
     const { origem, rowNumbers, destino, observacao } = await request.json();
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    const autor = getNomePorEmail(token?.email) || 'Desconhecido';
 
     if (!origem || destino !== 'pcdf2' || !Array.isArray(rowNumbers) || rowNumbers.length === 0) {
       return NextResponse.json(
@@ -45,15 +50,22 @@ export async function POST(request) {
     for (const item of alvo) {
       try {
         const { _rowNumber, ...dadosBem } = item;
-        await addRow(sheetDestino, {
+        const novoItem = await addRow(sheetDestino, {
           ...dadosBem,
           ORIGEM_CEGOC_ID: item.ID_LEGADO || String(item._rowNumber),
           STATUS_DILIGENCIA: item.STATUS_DILIGENCIA || 'EM DILIGÊNCIA',
           DEPOSITO: item.DEPOSITO || 'SELAB/PCDF',
           DESTINACAO: 'RECICLAGEM',
+          MODIFICADO_POR: autor,
           OBSERVACOES: `${item.OBSERVACOES || ''}\n[${timestamp}] ${justificativa}`.trim(),
         });
         migrados.push(item);
+        await registrarHistorico({
+          lista: 'pcdf2', rowNumber: novoItem._rowNumber, autor,
+          itemId: novoItem.ID_PASEI || '',
+          acao: 'TRANSICAO',
+          camposAlterados: { origem: { de: origem, para: 'pcdf2' } },
+        });
       } catch (e) {
         falhas.push({ rowNumber: item._rowNumber, id: item.ID_LEGADO || null, erro: e.message });
       }

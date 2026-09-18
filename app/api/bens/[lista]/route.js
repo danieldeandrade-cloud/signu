@@ -5,8 +5,11 @@
 // POST /api/bens/[lista]                  -> cria novo item (usado no Cadastro)
 
 import { NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 import { getAllRows, addRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
+import { getNomePorEmail } from '@/lib/servidores';
+import { registrarHistorico } from '@/lib/historico';
 
 export async function GET(request, { params }) {
   try {
@@ -42,7 +45,17 @@ export async function POST(request, { params }) {
     const sheetName = resolveSheetName(lista);
     const body = await request.json();
 
-    const novoItem = await addRow(sheetName, body);
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    const autor = getNomePorEmail(token?.email) || 'Desconhecido';
+
+    const novoItem = await addRow(sheetName, { ...body, MODIFICADO_POR: autor });
+
+    await registrarHistorico({
+      lista, rowNumber: novoItem._rowNumber, autor,
+      itemId: novoItem.ID_PASEI || novoItem.PA || novoItem.PJE || '',
+      acao: 'CRIADO',
+      camposAlterados: {},
+    });
 
     return NextResponse.json({ lista: sheetName, item: novoItem }, { status: 201 });
   } catch (error) {

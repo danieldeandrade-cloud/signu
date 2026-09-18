@@ -10,13 +10,18 @@
 //             o item permanece na mesma lista.
 
 import { NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 import { getAllRows, addRow, updateRow, deleteRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
+import { getNomePorEmail } from '@/lib/servidores';
+import { registrarHistorico } from '@/lib/historico';
 
 export async function POST(request) {
   try {
     const body = await request.json();
     const { origem, rowNumber, destino, observacao } = body;
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    const autor = getNomePorEmail(token?.email) || 'Desconhecido';
 
     if (!origem || !rowNumber || !destino) {
       return NextResponse.json(
@@ -39,7 +44,15 @@ export async function POST(request) {
     if (destino === 'catalogo') {
       const itemAtualizado = await updateRow(sheetOrigem, Number(rowNumber), {
         DESTINACAO: 'CATÁLOGO',
+        MODIFICADO_POR: autor,
         OBSERVACOES: `${item.OBSERVACOES || ''}\n[${timestamp}] Transição LPC -> CATÁLOGO. ${observacao || ''}`.trim(),
+      });
+
+      await registrarHistorico({
+        lista: origem, rowNumber, autor,
+        itemId: item.ID_PASEI || '',
+        acao: 'TRANSICAO',
+        camposAlterados: { DESTINACAO: { de: item.DESTINACAO || '', para: 'CATÁLOGO' } },
       });
 
       return NextResponse.json({ tipo: 'atualizacao_simples', item: itemAtualizado });
@@ -58,11 +71,19 @@ export async function POST(request) {
         STATUS_DILIGENCIA: item.STATUS_DILIGENCIA || 'EM DILIGÊNCIA',
         DEPOSITO: item.DEPOSITO || 'SELAB/PCDF',
         DESTINACAO: 'RECICLAGEM',
+        MODIFICADO_POR: autor,
         OBSERVACOES: `${item.OBSERVACOES || ''}\n[${timestamp}] ${observacao || ''}`.trim(),
       });
 
       // Só apaga da origem depois de confirmar a criação no destino
       await deleteRow(sheetOrigem, Number(rowNumber));
+
+      await registrarHistorico({
+        lista: 'pcdf2', rowNumber: novoItem._rowNumber, autor,
+        itemId: novoItem.ID_PASEI || '',
+        acao: 'TRANSICAO',
+        camposAlterados: { origem: { de: origem, para: 'pcdf2' } },
+      });
 
       return NextResponse.json({ tipo: 'transicao_lista', item: novoItem });
     }
