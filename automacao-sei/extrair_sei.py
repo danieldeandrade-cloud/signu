@@ -626,10 +626,30 @@ def extrair_processo(page, cfg_sei, debug=False):
         pdf_ids_usados = set()  # id_anexo já baixado — troca de doc é mais lenta que
                                  # o clique+espera fixa; sem isso, o PDF anterior ainda
                                  # está no DOM e a gente manda o mesmo arquivo 2x pro Gemini
+        url_processo = page.url
         if cfg_sei.get("percorrer_arvore"):
             for i in ordem:
                 try:
-                    nodes.nth(i).click(timeout=4000)
+                    try:
+                        nodes.nth(i).click(timeout=8000)
+                    except Exception:
+                        # o clique às vezes deixa a árvore inteira "not visible" (bug
+                        # visto em produção 2026-09-18: 1 clique funciona, os seguintes
+                        # todos falham na mesma página) — recarrega o processo do zero
+                        # e tenta esse nó de novo numa árvore fresca.
+                        if debug:
+                            print(f"    nó '{titulos[i]}': clique falhou, recarregando processo e tentando de novo…")
+                        page.goto(url_processo, wait_until="domcontentloaded", timeout=20000)
+                        page.wait_for_timeout(1200)
+                        fr_arvore_novo = None
+                        for _t in range(10):
+                            fr_arvore_novo = achar_frame(page, nome_arvore)
+                            if fr_arvore_novo and len(texto_frame(fr_arvore_novo, 500)) > 40:
+                                break
+                            page.wait_for_timeout(800)
+                        if fr_arvore_novo:
+                            nodes = fr_arvore_novo.locator("a[href*='id_documento']")
+                        nodes.nth(i).click(timeout=8000)
                     page.wait_for_timeout(1400)
                     txt = _ler_conteudo()
                     if len(txt) > 120:
