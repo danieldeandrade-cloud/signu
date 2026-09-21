@@ -749,6 +749,9 @@ function DetalhesContent() {
       .then(json => {
         if (json.erro) throw new Error(json.erro);
         setBem(json.item);
+        // Marca como visto (limpa o selo "Novo" na Minha Fila) — só some de
+        // verdade se o usuário logado for o responsável do item.
+        fetch(`/api/bens/${lista}/${row}/visto`, { method: "POST" }).catch(() => {});
       })
       .catch(e => setErroLoad(e.message))
       .finally(() => setLoading(false));

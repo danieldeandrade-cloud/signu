@@ -1,0 +1,11 @@
+# Arquivos locais/de dados que não fazem parte do app — nunca precisam ir
+# pro deploy. Isso é só pro `vercel deploy` direto (fallback quando o
+# webhook do GitHub->Vercel não dispara); o deploy normal via git já não
+# inclui nada disso (não está commitado).
+TJDFT.xlsx
+*.xlsm
+SIGNU_CSVs/
+automacao-sei/.venv/
+automacao-sei/saida/
+node_modules/
+.next/

@@ -480,6 +480,24 @@ export default function SIGNUMinhaFila() {
     setDrawerEditMode(false);
     setDrawerEditData(null);
     setDrawerToast(null);
+
+    // Marca como visto (limpa o selo "Novo") — só some de verdade se o
+    // usuário logado for o responsável do item (checado no servidor).
+    if (item.VISTO_EM) return;
+    const rota = ROTA_MAP[item.listaOrigem];
+    if (!rota) return;
+    fetch(`/api/bens/${rota}/${item._rowNumber}/visto`, { method: "POST" })
+      .then(r => r.json())
+      .then(json => {
+        if (json.ok) {
+          setFila(prev => prev.map(i =>
+            i._rowNumber === item._rowNumber && i.listaOrigem === item.listaOrigem
+              ? { ...i, VISTO_EM: new Date().toISOString() }
+              : i
+          ));
+        }
+      })
+      .catch(() => {});
   };
 
   const iniciarEdicao = () => {
@@ -615,7 +633,16 @@ export default function SIGNUMinhaFila() {
     return true;
   });
 
+  // "Novo" = ainda não visto pelo responsável atual desde a última atribuição
+  // ou mudança feita por outra pessoa (VISTO_EM limpo em lib/googleSheets.js
+  // sempre que isso acontece). Itens novos sempre sobem pro topo, na frente
+  // de qualquer outra ordenação escolhida — é o problema que estamos
+  // resolvendo (servidor não percebe o que chegou novo na fila dele).
   const sorted = [...filtered].sort((a, b) => {
+    const novoA = a.VISTO_EM ? 0 : 1;
+    const novoB = b.VISTO_EM ? 0 : 1;
+    if (novoA !== novoB) return novoB - novoA;
+
     const mul = sortDir === "asc" ? 1 : -1;
     if (sortCol === "ULTIMA_ANALISE") {
       const da = a.ULTIMA_ANALISE ? new Date(a.ULTIMA_ANALISE).getTime() : 0;
@@ -627,6 +654,8 @@ export default function SIGNUMinhaFila() {
     if (sortCol === "listaOrigem")      return (a.listaOrigem||"").localeCompare(b.listaOrigem||"") * mul;
     return 0;
   });
+
+  const novosCount = filtered.filter(i => !i.VISTO_EM).length;
 
   const atrasadosCount = fila.filter(i => i.STATUS_DILIGENCIA === "ATRASADO").length;
 
@@ -687,6 +716,18 @@ export default function SIGNUMinhaFila() {
                 <span style={{ fontSize:12, fontWeight:600, color:"#2563eb" }}>{usuarioAtual || session.user.name}</span>
               </div>
             ) : null}
+            {/* Itens novos (ainda não vistos pelo responsável) */}
+            {novosCount > 0 && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: "rgba(34,197,94,0.12)",
+                border: "1px solid rgba(34,197,94,0.35)",
+                borderRadius: 20, padding: "5px 12px",
+                fontSize: 12, color: "#16a34a", fontWeight: 600,
+              }}>
+                🆕 {novosCount} novo{novosCount > 1 ? "s" : ""}
+              </div>
+            )}
             {/* Alerta de itens atrasados */}
             {atrasadosCount > 0 && (
               <div style={{
@@ -933,12 +974,19 @@ export default function SIGNUMinhaFila() {
                         ? { t:`🔒 ${rInfo.pendentes}p`, c:"#f59e0b" }
                         : { t:"🔒 ✓", c:"#22c55e" });
                     }
+                    const ehNovo = !item.VISTO_EM;
+                    const bgBase = ehNovo ? "rgba(34,197,94,0.06)" : (idx%2===0?"transparent":"#fafafa");
                     return (
                       <tr key={item.id} onClick={() => abrirDrawer(item)}
-                        style={{ borderBottom:"1px solid #f3f4f6", cursor:"pointer", background: idx%2===0?"transparent":"#fafafa", transition:"background 0.1s" }}
+                        style={{ borderBottom:"1px solid #f3f4f6", cursor:"pointer", background: bgBase, transition:"background 0.1s" }}
                         onMouseEnter={e=>e.currentTarget.style.background="rgba(37,99,235,0.05)"}
-                        onMouseLeave={e=>e.currentTarget.style.background=idx%2===0?"transparent":"#fafafa"}>
-                        <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#2563eb", fontWeight:700, whiteSpace:"nowrap" }}>{item.id}</td>
+                        onMouseLeave={e=>e.currentTarget.style.background=bgBase}>
+                        <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#2563eb", fontWeight:700, whiteSpace:"nowrap" }}>
+                          {ehNovo && (
+                            <span title="Novo — ainda não visto" style={{ display:"inline-block", marginRight:6, padding:"1px 6px", borderRadius:10, fontSize:9, fontWeight:700, background:"#22c55e", color:"#fff", verticalAlign:"middle" }}>NOVO</span>
+                          )}
+                          {item.id}
+                        </td>
                         <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#1f2937" }}>{item.ID_PASEI||"—"}</td>
                         <td style={{ padding:"9px 12px", fontSize:12 }}>{(TIPO_ICON[item.TIPO_BEM]||"")+" "+(item.TIPO_BEM||"—")}</td>
                         <td style={{ padding:"9px 12px" }}>
