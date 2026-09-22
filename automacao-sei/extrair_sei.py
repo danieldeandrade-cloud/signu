@@ -998,16 +998,25 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador="", num
                             f"precisa ser feita, então o status fica EM DILIGÊNCIA mesmo assim.")
         campos["STATUS_DILIGENCIA"] = "EM DILIGÊNCIA"
 
-    # CEGOC: o servidor escreve CIRCULAÇÃO/RECICLAGEM no texto do marcador — isso
-    # decide DESTINACAO e STATUS_DILIGENCIA, não é palpite da IA.
+    # CEGOC: o servidor escreve CIRCULAÇÃO/RECICLAGEM/RENAJUD no texto do
+    # marcador — isso decide DESTINACAO e STATUS_DILIGENCIA, não é palpite da
+    # IA. RENAJUD é destinação CIRCULAÇÃO (o veículo volta a circular quando a
+    # restrição judicial for resolvida) mas status próprio "RENAJUD" — vale
+    # checar RENAJUD antes de CIRCUL porque o texto real costuma ser só
+    # "RENAJUD", sem a palavra "circulação" junto (achado ao vivo 2026-09-21:
+    # caiu no palpite da IA, que acertou a destinação mas chutou STATUS_DILIGENCIA
+    # "AGUARDANDO" — errado, e também fazia a distribuição automática usar o
+    # pool geral da CEGOC em vez do pool específico de RENAJUD, Amanda+Letícia).
     if lista == "cegoc":
         tm = _norm(texto_marcador)
-        if "CIRCUL" in tm:
+        if "RENAJUD" in tm:
+            campos["DESTINACAO"], campos["STATUS_DILIGENCIA"] = "CIRCULAÇÃO", "RENAJUD"
+        elif "CIRCUL" in tm:
             campos["DESTINACAO"], campos["STATUS_DILIGENCIA"] = "CIRCULAÇÃO", "LPC"
         elif "RECICL" in tm:
             campos["DESTINACAO"], campos["STATUS_DILIGENCIA"] = "RECICLAGEM", "EM DILIGÊNCIA"
         else:
-            alertas.append(f"marcador sem CIRCULAÇÃO/RECICLAGEM no texto ({texto_marcador!r}) "
+            alertas.append(f"marcador sem CIRCULAÇÃO/RECICLAGEM/RENAJUD no texto ({texto_marcador!r}) "
                             f"— destinação/status ficaram com o palpite da IA, confira.")
 
     # Caixa SEI: o texto do marcador traz o nome do responsável a quem vincular
