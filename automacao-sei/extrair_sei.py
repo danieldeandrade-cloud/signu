@@ -985,6 +985,13 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador="", num
         if not infoseg or marcador_diz_nao_aflorado:
             campos["NIV_NAO_AFLORADO"] = "TRUE"
             campos["NIV"] = "N/A"
+            # RENAVAM é dado de registro oficial (igual NIV) — só é confiável
+            # vindo do INFOSEG. Sem INFOSEG, qualquer RENAVAM que a IA tenha
+            # achado em outro documento (auto de apreensão etc.) não tem como
+            # ser confirmado como sendo do mesmo veículo — nunca preencher.
+            # PLACA_OSTENTADA continua sendo o único identificador aceito
+            # nesse caso (já tratado à parte, via schema).
+            campos["RENAVAM"] = ""
 
     # PCDF 1ª/2ª: cadastro NOVO sempre nasce "EM DILIGÊNCIA" — a FIB ainda não foi
     # feita, então "BAIXADO" no INFOSEG/marcador (veículo já baixado no DETRAN) não
