@@ -222,6 +222,7 @@ export default function GestaoPage() {
   const [filtroSemAvaliacao, setFiltroSemAvaliacao] = useState(false);
   const [filtroSemOficioBaixa, setFiltroSemOficioBaixa] = useState(false);
   const [filtroSemOficioDetranSefaz, setFiltroSemOficioDetranSefaz] = useState(false);
+  const [filtroSemMandado, setFiltroSemMandado] = useState(false);
   const [filtroDestinacao,  setFiltroDestinacao]  = useState(new Set());
   const [filtroLPC,         setFiltroLPC]         = useState(new Set());
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -321,7 +322,7 @@ export default function GestaoPage() {
 
   const totalFiltrosAtivos =
     filtroStatus.size + filtroTipo.size + filtroResp.size + filtroFlags.size +
-    (filtroSemFib ? 1 : 0) + (filtroSemAvaliacao ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (filtroSemOficioDetranSefaz ? 1 : 0) + filtroDestinacao.size + filtroLPC.size + (busca.trim() ? 1 : 0);
+    (filtroSemFib ? 1 : 0) + (filtroSemAvaliacao ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (filtroSemOficioDetranSefaz ? 1 : 0) + (filtroSemMandado ? 1 : 0) + filtroDestinacao.size + filtroLPC.size + (busca.trim() ? 1 : 0);
   const [ordenacao, setOrdenacao]   = useState({ campo:"_rowNumber", dir:"asc" });
   const [pag, setPag]               = useState(1);
   const POR_PAGINA = 15;
@@ -358,6 +359,7 @@ export default function GestaoPage() {
     setFiltroSemAvaliacao(false);
     setFiltroSemOficioBaixa(false);
     setFiltroSemOficioDetranSefaz(false);
+    setFiltroSemMandado(false);
     setFiltroDestinacao(new Set());
     setFiltroLPC(new Set());
     setPag(1);
@@ -441,6 +443,9 @@ export default function GestaoPage() {
     if (filtroSemOficioDetranSefaz) {
       res = res.filter(i => !hasFlag(i, "OFICIO_DETRAN_SEFAZ"));
     }
+    if (filtroSemMandado) {
+      res = res.filter(i => i.DESTINACAO === "CIRCULAÇÃO" && i.STATUS_DILIGENCIA === "CATÁLOGO" && !hasFlag(i, "AVALIACAO_FEITA"));
+    }
     if (filtroDestinacao.size > 0) {
       res = res.filter(i => filtroDestinacao.has(i.DESTINACAO));
     }
@@ -462,7 +467,7 @@ export default function GestaoPage() {
       return ordenacao.dir === "asc" ? r : -r;
     });
     return res;
-  }, [dados, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroSemAvaliacao, filtroSemOficioBaixa, filtroSemOficioDetranSefaz, filtroDestinacao, filtroLPC, ordenacao, abaAtiva]);
+  }, [dados, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroSemAvaliacao, filtroSemOficioBaixa, filtroSemOficioDetranSefaz, filtroSemMandado, filtroDestinacao, filtroLPC, ordenacao, abaAtiva]);
 
   // Valores de LPC (leilão) presentes nos itens de catálogo — alimenta o filtro
   const lpcOptions = useMemo(
@@ -490,7 +495,7 @@ export default function GestaoPage() {
 
   const limparFiltros = () => {
     setBusca(""); setFiltroStatus(new Set()); setFiltroTipo(new Set());
-    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setFiltroSemAvaliacao(false); setFiltroSemOficioBaixa(false); setFiltroSemOficioDetranSefaz(false); setFiltroDestinacao(new Set()); setFiltroLPC(new Set()); setPag(1);
+    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setFiltroSemAvaliacao(false); setFiltroSemOficioBaixa(false); setFiltroSemOficioDetranSefaz(false); setFiltroSemMandado(false); setFiltroDestinacao(new Set()); setFiltroLPC(new Set()); setPag(1);
   };
 
   // Flags disponíveis na lista ativa (só exibe pill se houver ao menos 1 item com a flag)
@@ -807,6 +812,12 @@ export default function GestaoPage() {
                           {filtroSemOficioDetranSefaz&&"✓ "}⚠️ Sem Of. Detran e Sefaz <span style={{ fontSize:10, opacity:.6 }}>({dados.filter(i=>i.STATUS_DILIGENCIA==="CATÁLOGO"&&!hasFlag(i,"OFICIO_DETRAN_SEFAZ")).length})</span>
                         </button>
                       )}
+                      {abaAtiva==="CEGOC" && filtroStatus.has("CATÁLOGO") && (
+                        <button onClick={()=>{setFiltroSemMandado(v=>!v);setPag(1);}}
+                          style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemMandado?700:400, cursor:"pointer", transition:"all 0.15s", border:`1px solid ${filtroSemMandado?"#fb7185":"#d1d5db"}`, background:filtroSemMandado?"rgba(251,113,133,0.15)":"transparent", color:filtroSemMandado?"#fb7185":"#374151" }}>
+                          {filtroSemMandado&&"✓ "}⚠️ Sem mandado <span style={{ fontSize:10, opacity:.6 }}>({dados.filter(i=>i.DESTINACAO==="CIRCULAÇÃO"&&i.STATUS_DILIGENCIA==="CATÁLOGO"&&!hasFlag(i,"AVALIACAO_FEITA")).length})</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -876,6 +887,9 @@ export default function GestaoPage() {
                 )}
                 {filtroSemOficioDetranSefaz && (
                   <span onClick={()=>{setFiltroSemOficioDetranSefaz(false);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(34,211,238,0.12)", border:"1px solid rgba(34,211,238,0.3)", borderRadius:20, fontSize:11, color:"#22d3ee", cursor:"pointer" }}>Sem Of. Detran e Sefaz ✕</span>
+                )}
+                {filtroSemMandado && (
+                  <span onClick={()=>{setFiltroSemMandado(false);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(251,113,133,0.12)", border:"1px solid rgba(251,113,133,0.3)", borderRadius:20, fontSize:11, color:"#fb7185", cursor:"pointer" }}>Sem mandado ✕</span>
                 )}
                 {[...filtroDestinacao].map(d => {
                   const cor = d === "RECICLAGEM" ? "#22c55e" : "#60a5fa";
