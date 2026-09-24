@@ -45,6 +45,9 @@ const lblSt = { fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpac
 const inputStDPJ = { width:"100%",boxSizing:"border-box",padding:"7px 9px",background:"#f9fafb",border:"1px solid #d1d5db",borderRadius:7,fontSize:12,color:"#0f172a",outline:"none" };
 
 const STATUS_OPTIONS  = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO","EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD"];
+// PCDF 1ª/2ª: RETIRADO = bem saiu do controle ativo do NULEJ (restituído, etc)
+// — só essas duas listas, não faz sentido em CEGOC. Ver handleStatusDiligencia.
+const STATUS_OPTIONS_PCDF = [...STATUS_OPTIONS, "RETIRADO"];
 const STATUS_2HIGEIA  = ["EM PROCESSAMENTO","TEP REGISTRADO","ENVIAR OFÍCIO DETRAN","AGUARDAR RESPOSTA DETRAN","GERAR TAP","FINALIZADO"];
 // Status Local PA das doações — igual ao usado no cadastro (lib compartilhada seria melhor, mas o padrão do projeto é const por arquivo)
 const STATUS_LOCAL_PA_OPTIONS = ["EM ANÁLISE","AGUARDANDO ENTIDADE","AGUARDANDO APTIDÃO","EM DILIGÊNCIA","SEMA","SGC","GC","ENTIDADE","CONCLUÍDO","CANCELADO"];
@@ -383,6 +386,48 @@ function TransicaoModal({ tipo, bem, onClose, onConfirm, salvando }) {
   );
 }
 
+// Motivo da retirada (PCDF 1ª/2ª): status RETIRADO exige um motivo antes de
+// aplicar — o bem sai do controle ativo do NULEJ (ex.: restituído ao
+// proprietário). Só mexe em editData local; quem salva de verdade é o botão
+// "Salvar" de sempre da tela.
+function MotivoRetiradaModal({ bem, onClose, onConfirm }) {
+  const [motivo, setMotivo] = useState("");
+  return (
+    <div style={{ position:"fixed",inset:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"center" }}>
+      <div onClick={onClose} style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(6px)" }}/>
+      <div style={{ position:"relative",width:460,background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:16,padding:28,zIndex:1 }}>
+        <div style={{ fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8 }}>Confirmar Retirada</div>
+        <h2 style={{ fontSize:18,fontWeight:700,color:"#0f172a",margin:"0 0 4px" }}>🚪 Retirar do controle do NULEJ</h2>
+        <p style={{ fontSize:13,color:"#374151",margin:"0 0 20px",lineHeight:1.5 }}>
+          O bem sai do acompanhamento ativo (a etapa HIGEIA é finalizada). Informe o motivo — ex.: «restituído ao proprietário».
+        </p>
+        <div style={{ background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:10,padding:"12px 14px",marginBottom:20,display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 16px" }}>
+          {[["ID_PASEI",bem?.ID_PASEI],["Tipo",bem?.TIPO_BEM],["NIV",bem?.NIV],["Placa",bem?.PLACA]].map(([l,v])=>(
+            <div key={l}>
+              <div style={{ fontSize:10,color:"#6b7280",letterSpacing:"0.08em",marginBottom:2 }}>{l}</div>
+              <div style={{ fontSize:12,color:"#0f172a",fontFamily:"'IBM Plex Mono',monospace" }}>{v||"—"}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6 }}>Motivo da retirada *</div>
+          <textarea value={motivo} onChange={e=>setMotivo(e.target.value)} placeholder="Ex.: Restituído ao proprietário, processo SEI arquivado."
+            style={{ width:"100%",minHeight:80,padding:"10px 12px",background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:8,color:"#0f172a",fontSize:13,resize:"vertical",outline:"none",lineHeight:1.5,boxSizing:"border-box" }}/>
+        </div>
+        <div style={{ display:"flex",gap:10 }}>
+          <button onClick={onClose} style={{ flex:1,padding:"11px",borderRadius:8,border:"1.5px solid #c4c9d0",background:"transparent",color:"#374151",fontSize:13,cursor:"pointer" }}>Cancelar</button>
+          <button onClick={()=>motivo.trim()&&onConfirm(motivo.trim())} disabled={!motivo.trim()}
+            style={{ flex:2,padding:"11px",borderRadius:8,border:"none",cursor:motivo.trim()?"pointer":"not-allowed",
+              background:motivo.trim()?"linear-gradient(135deg,#4b5563,#6b7280)":"#e5e7eb",
+              color:motivo.trim()?"#fff":"#6b7280",fontSize:13,fontWeight:700 }}>
+            ✓ Confirmar Retirada
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── TOAST ────────────────────────────────────────────────────────────────────
 function Toast({ msg, type }) {
   if (!msg) return null;
@@ -660,6 +705,7 @@ function DetalhesContent() {
   const [editMode,    setEditMode]    = useState(false);
   const [editData,    setEditData]    = useState(null);
   const [modal,       setModal]       = useState(null); // "HIGEIA" | "CATALOGO"
+  const [modalRetirada, setModalRetirada] = useState(false); // PCDF 1ª/2ª: pede motivo antes de aplicar RETIRADO
   const [toast,       setToast]       = useState({ msg:"", type:"" });
   const [activeTab,   setActiveTab]   = useState("dados");
   const [loading,     setLoading]     = useState(true);
@@ -926,7 +972,14 @@ function DetalhesContent() {
   // Bem marcado como BAIXADO (já baixado ou NIV íntegro/N-A) não passa pelo
   // trâmite de ofício ao DETRAN — fecha a etapa HIGEIA direto e dispensa o
   // Ofício de Baixa.
+  // RETIRADO (PCDF 1ª/2ª): bem sai do controle ativo do NULEJ (restituído,
+  // etc) — exige motivo antes de aplicar, então só abre o modal aqui; quem
+  // efetivamente muda o STATUS_DILIGENCIA é confirmarRetirada(), no confirm.
   const handleStatusDiligencia = (v) => {
+    if (v === "RETIRADO" && (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA")) {
+      setModalRetirada(true);
+      return;
+    }
     setEditData(prev => {
       const next = { ...prev, STATUS_DILIGENCIA: v };
       if (v === "BAIXADO" && (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA")) {
@@ -936,6 +989,20 @@ function DetalhesContent() {
       }
       return next;
     });
+  };
+
+  const confirmarRetirada = (motivo) => {
+    setEditData(prev => {
+      const campoStatus = listaKey === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA";
+      return {
+        ...prev,
+        STATUS_DILIGENCIA: "RETIRADO",
+        MOTIVO_RETIRADA: motivo,
+        [campoStatus]: "FINALIZADO",
+        OFICIO_BAIXA: "FALSE",
+      };
+    });
+    setModalRetirada(false);
   };
 
   // Veículo não aflorado (NIV nunca localizado): marca o bem como BAIXADO e
@@ -1237,7 +1304,8 @@ function DetalhesContent() {
                           : <FieldView label="Ação SEI" value={current?.ACAO || current?.STATUS_DILIGENCIA}/>
                       ) : (
                         editMode
-                          ? <FieldEdit label="Status" value={editData?.STATUS_DILIGENCIA} onChange={handleStatusDiligencia} options={STATUS_OPTIONS}/>
+                          ? <FieldEdit label="Status" value={editData?.STATUS_DILIGENCIA} onChange={handleStatusDiligencia}
+                              options={(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") ? STATUS_OPTIONS_PCDF : STATUS_OPTIONS}/>
                           : <FieldView label="Status" value={current?.STATUS_DILIGENCIA}/>
                       )}
                       {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") && (() => {
@@ -1246,6 +1314,11 @@ function DetalhesContent() {
                           ? <FieldEdit label="Etapa HIGEIA" value={editData?.[campoStatus]||"EM PROCESSAMENTO"} onChange={v=>handleEtapaHigeia(campoStatus,v)} options={STATUS_2HIGEIA}/>
                           : <FieldView label="Etapa HIGEIA" value={current?.[campoStatus]||"EM PROCESSAMENTO"} highlight={current?.[campoStatus]==="FINALIZADO"?"#22c55e":"#2563eb"}/>;
                       })()}
+                      {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") && current?.STATUS_DILIGENCIA === "RETIRADO" && (
+                        editMode
+                          ? <FieldEdit label="Motivo da Retirada" value={editData?.MOTIVO_RETIRADA||""} onChange={v=>upd("MOTIVO_RETIRADA",v)}/>
+                          : <FieldView label="Motivo da Retirada" value={current?.MOTIVO_RETIRADA}/>
+                      )}
                       {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") ? (
                         editMode ? (
                           <div>
@@ -1916,6 +1989,7 @@ function DetalhesContent() {
       </div>
 
       {modal && <TransicaoModal tipo={modal} bem={current} onClose={()=>setModal(null)} onConfirm={handleTransicao} salvando={salvando}/>}
+      {modalRetirada && <MotivoRetiradaModal bem={current} onClose={()=>setModalRetirada(false)} onConfirm={confirmarRetirada}/>}
       <Toast msg={toast.msg} type={toast.type}/>
     </>
   );

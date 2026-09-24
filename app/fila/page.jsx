@@ -131,6 +131,7 @@ const STATUS_META = {
   "ATRASADO":        { color: "#f87171", bg: "rgba(248,113,113,0.12)" },
   "PRAZO 6 MESES":   { color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
   "BAIXADO":         { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+  "RETIRADO":        { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
   // Ações SEI
   "DILIGÊNCIA":      { color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
   "ARQUIVADO":       { color: "#94a3b8", bg: "rgba(148,163,184,0.12)" },
@@ -418,6 +419,36 @@ function Info({ label, value, mono, alert, positive }) {
   );
 }
 
+// Motivo da retirada (PCDF 1ª/2ª): status RETIRADO exige um motivo antes de
+// aplicar — o bem sai do controle ativo do NULEJ (ex.: restituído ao
+// proprietário). Só mexe no drawerEditData local; quem salva de verdade é o
+// botão "Salvar alterações" de sempre.
+function MotivoRetiradaModal({ item, onClose, onConfirm }) {
+  const [motivo, setMotivo] = useState("");
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.7)", backdropFilter:"blur(6px)" }}/>
+      <div style={{ position:"relative", width:420, background:"#fff", border:"1.5px solid #b0b8c4", borderRadius:16, padding:24, zIndex:1 }}>
+        <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a", margin:"0 0 4px" }}>🚪 Retirar do controle do NULEJ</h2>
+        <p style={{ fontSize:12.5, color:"#374151", margin:"0 0 16px", lineHeight:1.5 }}>
+          O bem sai do acompanhamento ativo. Informe o motivo — ex.: «restituído ao proprietário».
+        </p>
+        <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5 }}>{item?.ID_PASEI}</div>
+        <textarea value={motivo} onChange={e=>setMotivo(e.target.value)} placeholder="Ex.: Restituído ao proprietário, processo SEI arquivado."
+          style={{ width:"100%", minHeight:72, padding:"9px 11px", background:"#f9fafb", border:"1.5px solid #b0b8c4", borderRadius:8, color:"#0f172a", fontSize:12.5, resize:"vertical", outline:"none", lineHeight:1.5, boxSizing:"border-box", marginBottom:16 }}/>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={onClose} style={{ flex:1, padding:"10px", borderRadius:8, border:"1.5px solid #c4c9d0", background:"transparent", color:"#374151", fontSize:12.5, cursor:"pointer" }}>Cancelar</button>
+          <button onClick={()=>motivo.trim()&&onConfirm(motivo.trim())} disabled={!motivo.trim()}
+            style={{ flex:2, padding:"10px", borderRadius:8, border:"none", cursor:motivo.trim()?"pointer":"not-allowed",
+              background:motivo.trim()?"linear-gradient(135deg,#4b5563,#6b7280)":"#e5e7eb", color:motivo.trim()?"#fff":"#6b7280", fontSize:12.5, fontWeight:700 }}>
+            ✓ Confirmar Retirada
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function SIGNUMinhaFila() {
   const [activeNav, setActiveNav] = useState("fila");
@@ -478,6 +509,7 @@ export default function SIGNUMinhaFila() {
   const [drawerEditData, setDrawerEditData] = useState(null);
   const [drawerSalvando, setDrawerSalvando] = useState(false);
   const [drawerToast,    setDrawerToast]    = useState(null);
+  const [modalRetirada,  setModalRetirada]  = useState(false); // PCDF 1ª/2ª: pede motivo antes de aplicar RETIRADO
 
   const ROTA_MAP = { CEGOC:"cegoc", PCDF_1HIGEIA:"pcdf1", PCDF_2HIGEIA:"pcdf2", DPJ_GC99:"dpj", CAIXA_SEI:"sei" };
   const DESTINACOES_OPT = ["CIRCULAÇÃO","RECICLAGEM"];
@@ -535,6 +567,29 @@ export default function SIGNUMinhaFila() {
   };
 
   const updDrawer = (field, val) => setDrawerEditData(prev => ({ ...prev, [field]: val }));
+
+  // RETIRADO (PCDF 1ª/2ª): bem sai do controle ativo do NULEJ (restituído,
+  // etc) — exige motivo antes de aplicar, então só abre o modal aqui; quem
+  // efetivamente muda o STATUS_DILIGENCIA é confirmarRetiradaDrawer().
+  const handleStatusDrawer = (v) => {
+    if (v === "RETIRADO" && (selectedItem?.listaOrigem === "PCDF_1HIGEIA" || selectedItem?.listaOrigem === "PCDF_2HIGEIA")) {
+      setModalRetirada(true);
+      return;
+    }
+    updDrawer("STATUS_DILIGENCIA", v);
+  };
+
+  const confirmarRetiradaDrawer = (motivo) => {
+    const campoStatus = selectedItem.listaOrigem === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA";
+    setDrawerEditData(prev => ({
+      ...prev,
+      STATUS_DILIGENCIA: "RETIRADO",
+      MOTIVO_RETIRADA: motivo,
+      [campoStatus]: "FINALIZADO",
+      OFICIO_BAIXA: "FALSE",
+    }));
+    setModalRetirada(false);
+  };
 
   const boolStr = (v) => (v === true || v === "TRUE") ? "TRUE" : "FALSE";
 
@@ -596,7 +651,7 @@ export default function SIGNUMinhaFila() {
     }
   }, [session]);
 
-  const statusOptions = ["EM DILIGÊNCIA", "EM DILIGÊNCIA HIGEIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "RENAJUD", "LPC", "CATÁLOGO", "BAIXADO"];
+  const statusOptions = ["EM DILIGÊNCIA", "EM DILIGÊNCIA HIGEIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "RENAJUD", "LPC", "CATÁLOGO", "BAIXADO", "RETIRADO"];
   const listaOptions  = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99", "CAIXA_SEI"];
 
   // Carrega itens de todas as listas atribuídos ao usuário
@@ -1122,6 +1177,7 @@ export default function SIGNUMinhaFila() {
                         ["Destinação",         selectedItem.DESTINACAO],
                         selectedItem.NIV  && ["NIV / Chassi", selectedItem.NIV, true],
                         selectedItem.LOTE && ["Lote DPJ", `#${selectedItem.LOTE}`],
+                        selectedItem.STATUS_DILIGENCIA==="RETIRADO" && selectedItem.MOTIVO_RETIRADA && ["Motivo da Retirada", selectedItem.MOTIVO_RETIRADA],
                         selectedItem.ULTIMA_ANALISE && ["Última atualização", (() => { const d=new Date(selectedItem.ULTIMA_ANALISE); return isNaN(d)?"—":d.toLocaleString("pt-BR"); })()],
                       ].filter(Boolean).map(([label, val, mono]) => (
                         <div key={label}>
@@ -1214,7 +1270,17 @@ export default function SIGNUMinhaFila() {
 
                 return (
                   <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-                    {inp("Status", "STATUS_DILIGENCIA", statusOptions)}
+                    {(selectedItem.listaOrigem==="PCDF_1HIGEIA"||selectedItem.listaOrigem==="PCDF_2HIGEIA") ? (
+                      <div key="STATUS_DILIGENCIA">
+                        <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:5 }}>Status</div>
+                        <select value={drawerEditData.STATUS_DILIGENCIA||""} onChange={e=>handleStatusDrawer(e.target.value)}
+                          style={{ width:"100%", padding:"7px 10px", background:"#fff", border:"1px solid #d1d5db", borderRadius:7, color:"#0f172a", fontSize:12, outline:"none" }}>
+                          <option value="">— Selecione —</option>
+                          {statusOptions.map(o=><option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </div>
+                    ) : inp("Status", "STATUS_DILIGENCIA", statusOptions)}
+                    {(selectedItem.listaOrigem==="PCDF_1HIGEIA"||selectedItem.listaOrigem==="PCDF_2HIGEIA") && drawerEditData.STATUS_DILIGENCIA==="RETIRADO" && inp("Motivo da Retirada","MOTIVO_RETIRADA")}
                     {inp("Destinação", "DESTINACAO", DESTINACOES_OPT)}
                     {inp("NIV / Chassi", "NIV")}
                     {(selectedItem.listaOrigem==="PCDF_1HIGEIA"||selectedItem.listaOrigem==="PCDF_2HIGEIA") && inp("Nº SEI do TEP","TEP_SEI")}
@@ -1262,6 +1328,7 @@ export default function SIGNUMinhaFila() {
           </div>
         </div>
       )}
+      {modalRetirada && <MotivoRetiradaModal item={drawerEditData} onClose={()=>setModalRetirada(false)} onConfirm={confirmarRetiradaDrawer}/>}
     </div>
   );
 }
