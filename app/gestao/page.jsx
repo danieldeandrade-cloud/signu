@@ -218,6 +218,7 @@ export default function GestaoPage() {
   const [filtroFlags,       setFiltroFlags]       = useState(new Set());
   const [filtroSemFib,      setFiltroSemFib]      = useState(false);
   const [filtroSemAvaliacao, setFiltroSemAvaliacao] = useState(false);
+  const [filtroSemOficioBaixa, setFiltroSemOficioBaixa] = useState(false);
   const [filtroDestinacao,  setFiltroDestinacao]  = useState(new Set());
   const [filtroLPC,         setFiltroLPC]         = useState(new Set());
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -317,7 +318,7 @@ export default function GestaoPage() {
 
   const totalFiltrosAtivos =
     filtroStatus.size + filtroTipo.size + filtroResp.size + filtroFlags.size +
-    (filtroSemFib ? 1 : 0) + (filtroSemAvaliacao ? 1 : 0) + filtroDestinacao.size + filtroLPC.size + (busca.trim() ? 1 : 0);
+    (filtroSemFib ? 1 : 0) + (filtroSemAvaliacao ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + filtroDestinacao.size + filtroLPC.size + (busca.trim() ? 1 : 0);
   const [ordenacao, setOrdenacao]   = useState({ campo:"_rowNumber", dir:"asc" });
   const [pag, setPag]               = useState(1);
   const POR_PAGINA = 15;
@@ -352,6 +353,7 @@ export default function GestaoPage() {
     setFiltroFlags(new Set());
     setFiltroSemFib(false);
     setFiltroSemAvaliacao(false);
+    setFiltroSemOficioBaixa(false);
     setFiltroDestinacao(new Set());
     setFiltroLPC(new Set());
     setPag(1);
@@ -424,6 +426,9 @@ export default function GestaoPage() {
     if (filtroSemAvaliacao) {
       res = res.filter(i => i.DESTINACAO === "CIRCULAÇÃO" && !hasFlag(i, "AVALIACAO_OK"));
     }
+    if (filtroSemOficioBaixa) {
+      res = res.filter(i => !hasFlag(i, "OFICIO_BAIXA"));
+    }
     if (filtroDestinacao.size > 0) {
       res = res.filter(i => filtroDestinacao.has(i.DESTINACAO));
     }
@@ -445,7 +450,7 @@ export default function GestaoPage() {
       return ordenacao.dir === "asc" ? r : -r;
     });
     return res;
-  }, [dados, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroSemAvaliacao, filtroDestinacao, filtroLPC, ordenacao, abaAtiva]);
+  }, [dados, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroSemAvaliacao, filtroSemOficioBaixa, filtroDestinacao, filtroLPC, ordenacao, abaAtiva]);
 
   // Valores de LPC (leilão) presentes nos itens de catálogo — alimenta o filtro
   const lpcOptions = useMemo(
@@ -473,7 +478,7 @@ export default function GestaoPage() {
 
   const limparFiltros = () => {
     setBusca(""); setFiltroStatus(new Set()); setFiltroTipo(new Set());
-    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setFiltroSemAvaliacao(false); setFiltroDestinacao(new Set()); setFiltroLPC(new Set()); setPag(1);
+    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setFiltroSemAvaliacao(false); setFiltroSemOficioBaixa(false); setFiltroDestinacao(new Set()); setFiltroLPC(new Set()); setPag(1);
   };
 
   // Flags disponíveis na lista ativa (só exibe pill se houver ao menos 1 item com a flag)
@@ -778,6 +783,12 @@ export default function GestaoPage() {
                           {filtroSemAvaliacao&&"✓ "}⚠️ Cobrar avaliação <span style={{ fontSize:10, opacity:.6 }}>({dados.filter(i=>i.DESTINACAO==="CIRCULAÇÃO"&&!hasFlag(i,"AVALIACAO_OK")).length})</span>
                         </button>
                       )}
+                      {(abaAtiva==="PCDF_1HIGEIA"||abaAtiva==="PCDF_2HIGEIA") && (
+                        <button onClick={()=>{setFiltroSemOficioBaixa(v=>!v);setPag(1);}}
+                          style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemOficioBaixa?700:400, cursor:"pointer", transition:"all 0.15s", border:`1px solid ${filtroSemOficioBaixa?"#f472b6":"#d1d5db"}`, background:filtroSemOficioBaixa?"rgba(244,114,182,0.15)":"transparent", color:filtroSemOficioBaixa?"#f472b6":"#374151" }}>
+                          {filtroSemOficioBaixa&&"✓ "}⚠️ Sem OF. BX <span style={{ fontSize:10, opacity:.6 }}>({dados.filter(i=>!hasFlag(i,"OFICIO_BAIXA")).length})</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -841,6 +852,9 @@ export default function GestaoPage() {
                 )}
                 {filtroSemAvaliacao && (
                   <span onClick={()=>{setFiltroSemAvaliacao(false);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(245,158,11,0.12)", border:"1px solid rgba(245,158,11,0.3)", borderRadius:20, fontSize:11, color:"#f59e0b", cursor:"pointer" }}>Cobrar avaliação ✕</span>
+                )}
+                {filtroSemOficioBaixa && (
+                  <span onClick={()=>{setFiltroSemOficioBaixa(false);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(244,114,182,0.12)", border:"1px solid rgba(244,114,182,0.3)", borderRadius:20, fontSize:11, color:"#f472b6", cursor:"pointer" }}>Sem OF. BX ✕</span>
                 )}
                 {[...filtroDestinacao].map(d => {
                   const cor = d === "RECICLAGEM" ? "#22c55e" : "#60a5fa";

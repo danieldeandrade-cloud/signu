@@ -428,6 +428,8 @@ export default function SIGNUMinhaFila() {
   const [filtroFlags,     setFiltroFlags]     = useState(new Set()); // FIB | CEB_TEP_TIV | OFICIO_BAIXA | HIGEIA
   const [filtroDestinacao,setFiltroDestinacao]= useState(new Set());
   const [filtroLPC,       setFiltroLPC]       = useState(new Set());
+  const [filtroSemFib,    setFiltroSemFib]    = useState(false);
+  const [filtroSemOficioBaixa, setFiltroSemOficioBaixa] = useState(false);
   const [busca,        setBusca]        = useState("");
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [sortOrder, setSortOrder] = useState("recentes"); // "recentes" | "antigos"
@@ -455,6 +457,8 @@ export default function SIGNUMinhaFila() {
     setFiltroFlags(new Set());
     setFiltroDestinacao(new Set());
     setFiltroLPC(new Set());
+    setFiltroSemFib(false);
+    setFiltroSemOficioBaixa(false);
     setBusca("");
   };
 
@@ -467,7 +471,8 @@ export default function SIGNUMinhaFila() {
   };
 
   const totalFiltrosAtivos =
-    filtroStatus.size + filtroLista.size + filtroTipo.size + filtroFlags.size + filtroDestinacao.size + filtroLPC.size + (busca.trim() ? 1 : 0);
+    filtroStatus.size + filtroLista.size + filtroTipo.size + filtroFlags.size + filtroDestinacao.size + filtroLPC.size +
+    (filtroSemFib ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (busca.trim() ? 1 : 0);
   const [selectedItem,   setSelectedItem]   = useState(null);
   const [drawerEditMode, setDrawerEditMode] = useState(false);
   const [drawerEditData, setDrawerEditData] = useState(null);
@@ -631,6 +636,17 @@ export default function SIGNUMinhaFila() {
     if (filtroFlags.size      > 0 && ![...filtroFlags].some(f => flagAtiva(item, f)))                 return false;
     if (filtroDestinacao.size > 0 && !filtroDestinacao.has(item.DESTINACAO))                          return false;
     if (filtroLPC.size        > 0 && !filtroLPC.has((item.LPC || "").trim()))                          return false;
+    // FIB e Ofício de Baixa só existem nessas listas — fora delas, "sem FIB"/"sem
+    // ofício" seria sempre verdadeiro à toa (o campo nem existe), então o item
+    // é excluído em vez de contar como falso positivo.
+    if (filtroSemFib) {
+      if (!["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(item.listaOrigem))                          return false;
+      if (flagAtiva(item, "FIB"))                                                                        return false;
+    }
+    if (filtroSemOficioBaixa) {
+      if (!["PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(item.listaOrigem))                                   return false;
+      if (flagAtiva(item, "OFICIO_BAIXA"))                                                                return false;
+    }
     if (busca.trim()) {
       const q = busca.trim().toLowerCase();
       const campos = [item.id, ...Object.values(item).filter(v => typeof v === "string")].join(" ").toLowerCase();
@@ -925,6 +941,14 @@ export default function SIGNUMinhaFila() {
                         {ativo&&"✓ "}{label} <span style={{ opacity:.6, fontSize:10 }}>({count})</span>
                       </button>;
                     })}
+                    <button onClick={() => setFiltroSemFib(v => !v)}
+                      style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemFib?700:400, cursor:"pointer", border:`1px solid ${filtroSemFib?"#f87171":"#d1d5db"}`, background:filtroSemFib?"rgba(248,113,113,0.15)":"transparent", color:filtroSemFib?"#f87171":"#374151", display:"flex", alignItems:"center", gap:5 }}>
+                      {filtroSemFib&&"✓ "}⚠️ Sem FIB <span style={{ opacity:.6, fontSize:10 }}>({fila.filter(i=>["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(i.listaOrigem)&&!flagAtiva(i,"FIB")).length})</span>
+                    </button>
+                    <button onClick={() => setFiltroSemOficioBaixa(v => !v)}
+                      style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemOficioBaixa?700:400, cursor:"pointer", border:`1px solid ${filtroSemOficioBaixa?"#f472b6":"#d1d5db"}`, background:filtroSemOficioBaixa?"rgba(244,114,182,0.15)":"transparent", color:filtroSemOficioBaixa?"#f472b6":"#374151", display:"flex", alignItems:"center", gap:5 }}>
+                      {filtroSemOficioBaixa&&"✓ "}⚠️ Sem OF. BX <span style={{ opacity:.6, fontSize:10 }}>({fila.filter(i=>["PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(i.listaOrigem)&&!flagAtiva(i,"OFICIO_BAIXA")).length})</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -939,6 +963,8 @@ export default function SIGNUMinhaFila() {
                 {[...filtroFlags].map(f=>{const labels={FIB:"FIB",CEB_TEP_TIV:"CEB/TEP/TIV",OFICIO_BAIXA:"Ofício Baixa",HIGEIA:"HIGEIA"};return <span key={f} onClick={()=>toggleSet(setFiltroFlags,f)} style={{ padding:"3px 9px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:20, fontSize:11, color:"#a78bfa", cursor:"pointer" }}>{labels[f]||f} ✕</span>;})}
                 {[...filtroDestinacao].map(d=><span key={d} onClick={()=>toggleSet(setFiltroDestinacao,d)} style={{ padding:"3px 9px", background:"rgba(34,197,94,0.08)", border:"1px solid rgba(34,197,94,0.3)", borderRadius:20, fontSize:11, color:"#16a34a", cursor:"pointer" }}>{d} ✕</span>)}
                 {[...filtroLPC].map(lpc=><span key={lpc} onClick={()=>toggleSet(setFiltroLPC,lpc)} style={{ padding:"3px 9px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:20, fontSize:11, color:"#a78bfa", cursor:"pointer" }}>LPC {lpc} ✕</span>)}
+                {filtroSemFib && <span onClick={()=>setFiltroSemFib(false)} style={{ padding:"3px 9px", background:"rgba(248,113,113,0.1)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:20, fontSize:11, color:"#f87171", cursor:"pointer" }}>Sem FIB ✕</span>}
+                {filtroSemOficioBaixa && <span onClick={()=>setFiltroSemOficioBaixa(false)} style={{ padding:"3px 9px", background:"rgba(244,114,182,0.1)", border:"1px solid rgba(244,114,182,0.3)", borderRadius:20, fontSize:11, color:"#f472b6", cursor:"pointer" }}>Sem OF. BX ✕</span>}
               </div>
             )}
           </div>
