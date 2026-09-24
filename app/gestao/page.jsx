@@ -428,7 +428,12 @@ export default function GestaoPage() {
       res = res.filter(i => !hasFlag(i, "FIB"));
     }
     if (filtroSemAvaliacao) {
-      res = res.filter(i => i.DESTINACAO === "CIRCULAÇÃO" && !hasFlag(i, "AVALIACAO_OK"));
+      // "Cobrar avaliação" só faz sentido depois que o mandado foi expedido
+      // (AVALIACAO_FEITA) — sem isso, qualquer item de circulação sem valor
+      // aparecia como pendência, mesmo os que ainda nem chegaram nessa etapa
+      // (ex.: já migrados pra CATÁLOGO por outro caminho, sem essa avaliação
+      // ainda). Vira "Aval." assim que o valor é preenchido.
+      res = res.filter(i => i.DESTINACAO === "CIRCULAÇÃO" && hasFlag(i, "AVALIACAO_FEITA") && !hasFlag(i, "AVALIACAO_OK"));
     }
     if (filtroSemOficioBaixa) {
       res = res.filter(i => !hasFlag(i, "OFICIO_BAIXA"));
@@ -787,7 +792,7 @@ export default function GestaoPage() {
                       {abaAtiva==="CEGOC" && (
                         <button onClick={()=>{setFiltroSemAvaliacao(v=>!v);setPag(1);}}
                           style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemAvaliacao?700:400, cursor:"pointer", transition:"all 0.15s", border:`1px solid ${filtroSemAvaliacao?"#f59e0b":"#d1d5db"}`, background:filtroSemAvaliacao?"rgba(245,158,11,0.15)":"transparent", color:filtroSemAvaliacao?"#f59e0b":"#374151" }}>
-                          {filtroSemAvaliacao&&"✓ "}⚠️ Cobrar avaliação <span style={{ fontSize:10, opacity:.6 }}>({dados.filter(i=>i.DESTINACAO==="CIRCULAÇÃO"&&!hasFlag(i,"AVALIACAO_OK")).length})</span>
+                          {filtroSemAvaliacao&&"✓ "}⚠️ Cobrar avaliação <span style={{ fontSize:10, opacity:.6 }}>({dados.filter(i=>i.DESTINACAO==="CIRCULAÇÃO"&&hasFlag(i,"AVALIACAO_FEITA")&&!hasFlag(i,"AVALIACAO_OK")).length})</span>
                         </button>
                       )}
                       {(abaAtiva==="PCDF_1HIGEIA"||abaAtiva==="PCDF_2HIGEIA") && (

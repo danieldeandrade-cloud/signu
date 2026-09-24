@@ -462,6 +462,7 @@ export default function SIGNUMinhaFila() {
   const [filtroSemFib,    setFiltroSemFib]    = useState(false);
   const [filtroSemOficioBaixa, setFiltroSemOficioBaixa] = useState(false);
   const [filtroSemOficioDetranSefaz, setFiltroSemOficioDetranSefaz] = useState(false);
+  const [filtroCobrarAvaliacao, setFiltroCobrarAvaliacao] = useState(false);
   const [busca,        setBusca]        = useState("");
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [sortOrder, setSortOrder] = useState("recentes"); // "recentes" | "antigos"
@@ -492,6 +493,7 @@ export default function SIGNUMinhaFila() {
     setFiltroSemFib(false);
     setFiltroSemOficioBaixa(false);
     setFiltroSemOficioDetranSefaz(false);
+    setFiltroCobrarAvaliacao(false);
     setBusca("");
   };
 
@@ -506,7 +508,7 @@ export default function SIGNUMinhaFila() {
 
   const totalFiltrosAtivos =
     filtroStatus.size + filtroLista.size + filtroTipo.size + filtroFlags.size + filtroDestinacao.size + filtroLPC.size +
-    (filtroSemFib ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (filtroSemOficioDetranSefaz ? 1 : 0) + (busca.trim() ? 1 : 0);
+    (filtroSemFib ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (filtroSemOficioDetranSefaz ? 1 : 0) + (filtroCobrarAvaliacao ? 1 : 0) + (busca.trim() ? 1 : 0);
   const [selectedItem,   setSelectedItem]   = useState(null);
   const [drawerEditMode, setDrawerEditMode] = useState(false);
   const [drawerEditData, setDrawerEditData] = useState(null);
@@ -715,6 +717,13 @@ export default function SIGNUMinhaFila() {
     if (filtroSemOficioDetranSefaz) {
       if (!(item.listaOrigem === "CEGOC" && item.STATUS_DILIGENCIA === "CATÁLOGO"))                       return false;
       if (flagAtiva(item, "OFICIO_DETRAN_SEFAZ"))                                                          return false;
+    }
+    // "Cobrar avaliação": só depois que o mandado foi expedido — antes disso
+    // não tem nada pra cobrar ainda (mesmo raciocínio dos filtros acima).
+    if (filtroCobrarAvaliacao) {
+      if (!(item.listaOrigem === "CEGOC" && item.DESTINACAO === "CIRCULAÇÃO"))                            return false;
+      if (!(item.AVALIACAO_FEITA === "TRUE" || item.AVALIACAO_FEITA === true))                             return false;
+      if (String(item.AVALIACAO_VALOR || "").trim())                                                        return false;
     }
     if (busca.trim()) {
       const q = busca.trim().toLowerCase();
@@ -1023,6 +1032,10 @@ export default function SIGNUMinhaFila() {
                       style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemOficioDetranSefaz?700:400, cursor:"pointer", border:`1px solid ${filtroSemOficioDetranSefaz?"#22d3ee":"#d1d5db"}`, background:filtroSemOficioDetranSefaz?"rgba(34,211,238,0.15)":"transparent", color:filtroSemOficioDetranSefaz?"#22d3ee":"#374151", display:"flex", alignItems:"center", gap:5 }}>
                       {filtroSemOficioDetranSefaz&&"✓ "}⚠️ Sem Of. Detran e Sefaz <span style={{ opacity:.6, fontSize:10 }}>({fila.filter(i=>i.listaOrigem==="CEGOC"&&i.STATUS_DILIGENCIA==="CATÁLOGO"&&!flagAtiva(i,"OFICIO_DETRAN_SEFAZ")).length})</span>
                     </button>
+                    <button onClick={() => setFiltroCobrarAvaliacao(v => !v)}
+                      style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroCobrarAvaliacao?700:400, cursor:"pointer", border:`1px solid ${filtroCobrarAvaliacao?"#f59e0b":"#d1d5db"}`, background:filtroCobrarAvaliacao?"rgba(245,158,11,0.15)":"transparent", color:filtroCobrarAvaliacao?"#f59e0b":"#374151", display:"flex", alignItems:"center", gap:5 }}>
+                      {filtroCobrarAvaliacao&&"✓ "}⚠️ Cobrar avaliação <span style={{ opacity:.6, fontSize:10 }}>({fila.filter(i=>i.listaOrigem==="CEGOC"&&i.DESTINACAO==="CIRCULAÇÃO"&&(i.AVALIACAO_FEITA==="TRUE"||i.AVALIACAO_FEITA===true)&&!String(i.AVALIACAO_VALOR||"").trim()).length})</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1040,6 +1053,7 @@ export default function SIGNUMinhaFila() {
                 {filtroSemFib && <span onClick={()=>setFiltroSemFib(false)} style={{ padding:"3px 9px", background:"rgba(248,113,113,0.1)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:20, fontSize:11, color:"#f87171", cursor:"pointer" }}>Sem FIB ✕</span>}
                 {filtroSemOficioBaixa && <span onClick={()=>setFiltroSemOficioBaixa(false)} style={{ padding:"3px 9px", background:"rgba(244,114,182,0.1)", border:"1px solid rgba(244,114,182,0.3)", borderRadius:20, fontSize:11, color:"#f472b6", cursor:"pointer" }}>Sem OF. BX ✕</span>}
                 {filtroSemOficioDetranSefaz && <span onClick={()=>setFiltroSemOficioDetranSefaz(false)} style={{ padding:"3px 9px", background:"rgba(34,211,238,0.1)", border:"1px solid rgba(34,211,238,0.3)", borderRadius:20, fontSize:11, color:"#22d3ee", cursor:"pointer" }}>Sem Of. Detran e Sefaz ✕</span>}
+                {filtroCobrarAvaliacao && <span onClick={()=>setFiltroCobrarAvaliacao(false)} style={{ padding:"3px 9px", background:"rgba(245,158,11,0.12)", border:"1px solid rgba(245,158,11,0.3)", borderRadius:20, fontSize:11, color:"#f59e0b", cursor:"pointer" }}>Cobrar avaliação ✕</span>}
               </div>
             )}
           </div>
@@ -1089,8 +1103,12 @@ export default function SIGNUMinhaFila() {
                       const restr = ["RESTRICAO_ROUBO","RESTRICAO_ALIEN_FIDUC","RESTRICAO_ADMIN"]
                         .filter(k => item[k]==="TRUE"||item[k]===true).length;
                       if (restr > 0) flags.push({ t:`🔒 ${restr} restr.`, c:"#f87171" });
+                      // "Cobrar avaliação" só depois que o mandado foi expedido — antes
+                      // disso não tem nada pra cobrar ainda, não mostra nenhum badge.
                       const temAvaliacao = String(item.AVALIACAO_VALOR||"").trim().length > 0;
-                      flags.push(temAvaliacao ? { t:"✅ Aval.", c:"#22c55e" } : { t:"⚠️ s/aval.", c:"#f59e0b" });
+                      const mandadoExpedido = item.AVALIACAO_FEITA==="TRUE"||item.AVALIACAO_FEITA===true;
+                      if (temAvaliacao) flags.push({ t:"✅ Aval.", c:"#22c55e" });
+                      else if (mandadoExpedido) flags.push({ t:"⚠️ Cobrar aval.", c:"#f59e0b" });
                     } else {
                       if (item.FIB==="TRUE"||item.FIB===true)              flags.push({t:"FIB",c:"#22c55e"});
                       if (item.CEB_TEP_TIV==="TRUE"||item.CEB_TEP_TIV===true) flags.push({t:"CEB",c:"#60a5fa"});
