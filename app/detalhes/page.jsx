@@ -836,6 +836,12 @@ function DetalhesContent() {
       ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO","RESTRICAO_ALIEN_FIDUC","RESTRICAO_ADMIN","AVALIACAO_FEITA","NIV_NAO_AFLORADO"].forEach(k => {
         if (k in payload) payload[k] = boolVal(payload[k]) ? "TRUE" : "FALSE";
       });
+      // Trava de segurança: identifica o item pelo processo, não só pelo número
+      // da linha — se a linha mudou de posição na planilha entre a tela abrir e
+      // o Salvar (outra edição/remoção deslocou tudo embaixo), o servidor recusa
+      // em vez de sobrescrever silenciosamente um item diferente (já aconteceu
+      // ao vivo em 2026-09-24: edição de um item apagou outro sem aviso).
+      payload._verificacaoId = bem?.ID_PASEI || bem?.PA || bem?.PA_PJE || "";
       const res = await fetch(`/api/bens/${lista}/${row}`, {
         method:"PATCH",
         headers:{ "Content-Type":"application/json" },

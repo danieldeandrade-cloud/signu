@@ -606,6 +606,11 @@ export default function SIGNUMinhaFila() {
       ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO"].forEach(k => {
         if (k in payload) payload[k] = boolStr(payload[k]);
       });
+      // Trava de segurança: identifica o item pelo processo, não só pelo
+      // número da linha — se a linha mudou de posição na planilha entre o
+      // drawer abrir e o Salvar, o servidor recusa em vez de sobrescrever
+      // silenciosamente um item diferente (ver app/detalhes/page.jsx).
+      payload._verificacaoId = selectedItem.ID_PASEI || selectedItem.PA || selectedItem.PA_PJE || "";
       const res  = await fetch(`/api/bens/${rota}/${row}`, {
         method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload),
       });
