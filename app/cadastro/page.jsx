@@ -374,26 +374,53 @@ export default function CadastroPage() {
     setAutoResp(null);
     let servidor = null;
     try {
+      const rotaAtual = LISTA_API_MAP[listaKey];
       const contagens = Object.fromEntries(SERVIDORES.map(s => [s, 0]));
+      let ultimoResponsavel = "";
       await Promise.allSettled(
         TODAS_LISTAS_ROTA.map(async ({ rota }) => {
           try {
             const res  = await fetch(`/api/bens/${rota}`);
             const json = await res.json();
-            (json.dados || []).forEach(item => {
+            const dados = json.dados || [];
+            dados.forEach(item => {
               const resp = item.RESPONSAVEL || item.Responsavel || "";
               if (contagens[resp] !== undefined) contagens[resp]++;
             });
+            // último item cadastrado NESTA MESMA lista — usado abaixo pra evitar
+            // 2 seguidos pra mesma pessoa (ver comentário mais adiante).
+            if (rota === rotaAtual && dados.length) {
+              ultimoResponsavel = dados[dados.length - 1].RESPONSAVEL || dados[dados.length - 1].Responsavel || "";
+            }
           } catch {}
         })
       );
-      // Escolhe entre os candidatos permitidos para este status. Em caso de
-      // empate no menor contador, sorteia entre os empatados — reduce()
-      // sempre pegava o primeiro do array (Carla, no pool CEGOC/PCDF), então
-      // qualquer empate (comum logo após um lote de cadastros) mandava tudo
-      // pra mesma pessoa em vez de espalhar.
-      const minContagem = Math.min(...candidatos.map(s => contagens[s] ?? 0));
-      const empatados = candidatos.filter(s => (contagens[s] ?? 0) === minContagem);
+      // Escolhe entre os candidatos permitidos para este status, do menor
+      // contador pro maior. Em empate no topo, sorteia entre os empatados —
+      // reduce() sempre pegava o primeiro do array (Carla, no pool CEGOC/PCDF),
+      // então qualquer empate (comum logo após um lote de cadastros) mandava
+      // tudo pra mesma pessoa em vez de espalhar.
+      const ordenados = [...candidatos].sort((a, b) => (contagens[a] ?? 0) - (contagens[b] ?? 0));
+      const minContagem = contagens[ordenados[0]] ?? 0;
+      let empatados = ordenados.filter(s => (contagens[s] ?? 0) === minContagem);
+      // Mesmo sem empate, quem tem menos contagem pode ser exatamente quem
+      // recebeu o item anterior desta lista — daí o "menor contador" continua
+      // sendo essa mesma pessoa por vários itens seguidos até ela empatar com
+      // os demais (rajada), em vez de ir alternando aos poucos. Achado real:
+      // Loara Passo recebendo 4+ itens seguidos na CEGOC mesmo com o total
+      // dela já bem próximo dos outros. Fix: se quem ficaria em 1º é quem
+      // pegou o item anterior desta mesma lista, pula pro próximo nível de
+      // contagem (ou pro resto do empate, se ainda sobrar alguém empatado).
+      if (ultimoResponsavel && candidatos.length > 1 && empatados.includes(ultimoResponsavel)) {
+        const semUltimo = empatados.filter(s => s !== ultimoResponsavel);
+        if (semUltimo.length > 0) {
+          empatados = semUltimo;
+        } else {
+          const restantes = ordenados.filter(s => s !== ultimoResponsavel);
+          const proximaContagem = Math.min(...restantes.map(s => contagens[s] ?? 0));
+          empatados = restantes.filter(s => (contagens[s] ?? 0) === proximaContagem);
+        }
+      }
       servidor = empatados[Math.floor(Math.random() * empatados.length)];
       setAutoResp({ servidor, contagens, candidatos, motivo });
     } catch {}

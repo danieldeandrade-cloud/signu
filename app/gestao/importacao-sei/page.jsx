@@ -124,23 +124,48 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
     setAutoResp(null);
     let servidor = null;
     try {
+      const rotaAtual = item.LISTA_DESTINO;
       const contagens = Object.fromEntries(SERVIDORES.map(s => [s, 0]));
+      let ultimoResponsavel = "";
       await Promise.allSettled(TODAS_LISTAS_ROTA.map(async (rota) => {
         try {
           const res = await fetch(`/api/bens/${rota}`);
           const json = await res.json();
-          (json.dados || []).forEach(row => {
+          const dados = json.dados || [];
+          dados.forEach(row => {
             const resp = row.RESPONSAVEL || row.Responsavel || "";
             if (contagens[resp] !== undefined) contagens[resp]++;
           });
+          // último item cadastrado NESTA MESMA lista — ver comentário abaixo.
+          if (rota === rotaAtual && dados.length) {
+            ultimoResponsavel = dados[dados.length - 1].RESPONSAVEL || dados[dados.length - 1].Responsavel || "";
+          }
         } catch { /* ignora erro de rede de uma lista */ }
       }));
       // Empate no menor contador sorteia entre os empatados — reduce() sempre
       // pegava o primeiro do array (Carla, no pool CEGOC/PCDF), então vários
       // cards da revisão calculados ao mesmo tempo (mesma contagem ainda sem
       // nenhuma promoção) recomendavam todos a mesma pessoa.
-      const minContagem = Math.min(...candidatos.map(s => contagens[s] ?? 0));
-      const empatados = candidatos.filter(s => (contagens[s] ?? 0) === minContagem);
+      const ordenados = [...candidatos].sort((a, b) => (contagens[a] ?? 0) - (contagens[b] ?? 0));
+      const minContagem = contagens[ordenados[0]] ?? 0;
+      let empatados = ordenados.filter(s => (contagens[s] ?? 0) === minContagem);
+      // Mesmo sem empate, quem tem menos pode ser exatamente quem recebeu o
+      // item anterior desta lista — daí ela segue "em 1º" por vários itens
+      // seguidos até empatar com os demais (rajada), em vez de alternar aos
+      // poucos. Achado real: Loara Passo recebendo 4+ seguidos na CEGOC mesmo
+      // com o total dela já bem próximo dos outros. Fix: se quem ficaria em
+      // 1º é quem pegou o item anterior desta mesma lista, pula pro próximo
+      // nível de contagem (ou pro resto do empate, se ainda sobrar alguém).
+      if (ultimoResponsavel && candidatos.length > 1 && empatados.includes(ultimoResponsavel)) {
+        const semUltimo = empatados.filter(s => s !== ultimoResponsavel);
+        if (semUltimo.length > 0) {
+          empatados = semUltimo;
+        } else {
+          const restantes = ordenados.filter(s => s !== ultimoResponsavel);
+          const proximaContagem = Math.min(...restantes.map(s => contagens[s] ?? 0));
+          empatados = restantes.filter(s => (contagens[s] ?? 0) === proximaContagem);
+        }
+      }
       servidor = empatados[Math.floor(Math.random() * empatados.length)];
       setAutoResp({ servidor, contagens, candidatos, motivo });
     } catch { /* deixa autoResp null — promover fica bloqueado até resolver */ }
