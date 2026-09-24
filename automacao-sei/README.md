@@ -55,9 +55,9 @@ Aplique em cada processo o marcador da lista de destino:
 `CADASTRAR SIGNU CEGOC` · `... DPJ` · `... PCDF 2ª` · `... SEI`.
 (PCDF 1ª não recebe mais cadastro novo — marcador foi excluído.)
 
-Para **CEGOC** e **SEI**, escreva algo na **caixa de texto do marcador**
-(tela "Marcadores do Processo" → editar o marcador aplicado) — é o script que lê
-esse texto, não só o nome do marcador:
+Para **CEGOC**, **SEI** e **PCDF 1ª/2ª**, escreva algo na **caixa de texto do
+marcador** (tela "Marcadores do Processo" → editar o marcador aplicado) — é o
+script que lê esse texto, não só o nome do marcador:
 - `CADASTRAR SIGNU CEGOC`: escreva **"circulação"** ou **"reciclagem"**. Decide
   `DESTINACAO` + `STATUS_DILIGENCIA` (circulação → LPC; reciclagem → EM DILIGÊNCIA)
   — regra fixa no script, não é a IA que decide.
@@ -65,6 +65,12 @@ esse texto, não só o nome do marcador:
   cadastrado em outra lista, ou resposta/barramento de um ofício nosso). O
   script casa o nome com a lista de servidores e preenche `RESPONSAVEL` (em
   vez de `__AUTO__`).
+- `CADASTRAR SIGNU PCDF 1ª/2ª`: quando o veículo **TEM** Relatório INFOSEG
+  (NIV aflorado) mas **nunca foi emplacado**, escreva **"SEM PRIMEIRO
+  EMPLACAMENTO"**. Sem isso, a IA pode confundir a ausência de placa com "não
+  aflorado" e zerar o NIV à toa — o script força `PLACA=""` (vazio é o
+  esperado, não falha de leitura) e `NIV_NAO_AFLORADO="FALSE"` (o INFOSEG
+  existe, só não tem placa pra mostrar).
 
 Sem o texto (ou sem achar o servidor), o item ainda sai no CSV — só que com
 `DESTINACAO`/`STATUS_DILIGENCIA` no palpite da IA (CEGOC) ou `RESPONSAVEL` em

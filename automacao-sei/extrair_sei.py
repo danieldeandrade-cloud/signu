@@ -674,6 +674,18 @@ def extrair_processo(page, cfg_sei, debug=False):
                             body = b""
                             if debug:
                                 print(f"    '{titulos[i]}': download falhou: {e}")
+                        # o SEI às vezes devolve 200 OK com algo que NÃO é o PDF de
+                        # verdade (sessão expirando no meio do clique, página de
+                        # erro/interstício, download cortado) — sem essa checagem,
+                        # esse lixo era mandado pro Gemini com mime_type=application/pdf
+                        # e o Gemini rejeitava o REQUEST INTEIRO com HTTP 400
+                        # INVALID_ARGUMENT, derrubando a extração de todo o processo
+                        # (não só desse documento). Ver conversa de 2026-09-23.
+                        if body and not body.startswith(b"%PDF-"):
+                            if debug:
+                                print(f"    '{titulos[i]}': download não é um PDF válido "
+                                      f"(início: {body[:20]!r}) — descartando, não mando pro Gemini")
+                            body = b""
                         if body and len(body) <= max_pdf_mb * 1_000_000:
                             pdfs.append({"titulo": titulos[i],
                                          "b64": base64.b64encode(body).decode()})
@@ -682,7 +694,7 @@ def extrair_processo(page, cfg_sei, debug=False):
                             if debug:
                                 print(f"    '{titulos[i]}': PDF {len(body)//1024} KB -> Gemini")
                         elif debug:
-                            print(f"    '{titulos[i]}': PDF {len(body)} bytes (fora do limite / vazio)")
+                            print(f"    '{titulos[i]}': PDF {len(body)} bytes (fora do limite / vazio / inválido)")
                     elif debug:
                         motivo = "só achei o PDF do doc anterior (repetido)" if _achar_pdf_url() else "sem texto e sem PDF localizável"
                         print(f"    '{titulos[i]}': {motivo}")
@@ -992,6 +1004,21 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador="", num
             # PLACA_OSTENTADA continua sendo o único identificador aceito
             # nesse caso (já tratado à parte, via schema).
             campos["RENAVAM"] = ""
+
+    # PCDF 1ª/2ª: veículo COM Relatório INFOSEG (NIV aflorado normalmente) mas
+    # que nunca teve placa — não é falha de leitura, é o INFOSEG genuinamente
+    # não trazendo PLACA porque o veículo nunca foi emplacado. Sem essa regra,
+    # a IA pode confundir "sem placa" com "não aflorado" e zerar o NIV à toa
+    # (o processo TEM INFOSEG, então NIV_NAO_AFLORADO tem que ficar FALSE).
+    # Servidor sinaliza escrevendo algo como "SEM PRIMEIRO EMPLACAMENTO" no
+    # texto do marcador "CADASTRAR SIGNU PCDF 2ª/1ª".
+    if lista in ("pcdf1", "pcdf2") and "EMPLACAMENTO" in _norm(texto_marcador):
+        campos["PLACA"] = ""
+        if infoseg:
+            campos["NIV_NAO_AFLORADO"] = "FALSE"
+        alertas.append(f"marcador indica sem primeiro emplacamento ({texto_marcador!r}) — "
+                        f"veículo nunca foi emplacado, PLACA vazia é esperado (não é falha de "
+                        f"leitura do INFOSEG).")
 
     # PCDF 1ª/2ª: cadastro NOVO sempre nasce "EM DILIGÊNCIA" — a FIB ainda não foi
     # feita, então "BAIXADO" no INFOSEG/marcador (veículo já baixado no DETRAN) não
