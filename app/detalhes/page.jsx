@@ -833,7 +833,7 @@ function DetalhesContent() {
       delete payload.MULTAS;
       // Normaliza toggles: a string "FALSE" do Sheets é truthy em JS — usa boolVal
       // antes de reserializar, senão qualquer save religava os flags não mexidos.
-      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO","RESTRICAO_ALIEN_FIDUC","RESTRICAO_ADMIN","AVALIACAO_FEITA","NIV_NAO_AFLORADO"].forEach(k => {
+      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","OFICIO_DETRAN_SEFAZ","RESTRICAO_ROUBO","RESTRICAO_ALIEN_FIDUC","RESTRICAO_ADMIN","AVALIACAO_FEITA","NIV_NAO_AFLORADO"].forEach(k => {
         if (k in payload) payload[k] = boolVal(payload[k]) ? "TRUE" : "FALSE";
       });
       // Trava de segurança: identifica o item pelo processo, não só pelo número
@@ -1484,6 +1484,11 @@ function DetalhesContent() {
                           : <FieldView label="Peso estimado (kg)" value={current?.PESO_KG ? `${current.PESO_KG} kg` : null}/>}
                       </div>
                       <Toggle label="FIB Expedida" value={editMode?editData?.FIB:current?.FIB} onChange={v=>upd("FIB",v)} editMode={editMode}/>
+                      {current?.STATUS_DILIGENCIA === "CATÁLOGO" && (
+                        <div style={{ marginTop:10 }}>
+                          <Toggle label="Ofício enviado para DETRAN e SEFAZ" value={editMode?editData?.OFICIO_DETRAN_SEFAZ:current?.OFICIO_DETRAN_SEFAZ} onChange={v=>upd("OFICIO_DETRAN_SEFAZ",v)} editMode={editMode}/>
+                        </div>
+                      )}
                     </Section>
                   )}
 

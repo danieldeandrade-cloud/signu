@@ -461,6 +461,7 @@ export default function SIGNUMinhaFila() {
   const [filtroLPC,       setFiltroLPC]       = useState(new Set());
   const [filtroSemFib,    setFiltroSemFib]    = useState(false);
   const [filtroSemOficioBaixa, setFiltroSemOficioBaixa] = useState(false);
+  const [filtroSemOficioDetranSefaz, setFiltroSemOficioDetranSefaz] = useState(false);
   const [busca,        setBusca]        = useState("");
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [sortOrder, setSortOrder] = useState("recentes"); // "recentes" | "antigos"
@@ -490,6 +491,7 @@ export default function SIGNUMinhaFila() {
     setFiltroLPC(new Set());
     setFiltroSemFib(false);
     setFiltroSemOficioBaixa(false);
+    setFiltroSemOficioDetranSefaz(false);
     setBusca("");
   };
 
@@ -497,13 +499,14 @@ export default function SIGNUMinhaFila() {
     if (flag === "FIB")         return item.FIB === "TRUE" || item.FIB === true;
     if (flag === "CEB_TEP_TIV") return item.CEB_TEP_TIV === "TRUE" || item.CEB_TEP_TIV === true;
     if (flag === "OFICIO_BAIXA")return item.OFICIO_BAIXA === "TRUE" || item.OFICIO_BAIXA === true;
+    if (flag === "OFICIO_DETRAN_SEFAZ") return item.OFICIO_DETRAN_SEFAZ === "TRUE" || item.OFICIO_DETRAN_SEFAZ === true;
     if (flag === "HIGEIA")      return item.STATUS_DILIGENCIA === "EM DILIGÊNCIA HIGEIA";
     return false;
   };
 
   const totalFiltrosAtivos =
     filtroStatus.size + filtroLista.size + filtroTipo.size + filtroFlags.size + filtroDestinacao.size + filtroLPC.size +
-    (filtroSemFib ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (busca.trim() ? 1 : 0);
+    (filtroSemFib ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (filtroSemOficioDetranSefaz ? 1 : 0) + (busca.trim() ? 1 : 0);
   const [selectedItem,   setSelectedItem]   = useState(null);
   const [drawerEditMode, setDrawerEditMode] = useState(false);
   const [drawerEditData, setDrawerEditData] = useState(null);
@@ -603,7 +606,7 @@ export default function SIGNUMinhaFila() {
       // Não sobrescrever OBSERVACOES — gerenciado separadamente
       delete payload.OBSERVACOES;
       // Serializa booleanos
-      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","RESTRICAO_ROUBO"].forEach(k => {
+      ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","OFICIO_DETRAN_SEFAZ","RESTRICAO_ROUBO"].forEach(k => {
         if (k in payload) payload[k] = boolStr(payload[k]);
       });
       // Trava de segurança: identifica o item pelo processo, não só pelo
@@ -706,6 +709,12 @@ export default function SIGNUMinhaFila() {
     if (filtroSemOficioBaixa) {
       if (!["PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(item.listaOrigem))                                   return false;
       if (flagAtiva(item, "OFICIO_BAIXA"))                                                                return false;
+    }
+    // Of. Detran/Sefaz só existe pra CEGOC em CATÁLOGO — fora disso o campo
+    // nem existe, então excluído em vez de falso positivo (mesmo raciocínio).
+    if (filtroSemOficioDetranSefaz) {
+      if (!(item.listaOrigem === "CEGOC" && item.STATUS_DILIGENCIA === "CATÁLOGO"))                       return false;
+      if (flagAtiva(item, "OFICIO_DETRAN_SEFAZ"))                                                          return false;
     }
     if (busca.trim()) {
       const q = busca.trim().toLowerCase();
@@ -992,6 +1001,7 @@ export default function SIGNUMinhaFila() {
                       { key:"FIB",          label:"FIB Expedida",          cor:"#22c55e" },
                       { key:"CEB_TEP_TIV",  label:"CEB/TEP/TIV",           cor:"#60a5fa" },
                       { key:"OFICIO_BAIXA", label:"Ofício de Baixa DETRAN", cor:"#f472b6" },
+                      { key:"OFICIO_DETRAN_SEFAZ", label:"Of. Detran/Sefaz Enviado", cor:"#22d3ee" },
                       { key:"HIGEIA",       label:"Em Diligência HIGEIA",   cor:"#a78bfa" },
                     ].map(({key,label,cor}) => {
                       const ativo = filtroFlags.has(key);
@@ -1009,6 +1019,10 @@ export default function SIGNUMinhaFila() {
                       style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemOficioBaixa?700:400, cursor:"pointer", border:`1px solid ${filtroSemOficioBaixa?"#f472b6":"#d1d5db"}`, background:filtroSemOficioBaixa?"rgba(244,114,182,0.15)":"transparent", color:filtroSemOficioBaixa?"#f472b6":"#374151", display:"flex", alignItems:"center", gap:5 }}>
                       {filtroSemOficioBaixa&&"✓ "}⚠️ Sem OF. BX <span style={{ opacity:.6, fontSize:10 }}>({fila.filter(i=>["PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(i.listaOrigem)&&!flagAtiva(i,"OFICIO_BAIXA")).length})</span>
                     </button>
+                    <button onClick={() => setFiltroSemOficioDetranSefaz(v => !v)}
+                      style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemOficioDetranSefaz?700:400, cursor:"pointer", border:`1px solid ${filtroSemOficioDetranSefaz?"#22d3ee":"#d1d5db"}`, background:filtroSemOficioDetranSefaz?"rgba(34,211,238,0.15)":"transparent", color:filtroSemOficioDetranSefaz?"#22d3ee":"#374151", display:"flex", alignItems:"center", gap:5 }}>
+                      {filtroSemOficioDetranSefaz&&"✓ "}⚠️ Sem Of. Detran e Sefaz <span style={{ opacity:.6, fontSize:10 }}>({fila.filter(i=>i.listaOrigem==="CEGOC"&&i.STATUS_DILIGENCIA==="CATÁLOGO"&&!flagAtiva(i,"OFICIO_DETRAN_SEFAZ")).length})</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1020,11 +1034,12 @@ export default function SIGNUMinhaFila() {
                 {[...filtroStatus].map(s=><span key={s} onClick={()=>toggleSet(setFiltroStatus,s)} style={{ padding:"3px 9px", background:"rgba(37,99,235,0.08)", border:"1.5px solid #b0b8c4", borderRadius:20, fontSize:11, color:"#2563eb", cursor:"pointer" }}>{s} ✕</span>)}
                 {[...filtroLista].map(l=>{const m=LISTA_META[l];return <span key={l} onClick={()=>toggleSet(setFiltroLista,l)} style={{ padding:"3px 9px", background:m?.bg||"#f3f4f6", border:`1px solid ${m?.color||"#9ca3af"}`, borderRadius:20, fontSize:11, color:m?.color||"#fff", cursor:"pointer" }}>{m?.label||l} ✕</span>;})}
                 {[...filtroTipo].map(t=><span key={t} onClick={()=>toggleSet(setFiltroTipo,t)} style={{ padding:"3px 9px", background:"#f3f4f6", border:"1px solid #d1d5db", borderRadius:20, fontSize:11, color:"#1f2937", cursor:"pointer" }}>{t} ✕</span>)}
-                {[...filtroFlags].map(f=>{const labels={FIB:"FIB",CEB_TEP_TIV:"CEB/TEP/TIV",OFICIO_BAIXA:"Ofício Baixa",HIGEIA:"HIGEIA"};return <span key={f} onClick={()=>toggleSet(setFiltroFlags,f)} style={{ padding:"3px 9px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:20, fontSize:11, color:"#a78bfa", cursor:"pointer" }}>{labels[f]||f} ✕</span>;})}
+                {[...filtroFlags].map(f=>{const labels={FIB:"FIB",CEB_TEP_TIV:"CEB/TEP/TIV",OFICIO_BAIXA:"Ofício Baixa",OFICIO_DETRAN_SEFAZ:"Of. Detran/Sefaz",HIGEIA:"HIGEIA"};return <span key={f} onClick={()=>toggleSet(setFiltroFlags,f)} style={{ padding:"3px 9px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:20, fontSize:11, color:"#a78bfa", cursor:"pointer" }}>{labels[f]||f} ✕</span>;})}
                 {[...filtroDestinacao].map(d=><span key={d} onClick={()=>toggleSet(setFiltroDestinacao,d)} style={{ padding:"3px 9px", background:"rgba(34,197,94,0.08)", border:"1px solid rgba(34,197,94,0.3)", borderRadius:20, fontSize:11, color:"#16a34a", cursor:"pointer" }}>{d} ✕</span>)}
                 {[...filtroLPC].map(lpc=><span key={lpc} onClick={()=>toggleSet(setFiltroLPC,lpc)} style={{ padding:"3px 9px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:20, fontSize:11, color:"#a78bfa", cursor:"pointer" }}>LPC {lpc} ✕</span>)}
                 {filtroSemFib && <span onClick={()=>setFiltroSemFib(false)} style={{ padding:"3px 9px", background:"rgba(248,113,113,0.1)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:20, fontSize:11, color:"#f87171", cursor:"pointer" }}>Sem FIB ✕</span>}
                 {filtroSemOficioBaixa && <span onClick={()=>setFiltroSemOficioBaixa(false)} style={{ padding:"3px 9px", background:"rgba(244,114,182,0.1)", border:"1px solid rgba(244,114,182,0.3)", borderRadius:20, fontSize:11, color:"#f472b6", cursor:"pointer" }}>Sem OF. BX ✕</span>}
+                {filtroSemOficioDetranSefaz && <span onClick={()=>setFiltroSemOficioDetranSefaz(false)} style={{ padding:"3px 9px", background:"rgba(34,211,238,0.1)", border:"1px solid rgba(34,211,238,0.3)", borderRadius:20, fontSize:11, color:"#22d3ee", cursor:"pointer" }}>Sem Of. Detran e Sefaz ✕</span>}
               </div>
             )}
           </div>
@@ -1214,6 +1229,17 @@ export default function SIGNUMinhaFila() {
                     </div>
                     )}
 
+                    {selectedItem.listaOrigem==="CEGOC" && selectedItem.STATUS_DILIGENCIA==="CATÁLOGO" && (() => {
+                      const on = selectedItem.OFICIO_DETRAN_SEFAZ==="TRUE"||selectedItem.OFICIO_DETRAN_SEFAZ===true;
+                      return (
+                        <div style={{ marginBottom:20 }}>
+                          <span style={{ padding:"3px 10px", borderRadius:16, fontSize:11, fontWeight:700, background:on?"#22d3ee18":"#f3f4f6", border:`1px solid ${on?"#22d3ee":"#d1d5db"}`, color:on?"#22d3ee":"#6b7280" }}>
+                            {on?"✓ ":""}Of. Detran/Sefaz Enviado
+                          </span>
+                        </div>
+                      );
+                    })()}
+
                     {/* Observações — mais recente primeiro */}
                     {selectedItem.OBSERVACOES && (
                       <div style={{ marginBottom:20 }}>
@@ -1297,6 +1323,11 @@ export default function SIGNUMinhaFila() {
                       {tog("CEB/TEP/TIV Emitido","CEB_TEP_TIV",   "#60a5fa")}
                       {tog("Ofício de Baixa DETRAN","OFICIO_BAIXA","#f472b6")}
                       {tog("Restrição Roubo/Furto","RESTRICAO_ROUBO","#fbbf24")}
+                    </div>
+                    )}
+                    {selectedItem.listaOrigem==="CEGOC" && drawerEditData.STATUS_DILIGENCIA==="CATÁLOGO" && (
+                    <div style={{ borderTop:"1px solid #e5e7eb", paddingTop:8 }}>
+                      {tog("Ofício Detran/Sefaz Enviado","OFICIO_DETRAN_SEFAZ","#22d3ee")}
                     </div>
                     )}
                   </div>
