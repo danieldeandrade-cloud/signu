@@ -59,6 +59,15 @@ export async function PATCH(request, { params }) {
       }
       const sheetDestino = resolveSheetName(staging.LISTA_DESTINO);
       const campos = body.campos || {};
+      // PCDF 1ª/2ª: cadastro novo sempre nasce RECICLAGEM — mesma regra do
+      // cadastro manual (app/cadastro/page.jsx). O schema de extração da IA
+      // (automacao-sei/extrair_sei.py) nunca pediu DESTINACAO pra essas duas
+      // listas (só existe no schema da CEGOC), então sem isso o campo ficava
+      // vazio e quebrava o filtro "Reciclagem" na Minha Fila pra quem veio
+      // da importação SEI.
+      if (['pcdf1', 'pcdf2'].includes(staging.LISTA_DESTINO) && !campos.DESTINACAO) {
+        campos.DESTINACAO = 'RECICLAGEM';
+      }
       const novoItem = await addRow(sheetDestino, { ...campos, MODIFICADO_POR: autor });
 
       const staged = await updateRow(sheetStaging, Number(rowNumber), {
