@@ -201,8 +201,15 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
     // PA_PJE é o campo legado (antes de separar em PA + PJE), mantido no
     // fallback pra achar duplicata em registros antigos que ainda só têm ele.
     const norm = v => (v || "").toUpperCase().replace(/\s/g, "");
+    const normDigitos = v => (v || "").replace(/\D/g, "");
     const alvos = [campos.ID_PASEI, campos.PA, campos.PJE, campos.PA_PJE].map(norm).filter(v => v.length > 5);
     const nivAlvo = norm(campos.NIV);
+    // PLACA/RENAVAM: um ofício sobre um veículo já cadastrado (ex.: desvinculação de
+    // multa, resposta do DETRAN) muitas vezes não repete o nº do processo original
+    // nem sempre traz o NIV — mas cita a placa/RENAVAM do veículo, suficiente pra
+    // achar o cadastro existente e herdar o responsável (em vez de sortear um novo).
+    const placaAlvo = norm(campos.PLACA);
+    const renavamAlvo = normDigitos(campos.RENAVAM);
     const encontrados = [];
     await Promise.allSettled(TODAS_LISTAS_ROTA.map(async (rota) => {
       try {
@@ -211,8 +218,14 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
         (json.dados || []).forEach(row => {
           const valoresRow = [row.ID_PASEI, row.PA, row.PJE, row.PA_PJE].map(norm).filter(Boolean);
           const niv = norm(row.NIV);
+          const placa = norm(row.PLACA);
+          const placaOst = norm(row.PLACA_OSTENTADA);
+          const renavam = normDigitos(row.RENAVAM);
           const bateProcesso = alvos.some(a => valoresRow.includes(a));
-          if (bateProcesso || (nivAlvo && nivAlvo.length > 5 && niv === nivAlvo)) {
+          const bateNiv = nivAlvo && nivAlvo.length > 5 && nivAlvo !== "NA" && niv === nivAlvo;
+          const batePlaca = placaAlvo && placaAlvo.length >= 6 && (placa === placaAlvo || placaOst === placaAlvo);
+          const bateRenavam = renavamAlvo && renavamAlvo.length >= 9 && renavam === renavamAlvo;
+          if (bateProcesso || bateNiv || batePlaca || bateRenavam) {
             encontrados.push({ rota, item: row });
           }
         });

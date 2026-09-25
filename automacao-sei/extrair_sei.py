@@ -135,11 +135,15 @@ SCHEMAS = {
                                  "inutilização (CEB/TIV/TEP) de um veículo JÁ CADASTRADO anteriormente "
                                  "no NULEJ (não é um cadastro novo); 'FALSE' caso contrário",
                                  ["TRUE", "FALSE"]),
-        "NIV":            CAMPO("NIV/chassi do veículo mencionado nos termos, só se EH_RETORNO_TEP=TRUE"),
-        "PLACA":          CAMPO("Placa do veículo mencionado nos termos, só letras e números, "
-                                 "só se EH_RETORNO_TEP=TRUE"),
-        "RENAVAM":        CAMPO("RENAVAM do veículo mencionado nos termos, só dígitos, "
-                                 "só se EH_RETORNO_TEP=TRUE"),
+        "NIV":            CAMPO("NIV/chassi do veículo mencionado no processo, se identificável — "
+                                 "extraia sempre que aparecer no texto, não só em retorno de TEP. "
+                                 "Usado pra achar o cadastro já existente do veículo (ex.: ofícios de "
+                                 "desvinculação de multa, respostas do DETRAN/PRF etc. também citam "
+                                 "placa/chassi/RENAVAM de um veículo já cadastrado)."),
+        "PLACA":          CAMPO("Placa do veículo mencionado no processo, só letras e números, "
+                                 "se identificável — mesma regra do NIV acima."),
+        "RENAVAM":        CAMPO("RENAVAM do veículo mencionado no processo, só dígitos, "
+                                 "se identificável — mesma regra do NIV acima."),
         "TEP_VALOR":      CAMPO("Valor do TEP em reais, se mencionado (só números, ex: 1500.00), "
                                  "só se EH_RETORNO_TEP=TRUE"),
         "OBSERVACOES":    CAMPO("Resumo em 1-2 frases do que o PA pede"),
