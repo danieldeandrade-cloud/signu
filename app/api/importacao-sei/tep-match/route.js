@@ -1,12 +1,18 @@
 // app/api/importacao-sei/tep-match/route.js
 //
-// GET /api/importacao-sei/tep-match?niv=...&placa=...&renavam=...
+// GET /api/importacao-sei/tep-match?niv=...&placa=...&renavam=...&processo=...
 //
 // Busca em Bens_PCDF_1HIGEIA e Bens_PCDF_2HIGEIA por um veículo já cadastrado
 // que bata com o NIV, placa ou RENAVAM extraídos de um retorno de TEP/CEB/TIV
 // da PCDF (ver automacao-sei/extrair_sei.py, campo EH_RETORNO_TEP). Usado pela
-// tela de revisão pra achar o cadastro existente a atualizar, sem depender do
-// nº do processo SEI (o retorno tem um nº novo, diferente do cadastro original).
+// tela de revisão pra achar o cadastro existente a atualizar.
+//
+// Também bate por `processo` (nº do processo SEI do retorno) contra o
+// ID_PASEI do cadastro existente — nem sempre o retorno tem nº novo, às vezes
+// a PCDF só junta os termos no MESMO processo que já estava em diligência
+// (casos 00052-00024207/2026-84 e 00052-00025040/2026-79, 2026-09: NIV/placa
+// não bateram porque o cadastro original tinha a placa gravada por engano no
+// campo NIV, mas o nº do processo era idêntico).
 //
 // Protegida por sessão de gestor (mesmo padrão das outras rotas de importacao-sei).
 
@@ -35,9 +41,10 @@ export async function GET(request) {
     const niv = norm(searchParams.get('niv'));
     const placa = norm(searchParams.get('placa'));
     const renavam = normDigitos(searchParams.get('renavam'));
+    const processo = String(searchParams.get('processo') || '').trim();
 
-    if (!niv && !placa && !renavam) {
-      return NextResponse.json({ erro: 'Informe ao menos niv, placa ou renavam.' }, { status: 400 });
+    if (!niv && !placa && !renavam && !processo) {
+      return NextResponse.json({ erro: 'Informe ao menos niv, placa, renavam ou processo.' }, { status: 400 });
     }
 
     const candidatos = [];
@@ -47,7 +54,8 @@ export async function GET(request) {
         const bateNiv = niv && niv !== 'NA' && norm(r.NIV) === niv;
         const batePlaca = placa && (norm(r.PLACA) === placa || norm(r.PLACA_OSTENTADA) === placa);
         const bateRenavam = renavam && normDigitos(r.RENAVAM) === renavam;
-        if (bateNiv || batePlaca || bateRenavam) {
+        const bateProcesso = processo && String(r.ID_PASEI || '').trim() === processo;
+        if (bateNiv || batePlaca || bateRenavam || bateProcesso) {
           candidatos.push({
             lista,
             rowNumber: r._rowNumber,
@@ -62,7 +70,7 @@ export async function GET(request) {
             STATUS_DILIGENCIA: r.STATUS_DILIGENCIA,
             CEB_TEP_TIV: r.CEB_TEP_TIV,
             TEP_SEI: r.TEP_SEI,
-            criterioMatch: [bateNiv && 'NIV', batePlaca && 'PLACA', bateRenavam && 'RENAVAM'].filter(Boolean).join('+'),
+            criterioMatch: [bateNiv && 'NIV', batePlaca && 'PLACA', bateRenavam && 'RENAVAM', bateProcesso && 'PROCESSO'].filter(Boolean).join('+'),
           });
         }
       }

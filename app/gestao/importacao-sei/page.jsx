@@ -60,7 +60,9 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
 
   // Retorno de TEP/CEB/TIV da PCDF (item.campos.EH_RETORNO_TEP === "TRUE"):
   // não é cadastro novo, é atualização de um veículo já em PCDF 1ª/2ª — achado
-  // por NIV/placa/RENAVAM (não por nº de processo, que é novo neste retorno).
+  // por NIV/placa/RENAVAM OU pelo próprio nº do processo (às vezes a PCDF só
+  // junta os termos no mesmo processo que já estava em diligência, sem abrir
+  // um novo — casos 00024207/2026-84 e 00025040/2026-79, 2026-09).
   const ehRetornoTep = String(item.campos?.EH_RETORNO_TEP || "").toUpperCase() === "TRUE";
   const [tepCandidatos, setTepCandidatos] = useState(null); // null | "buscando" | []
   const [tepSelecionado, setTepSelecionado] = useState(null); // candidato escolhido
@@ -74,6 +76,7 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
     try {
       const qs = new URLSearchParams({
         niv: campos.NIV || "", placa: campos.PLACA || "", renavam: campos.RENAVAM || "",
+        processo: item.PROCESSO_SEI || "",
       });
       const res = await fetch(`/api/importacao-sei/tep-match?${qs}`);
       const json = await res.json();
@@ -345,8 +348,8 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
 
           {Array.isArray(tepCandidatos) && tepCandidatos.length === 0 && (
             <div style={{ fontSize: 11, color: "#92400e" }}>
-              Nenhum cadastro correspondente achado por NIV/placa/RENAVAM em PCDF 1ª/2ª. Confira os campos acima
-              ou trate como triagem normal (botões no fim do card).
+              Nenhum cadastro correspondente achado por NIV/placa/RENAVAM/processo em PCDF 1ª/2ª. Confira os campos
+              acima ou trate como triagem normal (botões no fim do card).
             </div>
           )}
 
