@@ -170,6 +170,13 @@ MARCADOR_POS = "REVISAR - CADASTRADO SIGNU"
 # Padrões de número de processo (para achar o ID mesmo se a IA escorregar)
 RE_PA_SEI = re.compile(r"\b\d{4,6}[-.]\d{6,8}/\d{4}-\d{2}\b")
 RE_CNJ    = re.compile(r"\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b")
+# Placa (formato antigo ABC1234 ou Mercosul ABC1D23) logo perto da palavra
+# "placa" no texto — rede de segurança pro schema "sei" (ver extrair_com_ia):
+# a extração de PLACA/NIV/RENAVAM continua a cargo da IA, mas se ela deixar
+# vazio e o texto tiver claramente "placa XXX0000/UF" perto, usa isso.
+RE_PLACA_PERTO = re.compile(
+    r"placa[s]?\D{0,15}?\b([A-Z]{3}[- ]?\d[A-Z0-9]\d{2})\b", re.IGNORECASE
+)
 
 
 def carregar_config(caminho):
@@ -949,6 +956,16 @@ TEXTO DO PROCESSO (pode estar truncado):
     # em jogo se processar() não tiver um numero_sei mais confiável pra sobrescrever)
     if "ID_PASEI" in schema and not campos.get("ID_PASEI") and proc["numero"]:
         campos["ID_PASEI"] = proc["numero"]
+    # mesma ideia pra PLACA: se a IA deixou vazio mas o texto tem "placa XXX0000"
+    # clarinho, usa o regex — evita repetir o caso do processo 0704179-49.2019
+    # (desvinculação de multa citando a placa, mas a IA não preencheu o campo).
+    if "PLACA" in schema and not campos.get("PLACA"):
+        m = RE_PLACA_PERTO.search(proc["texto"])
+        if m:
+            campos["PLACA"] = m.group(1).upper().replace("-", "").replace(" ", "")
+            data.setdefault("_alertas", []).append(
+                f"PLACA não veio da IA — capturada por regex perto de 'placa' no texto: {campos['PLACA']!r}."
+            )
     data["campos"] = campos
     return data
 

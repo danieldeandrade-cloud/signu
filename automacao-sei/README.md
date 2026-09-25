@@ -126,6 +126,16 @@ Percorre a árvore (`ifrArvore`), e para cada documento:
   (2026-09-24): resposta cortada em `MAX_TOKENS` com só 358 chars de JSON
   válido, campos quase todos vazios. O raw fica salvo em
   `saida/_gemini_raw_*.txt` quando isso acontece.
+- **NIV/PLACA/RENAVAM no schema `sei`**: até 2026-09-25 só eram pedidos pra IA
+  quando `EH_RETORNO_TEP=TRUE`. Processo 0704179-49.2019.8.07.0017 (ofício de
+  desvinculação de multa, não é retorno de TEP) citava a placa do veículo mas
+  o campo ficou vazio — sem isso, a tela de revisão não achava o cadastro já
+  existente (CEGOC) e sorteava um responsável novo por distribuição
+  automática em vez de herdar o da Carla. Corrigido: agora pede pra extrair
+  sempre que identificável, independente do tipo de ofício. Também ganhou uma
+  rede de segurança por regex (`RE_PLACA_PERTO`, em `extrair_com_ia()`) — se a
+  IA deixar `PLACA` vazio mas o texto tiver "placa XXX0000" por perto, usa
+  isso (mesmo padrão já existente pra `ID_PASEI`/`RE_PA_SEI`).
 - **Seletores do SEI**: frames `ifrArvore` / `ifrConteudoVisualizacao` /
   `ifrVisualizacao` são o padrão do SEI 4.x. Ajuste `sei.*` no `config.json` e
   rode com `--debug` se o seu SEI divergir.
