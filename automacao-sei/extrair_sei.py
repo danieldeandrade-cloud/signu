@@ -727,7 +727,7 @@ def extrair_processo(page, cfg_sei, debug=False):
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
-def chamar_gemini(api_key, model, system, prompt, pdfs=None, max_tokens=4096, timeout=180):
+def chamar_gemini(api_key, model, system, prompt, pdfs=None, max_tokens=8192, timeout=180):
     """POST .../{model}:generateContent — retorna (texto, finish_reason).
     pdfs: lista de {titulo, b64} anexada como inline_data application/pdf."""
     import urllib.request
@@ -746,6 +746,12 @@ def chamar_gemini(api_key, model, system, prompt, pdfs=None, max_tokens=4096, ti
             "temperature": 0,
             "maxOutputTokens": max_tokens,
             "responseMimeType": "application/json",
+            # extração simples e direta — sem necessidade de raciocínio interno.
+            # Sem isso, modelos com "thinking" (2.5+) podem gastar boa parte do
+            # maxOutputTokens em tokens de pensamento invisíveis e cortar o JSON
+            # visível no meio (foi o que aconteceu no processo 28231/2026: raw
+            # de 358 chars truncado em MAX_TOKENS com um budget de 4096).
+            "thinkingConfig": {"thinkingBudget": 0},
         },
     }
     req = urllib.request.Request(

@@ -118,6 +118,14 @@ Percorre a árvore (`ifrArvore`), e para cada documento:
 
 ## Limitações conhecidas (v0)
 
+- **Gemini `maxOutputTokens`**: chamada em `chamar_gemini()` roda com
+  `thinkingConfig.thinkingBudget=0` e `maxOutputTokens=8192` (antes: sem
+  desligar o "thinking" e budget de 4096). Sem isso, modelos 2.5+ podem gastar
+  boa parte do budget em tokens de raciocínio invisíveis e cortar o JSON
+  visível no meio — foi o que aconteceu no processo 00052-00028231/2026-92
+  (2026-09-24): resposta cortada em `MAX_TOKENS` com só 358 chars de JSON
+  válido, campos quase todos vazios. O raw fica salvo em
+  `saida/_gemini_raw_*.txt` quando isso acontece.
 - **Seletores do SEI**: frames `ifrArvore` / `ifrConteudoVisualizacao` /
   `ifrVisualizacao` são o padrão do SEI 4.x. Ajuste `sei.*` no `config.json` e
   rode com `--debug` se o seu SEI divergir.
