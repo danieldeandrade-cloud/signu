@@ -3,6 +3,10 @@
     {
       "path": "/api/notificacoes",
       "schedule": "0 10 * * 1-5"
+    },
+    {
+      "path": "/api/cron/prazo-dpj",
+      "schedule": "0 10 * * 1-5"
     }
   ]
 }

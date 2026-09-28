@@ -84,7 +84,7 @@ const CAMPOS = {
     { id:"PESO_KG",           label:"Peso estimado (kg)",  type:"number",   placeholder:"Ex: 800", hint:"Para estatística de reciclagem" },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
     { id:"DESTINACAO",        label:"Destinação *",        type:"select",   required:true,  options:DESTINACOES },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
+    { id:"RESPONSAVEL",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"FIB",               label:"FIB Expedida",        type:"toggle" },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação e ações..." },
   ],
@@ -97,7 +97,7 @@ const CAMPOS = {
     { id:"PJE",               label:"PJE (nº do processo judicial)", type:"text", placeholder:"Ex: 0714761-93.2023.8.07.0009" },
     { id:"DATA_ENTRADA",      label:"Data de Entrada *",   type:"date",     required:true },
     { id:"PRAZO_6MESES",      label:"Prazo 6 Meses",       type:"date",     readonly:true,  hint:"Calculado automaticamente (+180 dias)" },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
+    { id:"RESPONSAVEL",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"MOTIVO_SAIDA",      label:"Motivo de Saída",     type:"select",   options:["", ...MOTIVOS_SAIDA] },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação..." },
   ],
@@ -109,7 +109,7 @@ const CAMPOS = {
     ...DESC_VEICULO,
     { id:"DEPOSITO",          label:"Depósito *",          type:"select",   required:true,  options:DEPOSITOS },
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
+    { id:"RESPONSAVEL",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"FIB",               label:"FIB Expedida",        type:"toggle" },
     { id:"CEB_TEP_TIV",       label:"CEB/TEP/TIV Emitido", type:"toggle" },
     { id:"OFICIO_BAIXA",      label:"Ofício de Baixa",     type:"toggle" },
@@ -126,7 +126,7 @@ const CAMPOS = {
     { id:"STATUS_DILIGENCIA", label:"Status *",            type:"select",   required:true,  options:STATUS_DI },
     { id:"PA_TJDFT",          label:"PA TJDFT",            type:"text",     placeholder:"N/C se não houver" },
     { id:"ORIGEM_CEGOC_ID",   label:"Origem CEGOC ID",     type:"text",     placeholder:"Ex: CEGOC-0142" },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
+    { id:"RESPONSAVEL",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"FIB",               label:"FIB Expedida",        type:"toggle" },
     { id:"CEB_TEP_TIV",       label:"CEB/TEP/TIV Emitido", type:"toggle" },
     { id:"OFICIO_BAIXA",      label:"Ofício de Baixa",     type:"toggle" },
@@ -142,14 +142,14 @@ const CAMPOS = {
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"PLACA",             label:"PLACA", hint:"sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF", type:"text", placeholder:"Ex: ABC1234 ou ABC1234/DF" },
     { id:"STATUS_LOCAL_PA",   label:"Status Local PA",     type:"select",   options:STATUS_LOCAL },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
+    { id:"RESPONSAVEL",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Detalhes da doação..." },
   ],
   CAIXA_SEI: [
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0038491-22.2024.8.07.0001" },
     { id:"TIPO_BEM",          label:"Tipo de Bem",         type:"select",   options:TIPOS_BEM },
     { id:"ACAO",              label:"Ação *",              type:"select",   required:true,  options:ACOES_SEI },
-    { id:"Responsavel",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
+    { id:"RESPONSAVEL",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Descrição da triagem..." },
   ],
 };
@@ -579,12 +579,12 @@ export default function CadastroPage() {
       buscarDuplicata(campo, val);
     }
     // Distribuição automática
-    if (id === "Responsavel") {
+    if (id === "RESPONSAVEL") {
       if (val === "__AUTO__") dispararAutoDistribuicao(next.STATUS_DILIGENCIA);
       else setAutoResp(null);
     }
     // Se já está em modo automático e o status muda, recalcula (RENAJUD ⇄ normal)
-    if (id === "STATUS_DILIGENCIA" && next.Responsavel === "__AUTO__") {
+    if (id === "STATUS_DILIGENCIA" && next.RESPONSAVEL === "__AUTO__") {
       dispararAutoDistribuicao(val);
     }
   };
@@ -605,12 +605,12 @@ export default function CadastroPage() {
     // (não reusa o autoResp já mostrado na tela) pra refletir contagens de
     // cadastros feitos enquanto o formulário estava aberto.
     const dadosResolvidos = { ...formData };
-    if (dadosResolvidos.Responsavel === "__AUTO__") {
+    if (dadosResolvidos.RESPONSAVEL === "__AUTO__") {
       const servidor = autoResp
         ? await calcularDistribuicao(autoResp.candidatos, autoResp.motivo)
         : null;
-      if (!servidor) { setErros(["Responsavel"]); return; }
-      dadosResolvidos.Responsavel = servidor;
+      if (!servidor) { setErros(["RESPONSAVEL"]); return; }
+      dadosResolvidos.RESPONSAVEL = servidor;
     }
 
     // Validação dos campos obrigatórios do cabeçalho (lote, no caso da DPJ)
@@ -643,6 +643,11 @@ export default function CadastroPage() {
         campos.forEach(c => {
           if (dadosResolvidos[c.id] !== undefined && dadosResolvidos[c.id] !== "") loteBase[c.id] = dadosResolvidos[c.id];
         });
+        // Regra do NULEJ: todo item novo da DPJ-GC99 nasce em "PRAZO 6 MESES" —
+        // dentro do prazo, o NULEJ ainda não precisa diligenciar. Depois de 180
+        // dias da entrada (sem destinação definida), um cron promove sozinho
+        // pra "EM DILIGÊNCIA" (ver /api/cron/prazo-dpj).
+        loteBase.STATUS_DILIGENCIA = "PRAZO 6 MESES";
         for (const it of itensParaEnviar) {
           const payloadItem = { ...loteBase, TIPO_BEM: it.TIPO_BEM, DESCRICAO: it.DESCRICAO.trim(), QUANTIDADE: it.QUANTIDADE || "1" };
           ["NIV", "PLACA", "MARCA_MODELO", "ANO_FAB_MODELO", "COR", "RENAVAM", "AVALIACAO_UNITARIA", "AVALIACAO_TOTAL"]
