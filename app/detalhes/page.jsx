@@ -48,6 +48,8 @@ const STATUS_OPTIONS  = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES
 // PCDF 1ª/2ª: RETIRADO = bem saiu do controle ativo do NULEJ (restituído, etc)
 // — só essas duas listas, não faz sentido em CEGOC. Ver handleStatusDiligencia.
 const STATUS_OPTIONS_PCDF = [...STATUS_OPTIONS, "RETIRADO"];
+// CEGOC: bem de circulação leiloado — VENDIDO (arrematado) e VENDIDO E RETIRADO (já saiu do pátio)
+const STATUS_OPTIONS_CEGOC = [...STATUS_OPTIONS, "VENDIDO", "VENDIDO E RETIRADO"];
 const STATUS_2HIGEIA  = ["EM PROCESSAMENTO","TEP REGISTRADO","ENVIAR OFÍCIO DETRAN","AGUARDAR RESPOSTA DETRAN","GERAR TAP","FINALIZADO"];
 // Status Local PA das doações — igual ao usado no cadastro (lib compartilhada seria melhor, mas o padrão do projeto é const por arquivo)
 const STATUS_LOCAL_PA_OPTIONS = ["EM ANÁLISE","AGUARDANDO ENTIDADE","AGUARDANDO APTIDÃO","EM DILIGÊNCIA","SEMA","SGC","GC","ENTIDADE","CONCLUÍDO","CANCELADO"];
@@ -69,6 +71,8 @@ const STATUS_META = {
   "PRAZO 6 MESES":       { color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
   "BAIXADO":             { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
   "DOAÇÃO EM ANDAMENTO": { color: "#34d399", bg: "rgba(52,211,153,0.12)"  },
+  "VENDIDO":             { color: "#0d9488", bg: "rgba(13,148,136,0.12)"  },
+  "VENDIDO E RETIRADO":  { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
 };
 
 const TIPO_ICON = { CARRO:"🚗", MOTO:"🏍️", CAMINHONETE:"🛻", CAMINHÃO:"🚛", REBOQUE:"🚜", OUTROS:"📦" };
@@ -1311,7 +1315,7 @@ function DetalhesContent() {
                       ) : (
                         editMode
                           ? <FieldEdit label="Status" value={editData?.STATUS_DILIGENCIA} onChange={handleStatusDiligencia}
-                              options={(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") ? STATUS_OPTIONS_PCDF : STATUS_OPTIONS}/>
+                              options={(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") ? STATUS_OPTIONS_PCDF : listaKey === "CEGOC" ? STATUS_OPTIONS_CEGOC : STATUS_OPTIONS}/>
                           : <FieldView label="Status" value={current?.STATUS_DILIGENCIA}/>
                       )}
                       {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") && (() => {

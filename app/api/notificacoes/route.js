@@ -39,7 +39,7 @@ const MAX_ALERTAS_SERVIDOR = 25;  // teto de linhas no e-mail individual
 const ALERTA_SERVIDOR_ATIVO_EM = new Date('2026-10-02T00:00:00-03:00');
 
 // Status que significam trabalho encerrado — ficam fora do relatório
-const STATUS_ENCERRADO = ['RETIRADO', 'BAIXADO', 'CONCLUÍDO', 'CONCLUIDO', 'CANCELADO', 'ARQUIVADO', 'DOAÇÃO REALIZADA'];
+const STATUS_ENCERRADO = ['RETIRADO', 'BAIXADO', 'CONCLUÍDO', 'CONCLUIDO', 'CANCELADO', 'ARQUIVADO', 'DOAÇÃO REALIZADA', 'VENDIDO E RETIRADO'];
 const estaAtivo = (status) => {
   const s = String(status || '').toUpperCase().trim();
   return s !== '' && !STATUS_ENCERRADO.includes(s);

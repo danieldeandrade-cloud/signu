@@ -95,6 +95,8 @@ const STATUS_META = {
   "PRAZO 6 MESES":      { color:"#fbbf24", bg:"rgba(251,191,36,0.12)"  },
   "BAIXADO":            { color:"#6b7280", bg:"rgba(107,114,128,0.12)" },
   "RETIRADO":           { color:"#6b7280", bg:"rgba(107,114,128,0.12)" },
+  "VENDIDO":            { color:"#0d9488", bg:"rgba(13,148,136,0.12)"  },
+  "VENDIDO E RETIRADO": { color:"#6b7280", bg:"rgba(107,114,128,0.12)" },
   "EM ANÁLISE":         { color:"#60a5fa", bg:"rgba(96,165,250,0.12)"  },
   "AGUARDANDO ENTIDADE":{ color:"#fbbf24", bg:"rgba(251,191,36,0.12)"  },
   "AGUARDANDO APTIDÃO": { color:"#f59e0b", bg:"rgba(245,158,11,0.12)"  },

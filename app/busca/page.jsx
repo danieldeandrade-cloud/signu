@@ -42,6 +42,8 @@ const STATUS_META = {
   "ATRASADO":           { color:"#f87171" },
   "PRAZO 6 MESES":      { color:"#fbbf24" },
   "BAIXADO":            { color:"#6b7280" },
+  "VENDIDO":            { color:"#0d9488" },
+  "VENDIDO E RETIRADO": { color:"#6b7280" },
   "EM ANÁLISE":         { color:"#60a5fa" },
   "AGUARDANDO ENTIDADE":{ color:"#fbbf24" },
   "DILIGÊNCIA":         { color:"#22c55e" },

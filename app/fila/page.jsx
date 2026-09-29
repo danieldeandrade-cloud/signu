@@ -132,6 +132,8 @@ const STATUS_META = {
   "PRAZO 6 MESES":   { color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
   "BAIXADO":         { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
   "RETIRADO":        { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+  "VENDIDO":         { color: "#0d9488", bg: "rgba(13,148,136,0.12)"  },
+  "VENDIDO E RETIRADO": { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
   // Ações SEI
   "DILIGÊNCIA":      { color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
   "ARQUIVADO":       { color: "#94a3b8", bg: "rgba(148,163,184,0.12)" },
@@ -663,7 +665,10 @@ export default function SIGNUMinhaFila() {
     }
   }, [session]);
 
-  const statusOptions = ["EM DILIGÊNCIA", "EM DILIGÊNCIA HIGEIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "RENAJUD", "LPC", "CATÁLOGO", "BAIXADO", "RETIRADO"];
+  const statusOptions = ["EM DILIGÊNCIA", "EM DILIGÊNCIA HIGEIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "RENAJUD", "LPC", "CATÁLOGO", "BAIXADO", "RETIRADO", "VENDIDO", "VENDIDO E RETIRADO"];
+  // VENDIDO / VENDIDO E RETIRADO só existem na CEGOC (bens de circulação leiloados)
+  const STATUS_SO_CEGOC = ["VENDIDO", "VENDIDO E RETIRADO"];
+  const statusOptionsDoItem = (item) => item?.listaOrigem === "CEGOC" ? statusOptions : statusOptions.filter(s => !STATUS_SO_CEGOC.includes(s));
   const listaOptions  = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99", "CAIXA_SEI"];
 
   // Carrega itens de todas as listas atribuídos ao usuário.
@@ -1361,10 +1366,10 @@ export default function SIGNUMinhaFila() {
                         <select value={drawerEditData.STATUS_DILIGENCIA||""} onChange={e=>handleStatusDrawer(e.target.value)}
                           style={{ width:"100%", padding:"7px 10px", background:"#fff", border:"1px solid #d1d5db", borderRadius:7, color:"#0f172a", fontSize:12, outline:"none" }}>
                           <option value="">— Selecione —</option>
-                          {statusOptions.map(o=><option key={o} value={o}>{o}</option>)}
+                          {statusOptionsDoItem(selectedItem).map(o=><option key={o} value={o}>{o}</option>)}
                         </select>
                       </div>
-                    ) : inp("Status", "STATUS_DILIGENCIA", statusOptions)}
+                    ) : inp("Status", "STATUS_DILIGENCIA", statusOptionsDoItem(selectedItem))}
                     {(selectedItem.listaOrigem==="PCDF_1HIGEIA"||selectedItem.listaOrigem==="PCDF_2HIGEIA") && drawerEditData.STATUS_DILIGENCIA==="RETIRADO" && inp("Motivo da Retirada","MOTIVO_RETIRADA")}
                     {inp("Destinação", "DESTINACAO", DESTINACOES_OPT)}
                     {inp("NIV / Chassi", "NIV")}
