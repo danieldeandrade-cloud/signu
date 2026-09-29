@@ -2,7 +2,7 @@
 import Sidebar from "@/components/Sidebar";
 import { useSession } from "next-auth/react";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { parseNotas, ultimaObs } from "@/lib/observacoes";
 
 // Lista de servidores (exibida no seletor manual de fallback)
@@ -643,7 +643,7 @@ export default function SIGNUMinhaFila() {
 
   // Dados reais
   const [fila, setFila] = useState([]);
-  const [carregando, setCarregando] = useState(false);
+  const [carregando, setCarregando] = useState(true); // true até a 1ª carga (evita "nenhum bem" piscando)
   const [usuarioAtual, setUsuarioAtual] = useState(null); // null = ainda resolvendo
   const [isGestor, setIsGestor] = useState(false);
 
@@ -666,14 +666,23 @@ export default function SIGNUMinhaFila() {
   const statusOptions = ["EM DILIGÊNCIA", "EM DILIGÊNCIA HIGEIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "RENAJUD", "LPC", "CATÁLOGO", "BAIXADO", "RETIRADO"];
   const listaOptions  = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99", "CAIXA_SEI"];
 
-  // Carrega itens de todas as listas atribuídos ao usuário
+  // Carrega itens de todas as listas atribuídos ao usuário.
+  // `reqIdRef` descarta respostas de cargas antigas: sem isso, uma requisição
+  // mais lenta (ex.: a disparada antes da sessão resolver o usuário) chegava
+  // depois e sobrescrevia a fila certa com vazio.
+  const reqIdRef = useRef(0);
+  const [erroCarga, setErroCarga] = useState(null);
   const carregarFila = useCallback(async (usuario) => {
+    if (!usuario) return;
+    const reqId = ++reqIdRef.current;
     setCarregando(true);
+    setErroCarga(null);
     setFila([]);
     const resultados = await Promise.allSettled(
       LISTAS_FILA.map(async (cfg) => {
-        const res = await fetch(`/api/bens/${cfg.rota}?atribuidoA=${encodeURIComponent(usuario)}`);
-        const json = await res.json();
+        const res = await fetch(`/api/bens/${cfg.rota}?atribuidoA=${encodeURIComponent(usuario)}`, { cache: "no-store" });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.erro || `HTTP ${res.status}`);
         return (json.dados || []).map(r => ({
           ...r,
           id: r.ID_LEGADO || `${cfg.prefixo}-${String(r._rowNumber).padStart(4,"0")}`,
@@ -683,7 +692,10 @@ export default function SIGNUMinhaFila() {
         }));
       })
     );
+    if (reqId !== reqIdRef.current) return; // usuário trocou no meio da carga
     const todos = resultados.flatMap(r => r.status === "fulfilled" ? r.value : []);
+    const falhas = LISTAS_FILA.filter((_, i) => resultados[i].status === "rejected").map(c => c.key);
+    if (falhas.length) setErroCarga(falhas);
     setFila(todos);
     setCarregando(false);
   }, []);
@@ -851,6 +863,15 @@ export default function SIGNUMinhaFila() {
             )}
             {carregando && (
               <span style={{ fontSize:11, color:"#6b7280" }}>carregando…</span>
+            )}
+            {!carregando && erroCarga && (
+              <span style={{ fontSize:11, color:"#dc2626", display:"flex", alignItems:"center", gap:6 }}>
+                Falha ao carregar {erroCarga.join(", ")}
+                <button onClick={() => carregarFila(usuarioAtual)}
+                  style={{ fontSize:11, padding:"2px 8px", borderRadius:6, border:"1px solid #dc2626", background:"#fff", color:"#dc2626", cursor:"pointer" }}>
+                  Tentar de novo
+                </button>
+              </span>
             )}
           </div>
         </header>
@@ -1074,8 +1095,8 @@ export default function SIGNUMinhaFila() {
           {/* ── Tabela ── */}
           {sorted.length === 0 ? (
             <div style={{ textAlign:"center", padding:"60px 20px", color:"#6b7280" }}>
-              <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
-              <div style={{ fontSize:14 }}>Nenhum bem encontrado com estes filtros.</div>
+              <div style={{ fontSize:40, marginBottom:12 }}>{carregando ? "⏳" : "📋"}</div>
+              <div style={{ fontSize:14 }}>{carregando ? "Carregando a fila…" : "Nenhum bem encontrado com estes filtros."}</div>
             </div>
           ) : (
             <div style={{ background:"#f9fafb", border:"1.5px solid #b0b8c4", borderRadius:10, overflow:"hidden" }}>
