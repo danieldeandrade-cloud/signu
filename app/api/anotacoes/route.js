@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server';
 import { getAllRows, addRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
+import { reorganizarFilaDoacoes } from '@/lib/reorganizarFilaDoacoes';
 
 const SHEET = 'anotacoes_doacoes';
 
@@ -48,6 +49,9 @@ export async function POST(request) {
       BEM_VINCULADO: bemVinculado || '',
       OBSERVACOES:   observacoes  || '',
     });
+
+    // Recusa/pulo muda a fila de entidades → recalcula a entidade prevista dos lotes pendentes
+    await reorganizarFilaDoacoes();
 
     return NextResponse.json({ anotacao: novaLinha }, { status: 201 });
   } catch (error) {

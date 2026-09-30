@@ -2,6 +2,7 @@
 import Sidebar from "@/components/Sidebar";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useEntidades, ENTIDADES_FALLBACK } from "@/lib/useEntidades";
+import { montarFilaDoacoes } from "@/lib/filaDoacoes";
 
 // Listas onde buscar duplicatas (todas)
 const TODAS_LISTAS_ROTA = [
@@ -141,8 +142,10 @@ const CAMPOS = {
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"PLACA",             label:"PLACA", hint:"sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF", type:"text", placeholder:"Ex: ABC1234 ou ABC1234/DF" },
-    { id:"STATUS_LOCAL_PA",   label:"Status Local PA",     type:"select",   options:STATUS_LOCAL },
-    { id:"RESPONSAVEL",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
+    { id:"STATUS_LOCAL_PA",   label:"Status Local PA",     type:"select",   options:STATUS_LOCAL, hint:"deixe vazio (e sem responsável) p/ o lote entrar na fila como aguardando início" },
+    // Opcional: lote sem status e sem responsável fica "aguardando início" e
+    // a entidade é recalculada pela fila; preencher qualquer um dos dois trava a entidade.
+    { id:"RESPONSAVEL",       label:"Responsável",         type:"select",   options:SERVIDORES, autoDistribute:true },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Detalhes da doação..." },
   ],
   CAIXA_SEI: [
@@ -504,59 +507,38 @@ export default function CadastroPage() {
     }, 600);
   };
 
-  // Quando DOACOES for selecionada, calcula a próxima entidade na fila efetiva.
-  //
-  // Lógica: para cada uma das 49 entidades, busca o ÚLTIMO EVENTO (doação realizada
-  // ou recusa registrada em Anotações). A entidade cujo último evento é mais antigo
-  // (ou que nunca teve evento) é a próxima na fila. Entidades que recusaram vão
-  // automaticamente para o fim, pois o timestamp da recusa fica mais recente.
+  // Doações: entidade prevista p/ o novo lote, pela mesma regra da fila da
+  // Gestão (lib/filaDoacoes.js). O lote novo entra entre os "aguardando início"
+  // conforme a DATA_DECISAO — se a decisão for mais antiga que a deles, assume
+  // a entidade da vez e eles andam uma posição (o servidor regrava ao salvar).
+  const [baseFilaDoacao, setBaseFilaDoacao] = useState(null); // { doacoes, anotacoes }
   useEffect(() => {
-    if (listaKey !== "DOACOES") { setProximaEntidade(null); return; }
+    if (listaKey !== "DOACOES") { setBaseFilaDoacao(null); return; }
     setCarregandoEntidade(true);
-
     Promise.allSettled([
       fetch("/api/bens/doacoes_diligencia").then(r => r.json()),
       fetch("/api/anotacoes").then(r => r.json()),
     ]).then(([resDoac, resAnot]) => {
-      // Mapeia entidade → timestamp do último evento (ms)
-      const ultimoEvento = {};
-
-      // Doações realizadas (aba usa ENTIDADE_NOME)
-      const doacoes = resDoac.status === "fulfilled" ? (resDoac.value.dados || []) : [];
-      doacoes.forEach(r => {
-        const ent = (r.ENTIDADE_NOME || r.ENTIDADE || "").trim();
-        if (!ent) return;
-        const t = r.DATA_CADASTRO ? new Date(r.DATA_CADASTRO).getTime() : (r._rowNumber || 0);
-        if (!ultimoEvento[ent] || t > ultimoEvento[ent]) ultimoEvento[ent] = t;
+      setBaseFilaDoacao({
+        doacoes:   resDoac.status === "fulfilled" ? (resDoac.value.dados || []) : [],
+        anotacoes: resAnot.status === "fulfilled" ? (resAnot.value.dados || []) : [],
       });
+    }).finally(() => setCarregandoEntidade(false));
+  }, [listaKey]);
 
-      // Anotações de recusa (aba usa ENTIDADE)
-      const anotacoes = resAnot.status === "fulfilled" ? (resAnot.value.dados || []) : [];
-      anotacoes.forEach(r => {
-        const ent = (r.ENTIDADE || "").trim();
-        if (!ent) return;
-        const t = r.DATA ? new Date(r.DATA).getTime() : (r._rowNumber || 0);
-        if (!ultimoEvento[ent] || t > ultimoEvento[ent]) ultimoEvento[ent] = t;
-      });
-
-      // Ordena as 49 entidades pelo último evento crescente
-      // (sem evento = 0, fica primeiro; com evento mais antigo vem antes)
-      const ordenadas = [...entidades].sort((a, b) => {
-        const ta = ultimoEvento[a] || 0;
-        const tb = ultimoEvento[b] || 0;
-        if (ta !== tb) return ta - tb;
-        // Desempate: posição original na lista
-        return entidades.indexOf(a) - entidades.indexOf(b);
-      });
-
-      const proxima = ordenadas[0];
-      setProximaEntidade(proxima);
-      // não pré-preenche entidade se o item estiver marcado como "aguardando aptidão"
-      setFormData(prev => (prev.STATUS_LOCAL_PA === "AGUARDANDO APTIDÃO"
+  useEffect(() => {
+    if (!baseFilaDoacao) { setProximaEntidade(null); return; }
+    const novo = { _rowNumber: Number.MAX_SAFE_INTEGER, DATA_DECISAO: formData.DATA_DECISAO || "" };
+    const { itens } = montarFilaDoacoes([...baseFilaDoacao.doacoes, novo], entidades, baseFilaDoacao.anotacoes);
+    const proxima = itens.find(i => i._rowNumber === novo._rowNumber)?._entidadePrevista || null;
+    setProximaEntidade(proxima);
+    // não pré-preenche entidade se o item estiver marcado como "aguardando aptidão"
+    if (proxima) {
+      setFormData(prev => (prev.STATUS_LOCAL_PA === "AGUARDANDO APTIDÃO" || prev.ENTIDADE_NOME === proxima
         ? prev
         : { ...prev, ENTIDADE_NOME: proxima }));
-    }).finally(() => setCarregandoEntidade(false));
-  }, [listaKey, entidades]);
+    }
+  }, [baseFilaDoacao, entidades, formData.DATA_DECISAO]);
 
   // Calcula prazo 6 meses automaticamente para DPJ
   const handleChange = (id, val) => {
@@ -809,7 +791,7 @@ export default function CadastroPage() {
                       <span style={{ fontSize:22,flexShrink:0 }}>🔢</span>
                       <div style={{ flex:1 }}>
                         <div style={{ fontSize:11,fontWeight:700,color:"rgba(52,211,153,0.8)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3 }}>
-                          Próxima entidade na ordem
+                          Entidade prevista para este lote (pela data da decisão)
                         </div>
                         {carregandoEntidade ? (
                           <div style={{ fontSize:12,color:"#6b7280",fontStyle:"italic" }}>Calculando…</div>

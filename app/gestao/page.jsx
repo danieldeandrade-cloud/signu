@@ -4,6 +4,8 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { exportarListaParaExcel, exportarTodasAsListasParaExcel } from "@/lib/exportarExcel";
 import { ultimaObs } from "@/lib/observacoes";
+import { useEntidades } from "@/lib/useEntidades";
+import { montarFilaDoacoes, blocoDoacao, BLOCO, BLOCO_META } from "@/lib/filaDoacoes";
 
 // Exportação HTML formatada para o relatório RENAJUD (abre no Excel com colunas e cores)
 function exportarRelatorioRenajudHTML(linhas, nomeArquivo) {
@@ -100,6 +102,7 @@ const STATUS_META = {
   "EM ANÁLISE":         { color:"#60a5fa", bg:"rgba(96,165,250,0.12)"  },
   "AGUARDANDO ENTIDADE":{ color:"#fbbf24", bg:"rgba(251,191,36,0.12)"  },
   "AGUARDANDO APTIDÃO": { color:"#f59e0b", bg:"rgba(245,158,11,0.12)"  },
+  "AGUARDANDO INÍCIO":  { color:"#d97706", bg:"rgba(217,119,6,0.12)"   },
   "SEMA":              { color:"#a78bfa", bg:"rgba(167,139,250,0.12)" },
   "SGC":               { color:"#a78bfa", bg:"rgba(167,139,250,0.12)" },
   "GC":                { color:"#a78bfa", bg:"rgba(167,139,250,0.12)" },
@@ -143,7 +146,8 @@ function hasFlag(item, key) {
 
 // Extrai o campo de status conforme a lista ativa
 function getStatus(item, listaKey) {
-  if (listaKey === "DOACOES")   return item.STATUS_LOCAL_PA;
+  // Doações sem status e sem responsável = lote aguardando início (ver lib/filaDoacoes.js)
+  if (listaKey === "DOACOES")   return item.STATUS_LOCAL_PA || (blocoDoacao(item) === BLOCO.PENDENTE ? "AGUARDANDO INÍCIO" : "");
   if (listaKey === "CAIXA_SEI") return item.ACAO;
   return item.STATUS_DILIGENCIA;
 }
@@ -366,9 +370,10 @@ export default function GestaoPage() {
     setFiltroLPC(new Set());
     setPag(1);
     setSelecao(new Set());
-    // Doações: fila ordenada pela data da decisão (mais antiga primeiro)
+    // Doações: ordem da fila (concluídos e em andamento por nº da entidade,
+    // depois os aguardando início pela data da decisão) — ver lib/filaDoacoes.js
     setOrdenacao(abaAtiva === "DOACOES"
-      ? { campo:"DATA_DECISAO", dir:"asc" }
+      ? { campo:"_posicao", dir:"asc" }
       : { campo:"_rowNumber", dir:"asc" });
   }, [abaAtiva, fetchAba]);
 
@@ -403,9 +408,23 @@ export default function GestaoPage() {
     }
   };
 
+  // Fila de doações: posição, bloco e entidade prevista de cada lote
+  const entidadesFila = useEntidades();
+  const [anotacoesDoacao, setAnotacoesDoacao] = useState([]);
+  useEffect(() => {
+    if (abaAtiva !== "DOACOES") return;
+    fetch("/api/anotacoes").then(r => r.ok ? r.json() : null)
+      .then(j => setAnotacoesDoacao(j?.dados || []))
+      .catch(() => {});
+  }, [abaAtiva]);
+  const filaDoacao = useMemo(
+    () => abaAtiva === "DOACOES" ? montarFilaDoacoes(dados, entidadesFila, anotacoesDoacao) : null,
+    [abaAtiva, dados, entidadesFila, anotacoesDoacao]
+  );
+
   // Filtragem e ordenação
   const filtrados = useMemo(() => {
-    let res = [...dados];
+    let res = filaDoacao ? [...filaDoacao.itens, ...filaDoacao.aptidao] : [...dados];
     if (busca.trim()) {
       const q = busca.toLowerCase();
       res = res.filter(i => {
@@ -469,7 +488,7 @@ export default function GestaoPage() {
       return ordenacao.dir === "asc" ? r : -r;
     });
     return res;
-  }, [dados, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroSemAvaliacao, filtroSemOficioBaixa, filtroSemOficioDetranSefaz, filtroSemMandado, filtroDestinacao, filtroLPC, ordenacao, abaAtiva]);
+  }, [dados, filaDoacao, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroSemAvaliacao, filtroSemOficioBaixa, filtroSemOficioDetranSefaz, filtroSemMandado, filtroDestinacao, filtroLPC, ordenacao, abaAtiva]);
 
   // Valores de LPC (leilão) presentes nos itens de catálogo — alimenta o filtro
   const lpcOptions = useMemo(
@@ -650,6 +669,46 @@ export default function GestaoPage() {
               </div>
             ))}
           </div>
+
+          {/* ── Fila de doações: lote da vez + próxima entidade ── */}
+          {abaAtiva === "DOACOES" && filaDoacao && (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))", gap:12, marginBottom:16 }}>
+              <div
+                onClick={() => filaDoacao.loteDaVez && router.push(`/detalhes?lista=doacoes_diligencia&row=${filaDoacao.loteDaVez._rowNumber}`)}
+                style={{ background:"#fff7ed", border:"1.5px solid #fdba74", borderRadius:8, padding:"12px 14px", cursor: filaDoacao.loteDaVez ? "pointer" : "default" }}>
+                <div style={{ fontSize:10, fontWeight:700, color:"#9a3412", textTransform:"uppercase", letterSpacing:".08em", marginBottom:6 }}>📦 Lote da vez</div>
+                {filaDoacao.loteDaVez ? (
+                  <>
+                    <div style={{ fontSize:14, fontWeight:700, color:"#0f172a", fontFamily:"'IBM Plex Mono',monospace" }}>{filaDoacao.loteDaVez.ID_PASEI || "—"}</div>
+                    <div style={{ fontSize:12, color:"#4b5563", marginTop:3 }}>
+                      {filaDoacao.loteDaVez._posicao}º da fila · decisão {filaDoacao.loteDaVez.DATA_DECISAO || "—"}{filaDoacao.loteDaVez.TIPO_BEM ? ` · ${filaDoacao.loteDaVez.TIPO_BEM}` : ""}
+                    </div>
+                    <div style={{ fontSize:12, color:"#0f172a", marginTop:3 }}>→ {filaDoacao.loteDaVez._entidadePrevista || "—"}</div>
+                  </>
+                ) : (
+                  <div style={{ fontSize:12, color:"#6b7280" }}>Nenhum lote aguardando início.</div>
+                )}
+              </div>
+              <div style={{ background:"#ecfdf5", border:"1.5px solid #6ee7b7", borderRadius:8, padding:"12px 14px" }}>
+                <div style={{ fontSize:10, fontWeight:700, color:"#065f46", textTransform:"uppercase", letterSpacing:".08em", marginBottom:6 }}>🏢 Próxima entidade (novo lote)</div>
+                <div style={{ fontSize:14, fontWeight:700, color:"#0f172a" }}>{filaDoacao.proximaEntidade || "—"}</div>
+                <div style={{ fontSize:11, color:"#6b7280", marginTop:3 }}>
+                  Um lote com decisão mais antiga que os aguardando início entra na frente deles e assume a entidade da vez.
+                </div>
+              </div>
+              <div style={{ background:"#f8fafc", border:"1.5px solid #cbd5e1", borderRadius:8, padding:"12px 14px", fontSize:12, color:"#334155", display:"flex", flexDirection:"column", gap:5 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:"#475569", textTransform:"uppercase", letterSpacing:".08em", marginBottom:1 }}>Ordem da fila</div>
+                {Object.entries(BLOCO_META).map(([k, m]) => (
+                  <div key={k} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ width:8, height:8, borderRadius:"50%", background:m.color }}/>
+                    <span style={{ fontWeight:600 }}>{m.label}</span>
+                    <span style={{ color:"#64748b" }}>({filaDoacao.itens.filter(i => i._bloco === k).length})</span>
+                    <span style={{ marginLeft:"auto", color:"#94a3b8", fontSize:11 }}>{k === "PENDENTE" ? "por data da decisão" : "por nº da entidade"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Grupo à parte: itens ainda não aptos para doação ── */}
           {abaAtiva === "DOACOES" && naoAptosDoacao.length > 0 && (
@@ -958,7 +1017,7 @@ export default function GestaoPage() {
                           />
                         </th>
                       )}
-                      {abaAtiva==="DOACOES" && <th style={{ padding:"10px 14px", fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:600, textAlign:"right", whiteSpace:"nowrap", borderBottom:"1px solid #e5e7eb" }}>Fila</th>}
+                      {abaAtiva==="DOACOES" && <ThSort campo="_posicao">Fila</ThSort>}
                       <ThSort campo="_rowNumber">ID</ThSort>
                       <ThSort campo="ID_PASEI">ID_PASEI</ThSort>
                       <ThSort campo="TIPO_BEM">Tipo</ThSort>
@@ -1002,7 +1061,16 @@ export default function GestaoPage() {
                               />
                             </td>
                           )}
-                          {abaAtiva==="DOACOES" && <Cell right><span style={{ fontWeight:700, color:tab.color }}>{(pag-1)*POR_PAGINA + ri + 1}º</span></Cell>}
+                          {abaAtiva==="DOACOES" && (
+                            <Cell right>
+                              {item._posicao ? (
+                                <span title={BLOCO_META[item._bloco]?.label} style={{ display:"inline-flex", alignItems:"center", gap:6, fontWeight:700, color:BLOCO_META[item._bloco]?.color || tab.color }}>
+                                  <span style={{ width:7, height:7, borderRadius:"50%", background:BLOCO_META[item._bloco]?.color }}/>
+                                  {item._posicao}º
+                                </span>
+                              ) : "—"}
+                            </Cell>
+                          )}
                           <Cell mono><span style={{ color:tab.color, fontWeight:700 }}>{idDisplay}</span></Cell>
                           <Cell mono muted>{item.ID_PASEI ? item.ID_PASEI.substring(0,22)+"…" : "—"}</Cell>
                           <Cell>{TIPO_ICON[item.TIPO_BEM] || "📦"} {item.TIPO_BEM || "—"}</Cell>
@@ -1012,7 +1080,15 @@ export default function GestaoPage() {
                           {(abaAtiva==="PCDF_1HIGEIA"||abaAtiva==="PCDF_2HIGEIA") && <Cell muted>{item.DEPOSITO || "—"}</Cell>}
                           {abaAtiva==="PCDF_2HIGEIA"  && <Cell right>{item.RESTRICAO_ROUBO === "TRUE" || item.RESTRICAO_ROUBO === true ? "🔒 Sim" : "—"}</Cell>}
                           {abaAtiva==="DOACOES"        && <Cell mono muted>{item.DATA_DECISAO || "—"}</Cell>}
-                          {abaAtiva==="DOACOES"        && <Cell muted>{(item.ENTIDADE_NOME || item.ENTIDADE) ? (item.ENTIDADE_NOME || item.ENTIDADE).substring(0,30)+"…" : "—"}</Cell>}
+                          {abaAtiva==="DOACOES"        && (() => {
+                            const ent = item._entidadePrevista || item.ENTIDADE_NOME || item.ENTIDADE;
+                            return (
+                              <Cell muted>
+                                <span title={ent || ""}>{ent ? (ent.length > 30 ? ent.substring(0,30)+"…" : ent) : "—"}</span>
+                                {item._entidadePrevista && <span style={{ marginLeft:6, fontSize:10, color:"#d97706", fontWeight:600 }}>prevista</span>}
+                              </Cell>
+                            );
+                          })()}
                           {abaAtiva==="CEGOC"          && <Cell muted>{item.DESTINACAO || "—"}</Cell>}
                           {abaAtiva==="CEGOC" && filtroStatus.has("CATÁLOGO") && <Cell muted>{item.LPC || "—"}</Cell>}
                           <td style={{ padding:"11px 14px", borderBottom:"1px solid #f3f4f6" }}>

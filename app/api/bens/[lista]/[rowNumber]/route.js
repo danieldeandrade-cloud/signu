@@ -10,6 +10,7 @@ import { getAllRows, updateRow, deleteRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico, diffCampos } from '@/lib/historico';
+import { reorganizarFilaDoacoes } from '@/lib/reorganizarFilaDoacoes';
 
 export async function GET(request, { params }) {
   try {
@@ -87,6 +88,8 @@ export async function PATCH(request, { params }) {
       });
     }
 
+    if (lista === 'doacoes_diligencia') await reorganizarFilaDoacoes();
+
     return NextResponse.json({ lista: sheetName, item: itemAtualizado });
   } catch (error) {
     return NextResponse.json({ erro: error.message }, { status: 400 });
@@ -99,6 +102,7 @@ export async function DELETE(request, { params }) {
     const sheetName = resolveSheetName(lista);
 
     await deleteRow(sheetName, Number(rowNumber));
+    if (lista === 'doacoes_diligencia') await reorganizarFilaDoacoes();
 
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -10,6 +10,7 @@ import { getAllRows, addRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico } from '@/lib/historico';
+import { reorganizarFilaDoacoes } from '@/lib/reorganizarFilaDoacoes';
 
 export async function GET(request, { params }) {
   try {
@@ -56,6 +57,8 @@ export async function POST(request, { params }) {
       acao: 'CRIADO',
       camposAlterados: {},
     });
+
+    if (lista === 'doacoes_diligencia') await reorganizarFilaDoacoes();
 
     return NextResponse.json({ lista: sheetName, item: novoItem }, { status: 201 });
   } catch (error) {
