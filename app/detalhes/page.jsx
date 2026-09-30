@@ -704,6 +704,14 @@ function DetalhesContent() {
   const listaKey     = ROTA_TO_KEY[lista] || "CEGOC";
   const meta         = LISTA_META[listaKey] || LISTA_META.CEGOC;
   const entidades    = useEntidades();
+  // Volta p/ a mesma aba da Gestão (que restaura página/busca/filtro). Vindo
+  // de outra tela (Fila, Busca), usa o histórico do navegador; sem histórico
+  // (link aberto direto), cai na aba da Gestão desta lista.
+  const urlGestao    = `/gestao?aba=${listaKey}`;
+  const voltar = () => {
+    if (searchParams.get("voltar") === "gestao" || window.history.length <= 1) router.push(urlGestao);
+    else router.back();
+  };
 
   const [bem,         setBem]         = useState(null);
   const [editMode,    setEditMode]    = useState(false);
@@ -877,7 +885,7 @@ function DetalhesContent() {
       setModal(null);
       if (destino === "pcdf2") {
         showToast(`Bem movido para PCDF 2ª HIGEIA com sucesso!`);
-        setTimeout(()=>router.push("/gestao"), 2000);
+        setTimeout(()=>router.push(urlGestao), 2000);
       } else {
         setBem(json.item);
         showToast(`DESTINACAO atualizada para CATÁLOGO!`);
@@ -1141,7 +1149,7 @@ function DetalhesContent() {
         <main style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16 }}>
           <div style={{ fontSize:40 }}>📋</div>
           <div style={{ fontSize:16,color:"#374151" }}>Nenhum bem selecionado.</div>
-          <button onClick={()=>router.push("/gestao")} style={{ padding:"8px 20px",background:"rgba(37,99,235,0.08)",border:"1.5px solid #b0b8c4",borderRadius:8,color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600 }}>← Ir para Gestão</button>
+          <button onClick={()=>router.push(urlGestao)} style={{ padding:"8px 20px",background:"rgba(37,99,235,0.08)",border:"1.5px solid #b0b8c4",borderRadius:8,color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600 }}>← Ir para Gestão</button>
         </main>
       </div>
     );
@@ -1166,7 +1174,7 @@ function DetalhesContent() {
         <main style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12 }}>
           <div style={{ fontSize:40 }}>⚠️</div>
           <div style={{ fontSize:14,color:"#f87171" }}>{erroLoad || "Item não encontrado"}</div>
-          <button onClick={()=>router.push("/gestao")} style={{ padding:"8px 20px",background:"rgba(37,99,235,0.08)",border:"1.5px solid #b0b8c4",borderRadius:8,color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600 }}>← Voltar para Gestão</button>
+          <button onClick={()=>router.push(urlGestao)} style={{ padding:"8px 20px",background:"rgba(37,99,235,0.08)",border:"1.5px solid #b0b8c4",borderRadius:8,color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600 }}>← Voltar para Gestão</button>
         </main>
       </div>
     );
@@ -1190,7 +1198,7 @@ function DetalhesContent() {
 
           {/* Top bar */}
           <header style={{ height:56,borderBottom:"1px solid #e5e7eb",background:"#1e2d3d",display:"flex",alignItems:"center",padding:"0 24px",gap:12,flexShrink:0 }}>
-            <button onClick={()=>router.back()} style={{ display:"flex",alignItems:"center",gap:6,background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:6,padding:"5px 10px",color:"#374151",fontSize:12,cursor:"pointer" }}>
+            <button onClick={voltar} style={{ display:"flex",alignItems:"center",gap:6,background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:6,padding:"5px 10px",color:"#374151",fontSize:12,cursor:"pointer" }}>
               <Ico.Back/> Voltar
             </button>
             <span style={{ color:"#d1d5db" }}>/</span>
@@ -1744,7 +1752,7 @@ function DetalhesContent() {
                       {itensIrmaos.length > 0 && (
                         <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:14 }}>
                           {itensIrmaos.map(it => (
-                            <button key={it._rowNumber} onClick={() => router.push(`/detalhes?lista=dpj&row=${it._rowNumber}`)}
+                            <button key={it._rowNumber} onClick={() => router.push(`/detalhes?lista=dpj&row=${it._rowNumber}${searchParams.get("voltar") ? `&voltar=${searchParams.get("voltar")}` : ""}`)}
                               style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:8, cursor:"pointer", textAlign:"left", width:"100%" }}>
                               <div>
                                 <div style={{ fontSize:12, fontWeight:600, color:"#0f172a" }}>{it.TIPO_BEM || "—"}{it.DESCRICAO ? ` — ${it.DESCRICAO}` : ""}</div>

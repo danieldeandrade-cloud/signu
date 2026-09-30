@@ -1,7 +1,7 @@
 "use client";
 import Sidebar from "@/components/Sidebar";
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { exportarListaParaExcel, exportarTodasAsListasParaExcel } from "@/lib/exportarExcel";
 import { ultimaObs } from "@/lib/observacoes";
 import { useEntidades } from "@/lib/useEntidades";
@@ -212,9 +212,34 @@ function Spinner({ color }) {
   );
 }
 
+// Estado da tela (aba, página, busca, filtro de status, ordenação) guardado
+// na sessão do navegador: ao abrir um item e voltar, a Gestão reabre
+// exatamente onde estava, em vez de cair na CEGOC / página 1.
+const ESTADO_KEY = "signu.gestao.estado";
+function lerEstadoSalvo() {
+  try { return JSON.parse(sessionStorage.getItem(ESTADO_KEY) || "null"); } catch { return null; }
+}
+
 export default function GestaoPage() {
+  return (
+    <Suspense fallback={null}>
+      <GestaoConteudo/>
+    </Suspense>
+  );
+}
+
+function GestaoConteudo() {
   const router = useRouter();
-  const [abaAtiva, setAbaAtiva]     = useState("CEGOC");
+  const searchParams = useSearchParams();
+  // ?aba=DOACOES (vindo do "Voltar" do Detalhes) > estado salvo > CEGOC
+  const [estadoInicial] = useState(() => {
+    const salvo = lerEstadoSalvo();
+    const abaUrl = searchParams.get("aba");
+    const aba = LISTAS_TABS.some(t => t.key === abaUrl) ? abaUrl : (salvo?.aba || "CEGOC");
+    return salvo && salvo.aba === aba ? salvo : { aba };
+  });
+  const restaurarRef = useRef(estadoInicial.pag ? estadoInicial : null);
+  const [abaAtiva, setAbaAtiva]     = useState(estadoInicial.aba);
   const [dados, setDados]           = useState([]);
   const [contagens, setContagens]   = useState({});
   const [loading, setLoading]       = useState(false);
@@ -356,6 +381,17 @@ export default function GestaoPage() {
 
   useEffect(() => {
     fetchAba(abaAtiva);
+    try { window.history.replaceState(null, "", `/gestao?aba=${abaAtiva}`); } catch { /* ignora */ }
+    // Voltando de um item: restaura busca/filtro/página/ordem em vez de zerar
+    const r = restaurarRef.current;
+    restaurarRef.current = null;
+    if (r && r.aba === abaAtiva) {
+      setBusca(r.busca || "");
+      setFiltroStatus(new Set(r.filtroStatus || []));
+      setPag(r.pag || 1);
+      if (r.ordenacao) setOrdenacao(r.ordenacao);
+      return;
+    }
     setBusca("");
     setFiltroStatus(new Set());
     setFiltroTipo(new Set());
@@ -376,6 +412,14 @@ export default function GestaoPage() {
       ? { campo:"_posicao", dir:"asc" }
       : { campo:"_rowNumber", dir:"asc" });
   }, [abaAtiva, fetchAba]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(ESTADO_KEY, JSON.stringify({
+        aba: abaAtiva, pag, busca, filtroStatus: [...filtroStatus], ordenacao,
+      }));
+    } catch { /* storage indisponível — só não lembra */ }
+  }, [abaAtiva, pag, busca, filtroStatus, ordenacao]);
 
   // Migração em lote CEGOC -> 2ª HIGEIA (justificativa fixa: FIB enviada)
   const migrarLoteHigeia2 = async () => {
@@ -674,7 +718,7 @@ export default function GestaoPage() {
           {abaAtiva === "DOACOES" && filaDoacao && (
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))", gap:12, marginBottom:16 }}>
               <div
-                onClick={() => filaDoacao.loteDaVez && router.push(`/detalhes?lista=doacoes_diligencia&row=${filaDoacao.loteDaVez._rowNumber}`)}
+                onClick={() => filaDoacao.loteDaVez && router.push(`/detalhes?lista=doacoes_diligencia&row=${filaDoacao.loteDaVez._rowNumber}&voltar=gestao`)}
                 style={{ background:"#fff7ed", border:"1.5px solid #fdba74", borderRadius:8, padding:"12px 14px", cursor: filaDoacao.loteDaVez ? "pointer" : "default" }}>
                 <div style={{ fontSize:10, fontWeight:700, color:"#9a3412", textTransform:"uppercase", letterSpacing:".08em", marginBottom:6 }}>📦 Lote da vez</div>
                 {filaDoacao.loteDaVez ? (
@@ -719,7 +763,7 @@ export default function GestaoPage() {
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                 {naoAptosDoacao.map(item => (
                   <div key={item._rowNumber}
-                    onClick={() => router.push(`/detalhes?lista=doacoes_diligencia&row=${item._rowNumber}`)}
+                    onClick={() => router.push(`/detalhes?lista=doacoes_diligencia&row=${item._rowNumber}&voltar=gestao`)}
                     style={{ display:"flex", alignItems:"center", gap:10, fontSize:12, color:"#0f172a", cursor:"pointer", padding:"4px 6px", borderRadius:6 }}
                     onMouseEnter={e => e.currentTarget.style.background = "#fef3c7"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -1045,7 +1089,7 @@ export default function GestaoPage() {
                       const prazoVencido = item.PRAZO_6MESES && new Date(item.PRAZO_6MESES) <= new Date();
                       return (
                         <tr key={item._rowNumber}
-                          onClick={() => router.push(`/detalhes?lista=${LISTA_API_MAP[abaAtiva]}&row=${item._rowNumber}`)}
+                          onClick={() => router.push(`/detalhes?lista=${LISTA_API_MAP[abaAtiva]}&row=${item._rowNumber}&voltar=gestao`)}
                           style={{ cursor:"pointer", background: selecao.has(item._rowNumber) ? "rgba(192,132,252,0.12)" : ri%2===0?"transparent":"#fafafa" }}>
                           {abaAtiva==="CEGOC" && (
                             <td onClick={e => e.stopPropagation()} style={{ padding:"11px 8px 11px 14px", borderBottom:"1px solid #f3f4f6", width:34 }}>
