@@ -1240,12 +1240,29 @@ function DetalhesContent() {
                         {statusValor || "—"}
                       </span>
                     </div>
-                    <h1 style={{ fontSize:20,fontWeight:700,color:"#0f172a",margin:0,letterSpacing:"-0.02em" }}>
-                      {current?.TIPO_BEM || "Bem"} — {current?.ID_PASEI || "—"}
-                    </h1>
-                    <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:12,color:"#6b7280",marginTop:3 }}>
-                      NIV: {current?.NIV || "—"}{current?.PLACA ? ` · Placa: ${current.PLACA}` : ""} · Responsável: {responsavel || "—"}
-                    </div>
+                    {listaKey === "DPJ_GC99" ? (
+                      // DPJ: identifica-se pelo lote e pelo PA SEI (não tem ID_PASEI/NIV)
+                      <>
+                        <h1 style={{ fontSize:20,fontWeight:700,color:"#0f172a",margin:0,letterSpacing:"-0.02em",display:"flex",alignItems:"baseline",gap:12,flexWrap:"wrap" }}>
+                          <span>Lote {current?.LOTE ? `#${current.LOTE}` : "—"}</span>
+                          <span style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:18,color:meta.color }}>PA SEI {current?.PA || current?.PA_PJE || "—"}</span>
+                        </h1>
+                        <div style={{ fontSize:12,color:"#6b7280",marginTop:3 }}>
+                          {[current?.TIPO_BEM, current?.DESCRICAO].filter(Boolean).join(" · ") || "—"}
+                          {current?.PJE ? <span style={{ fontFamily:"'IBM Plex Mono',monospace" }}> · PJE {current.PJE}</span> : null}
+                          {" · "}Responsável: {responsavel || "—"}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <h1 style={{ fontSize:20,fontWeight:700,color:"#0f172a",margin:0,letterSpacing:"-0.02em" }}>
+                          {current?.TIPO_BEM || "Bem"} — {current?.ID_PASEI || "—"}
+                        </h1>
+                        <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:12,color:"#6b7280",marginTop:3 }}>
+                          NIV: {current?.NIV || "—"}{current?.PLACA ? ` · Placa: ${current.PLACA}` : ""} · Responsável: {responsavel || "—"}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 

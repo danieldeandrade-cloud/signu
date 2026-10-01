@@ -1063,7 +1063,7 @@ function GestaoConteudo() {
                       )}
                       {abaAtiva==="DOACOES" && <ThSort campo="_posicao">Fila</ThSort>}
                       <ThSort campo="_rowNumber">ID</ThSort>
-                      <ThSort campo="ID_PASEI">ID_PASEI</ThSort>
+                      {abaAtiva==="DPJ_GC99" ? <ThSort campo="PA">PA SEI</ThSort> : <ThSort campo="ID_PASEI">ID_PASEI</ThSort>}
                       <ThSort campo="TIPO_BEM">Tipo</ThSort>
                       <ThSort campo="NIV">NIV</ThSort>
                       {abaAtiva==="DPJ_GC99"      && <ThSort campo="LOTE">Lote</ThSort>}
@@ -1116,7 +1116,11 @@ function GestaoConteudo() {
                             </Cell>
                           )}
                           <Cell mono><span style={{ color:tab.color, fontWeight:700 }}>{idDisplay}</span></Cell>
-                          <Cell mono muted>{item.ID_PASEI ? item.ID_PASEI.substring(0,22)+"…" : "—"}</Cell>
+                          {(() => {
+                            // DPJ guarda o processo em PA (PA_PJE nos registros legados), não em ID_PASEI
+                            const proc = abaAtiva === "DPJ_GC99" ? (item.PA || item.PA_PJE || item.ID_PASEI) : item.ID_PASEI;
+                            return <Cell mono muted><span title={proc || ""}>{proc ? (proc.length > 22 ? proc.substring(0,22)+"…" : proc) : "—"}</span></Cell>;
+                          })()}
                           <Cell>{TIPO_ICON[item.TIPO_BEM] || "📦"} {item.TIPO_BEM || "—"}</Cell>
                           <Cell mono muted>{item.NIV || "—"}</Cell>
                           {abaAtiva==="DPJ_GC99"      && <Cell right>{item.LOTE ? `#${item.LOTE}` : "—"}</Cell>}
