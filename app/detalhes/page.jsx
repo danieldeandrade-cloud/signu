@@ -1038,13 +1038,14 @@ function DetalhesContent() {
       return next;
     });
   };
-  // DPJ: avaliação total recalcula sozinha quando a unitária ou a quantidade mudam.
+  // DPJ: a avaliação é GLOBAL (valor do item/conjunto inteiro, sem quantidade)
+  // — continua gravada em AVALIACAO_UNITARIA (coluna existente) e a avaliação
+  // total do catálogo do leilão passa a ser o próprio valor global.
   const handleAvaliacaoItemDPJ = (campo, v) => {
     setEditData(prev => {
       const next = { ...prev, [campo]: v };
-      const unit = parseMoeda(campo === "AVALIACAO_UNITARIA" ? v : prev.AVALIACAO_UNITARIA);
-      const qtd  = Number(campo === "QUANTIDADE" ? v : prev.QUANTIDADE) || 0;
-      next.AVALIACAO_TOTAL = unit !== null ? fmtMoeda(unit * qtd) : "";
+      const global = parseMoeda(v);
+      next.AVALIACAO_TOTAL = global !== null ? fmtMoeda(global) : "";
       return next;
     });
   };
@@ -1724,15 +1725,12 @@ function DetalhesContent() {
                             : <FieldView label="Descrição do item" value={current?.DESCRICAO}/>}
                         </div>
                         {editMode
-                          ? <FieldEdit label="Quantidade" type="number" value={editData?.QUANTIDADE||"1"} onChange={v=>handleAvaliacaoItemDPJ("QUANTIDADE",v)}/>
-                          : <FieldView label="Quantidade" value={current?.QUANTIDADE || "1"}/>}
-                        {editMode
-                          ? <MoedaField label="Avaliação unitária (R$)" value={editData?.AVALIACAO_UNITARIA} onChange={v=>handleAvaliacaoItemDPJ("AVALIACAO_UNITARIA",v)}/>
-                          : <FieldView label="Avaliação unitária (R$)" value={current?.AVALIACAO_UNITARIA ? `R$ ${current.AVALIACAO_UNITARIA}` : null}/>}
+                          ? <MoedaField label="Avaliação global (R$)" value={editData?.AVALIACAO_UNITARIA} onChange={v=>handleAvaliacaoItemDPJ("AVALIACAO_UNITARIA",v)}/>
+                          : <FieldView label="Avaliação global (R$)" value={current?.AVALIACAO_UNITARIA ? `R$ ${current.AVALIACAO_UNITARIA}` : null}/>}
                         <FieldView label="Avaliação total (R$)" value={current?.AVALIACAO_TOTAL ? `R$ ${current.AVALIACAO_TOTAL}` : null} highlight="#22c55e"/>
                         {editMode && (
                           <div style={{ gridColumn:"1 / -1", fontSize:10, color:"#6b7280", marginTop:-8 }}>
-                            Avaliação total é calculada sozinha (unitária × quantidade) para o catálogo do leilão.
+                            Avaliação total = avaliação global (usada no catálogo do leilão).
                           </div>
                         )}
                       </div>
@@ -1771,7 +1769,7 @@ function DetalhesContent() {
                         </button>
                       ) : (
                         <div style={{ border:"1.5px solid #e5e7eb", borderRadius:10, padding:14 }}>
-                          <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr 70px", gap:10, marginBottom:10 }}>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr", gap:10, marginBottom:10 }}>
                             <div>
                               <label style={lblSt}>Tipo de bem *</label>
                               <select value={novoItem.TIPO_BEM} onChange={e => setNovoItem(p => ({ ...p, TIPO_BEM: e.target.value }))} style={{ ...inputStDPJ, cursor:"pointer" }}>
@@ -1784,10 +1782,6 @@ function DetalhesContent() {
                               <input value={novoItem.DESCRICAO} onChange={e => setNovoItem(p => ({ ...p, DESCRICAO: e.target.value }))}
                                 placeholder="Ex: 5 cadeiras de escritório, sofá 3 lugares..." style={inputStDPJ}/>
                             </div>
-                            <div>
-                              <label style={lblSt}>Qtd.</label>
-                              <input type="number" min="1" value={novoItem.QUANTIDADE} onChange={e => setNovoItem(p => ({ ...p, QUANTIDADE: e.target.value }))} style={inputStDPJ}/>
-                            </div>
                           </div>
                           <div style={{ fontSize:10, color:"#9ca3af", marginBottom:6 }}>Se for veículo (opcional):</div>
                           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:10 }}>
@@ -1799,10 +1793,9 @@ function DetalhesContent() {
                             <div><label style={lblSt}>RENAVAM</label><input value={novoItem.RENAVAM} onChange={e => setNovoItem(p => ({ ...p, RENAVAM: e.target.value.replace(/\D/g,"") }))} style={inputStDPJ}/></div>
                           </div>
                           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
-                            <MoedaField label="Avaliação unitária (R$)" value={novoItem.AVALIACAO_UNITARIA} onChange={v => {
-                              const unit = parseMoeda(v);
-                              const qtd  = Number(novoItem.QUANTIDADE) || 0;
-                              setNovoItem(p => ({ ...p, AVALIACAO_UNITARIA: v, AVALIACAO_TOTAL: unit !== null ? fmtMoeda(unit * qtd) : "" }));
+                            <MoedaField label="Avaliação global (R$)" value={novoItem.AVALIACAO_UNITARIA} onChange={v => {
+                              const global = parseMoeda(v);
+                              setNovoItem(p => ({ ...p, AVALIACAO_UNITARIA: v, AVALIACAO_TOTAL: global !== null ? fmtMoeda(global) : "" }));
                             }}/>
                             <div>
                               <label style={lblSt}>Avaliação total</label>
