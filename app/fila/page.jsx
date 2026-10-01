@@ -48,7 +48,12 @@ const LISTAS_FILA = [
   { key:"PCDF_2HIGEIA", rota:"pcdf2",  prefixo:"PCDF2", statusField:"STATUS_DILIGENCIA" },
   { key:"DPJ_GC99",     rota:"dpj",    prefixo:"DPJ",   statusField:"STATUS_DILIGENCIA" },
   { key:"CAIXA_SEI",    rota:"sei",    prefixo:"CAIXA", statusField:"ACAO" },
+  { key:"DOACOES",      rota:"doacoes_diligencia", prefixo:"DOA", statusField:"STATUS_LOCAL_PA" },
 ];
+
+// Doações já encerradas não são trabalho pendente — ficam fora da fila
+const DOACAO_ENCERRADA = ["CONCLUÍDO", "CONCLUIDO", "CANCELADO"];
+const STATUS_LOCAL_PA_OPTIONS = ["EM ANÁLISE","AGUARDANDO ENTIDADE","AGUARDANDO APTIDÃO","EM DILIGÊNCIA","SEMA","SGC","GC","ENTIDADE","CONCLUÍDO","CANCELADO"];
 
 // Placeholder para manter compatibilidade com o card (removido abaixo)
 const mockQueue = [
@@ -123,6 +128,7 @@ const LISTA_META = {
   PCDF_2HIGEIA:{ label: "PCDF 2ª",    color: "#c084fc", bg: "#4a1f6f" },
   DPJ_GC99:    { label: "DPJ-GC99",   color: "#fb923c", bg: "#5f2a0e" },
   CAIXA_SEI:   { label: "Caixa SEI",  color: "#fbbf24", bg: "#451a03" },
+  DOACOES:     { label: "Doações",    color: "#34d399", bg: "#064e3b" },
 };
 
 const STATUS_META = {
@@ -520,7 +526,7 @@ export default function SIGNUMinhaFila() {
   const [drawerToast,    setDrawerToast]    = useState(null);
   const [modalRetirada,  setModalRetirada]  = useState(false); // PCDF 1ª/2ª: pede motivo antes de aplicar RETIRADO
 
-  const ROTA_MAP = { CEGOC:"cegoc", PCDF_1HIGEIA:"pcdf1", PCDF_2HIGEIA:"pcdf2", DPJ_GC99:"dpj", CAIXA_SEI:"sei" };
+  const ROTA_MAP = { CEGOC:"cegoc", PCDF_1HIGEIA:"pcdf1", PCDF_2HIGEIA:"pcdf2", DPJ_GC99:"dpj", CAIXA_SEI:"sei", DOACOES:"doacoes_diligencia" };
   const DESTINACOES_OPT = ["CIRCULAÇÃO","RECICLAGEM"];
 
   const abrirDrawer = (item) => {
@@ -669,7 +675,7 @@ export default function SIGNUMinhaFila() {
   // VENDIDO / VENDIDO E RETIRADO só existem na CEGOC (bens de circulação leiloados)
   const STATUS_SO_CEGOC = ["VENDIDO", "VENDIDO E RETIRADO"];
   const statusOptionsDoItem = (item) => item?.listaOrigem === "CEGOC" ? statusOptions : statusOptions.filter(s => !STATUS_SO_CEGOC.includes(s));
-  const listaOptions  = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99", "CAIXA_SEI"];
+  const listaOptions  = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99", "CAIXA_SEI", "DOACOES"];
 
   // Carrega itens de todas as listas atribuídos ao usuário.
   // `reqIdRef` descarta respostas de cargas antigas: sem isso, uma requisição
@@ -688,7 +694,9 @@ export default function SIGNUMinhaFila() {
         const res = await fetch(`/api/bens/${cfg.rota}?atribuidoA=${encodeURIComponent(usuario)}`, { cache: "no-store" });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.erro || `HTTP ${res.status}`);
-        return (json.dados || []).map(r => ({
+        return (json.dados || [])
+          .filter(r => !(cfg.key === "DOACOES" && DOACAO_ENCERRADA.includes(String(r.STATUS_LOCAL_PA || "").trim().toUpperCase())))
+          .map(r => ({
           ...r,
           id: r.ID_LEGADO || `${cfg.prefixo}-${String(r._rowNumber).padStart(4,"0")}`,
           listaOrigem: cfg.key,
@@ -1253,7 +1261,9 @@ export default function SIGNUMinhaFila() {
                         ["Processo (ID_PASEI)", selectedItem.ID_PASEI, true],
                         ["Status",             selectedItem.STATUS_DILIGENCIA],
                         ["Tipo de Bem",        selectedItem.TIPO_BEM],
-                        ["Destinação",         selectedItem.DESTINACAO],
+                        selectedItem.listaOrigem !== "DOACOES" && ["Destinação", selectedItem.DESTINACAO],
+                        selectedItem.listaOrigem === "DOACOES" && ["Entidade", selectedItem.ENTIDADE_NOME],
+                        selectedItem.listaOrigem === "DOACOES" && ["Data da Decisão", selectedItem.DATA_DECISAO],
                         selectedItem.NIV  && ["NIV / Chassi", selectedItem.NIV, true],
                         selectedItem.LOTE && ["Lote DPJ", `#${selectedItem.LOTE}`],
                         selectedItem.STATUS_DILIGENCIA==="RETIRADO" && selectedItem.MOTIVO_RETIRADA && ["Motivo da Retirada", selectedItem.MOTIVO_RETIRADA],
@@ -1267,7 +1277,7 @@ export default function SIGNUMinhaFila() {
                     </div>
 
                     {/* Flags — não fazem sentido para CEGOC destinado a circulação */}
-                    {!(selectedItem.listaOrigem==="CEGOC" && selectedItem.DESTINACAO==="CIRCULAÇÃO") && (
+                    {!(selectedItem.listaOrigem==="CEGOC" && selectedItem.DESTINACAO==="CIRCULAÇÃO") && selectedItem.listaOrigem!=="DOACOES" && (
                     <div style={{ marginBottom:20 }}>
                       <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:8 }}>🏷 Flags</div>
                       <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
@@ -1357,6 +1367,16 @@ export default function SIGNUMinhaFila() {
                     </div>
                   );
                 };
+
+                // Doações: status próprio (STATUS_LOCAL_PA) e sem destinação/flags de veículo
+                if (selectedItem.listaOrigem === "DOACOES") return (
+                  <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                    {inp("Status Local PA", "STATUS_LOCAL_PA", STATUS_LOCAL_PA_OPTIONS.includes(drawerEditData.STATUS_LOCAL_PA) || !drawerEditData.STATUS_LOCAL_PA ? STATUS_LOCAL_PA_OPTIONS : [drawerEditData.STATUS_LOCAL_PA, ...STATUS_LOCAL_PA_OPTIONS])}
+                    {inp("Tipo de Bem", "TIPO_BEM")}
+                    {inp("NIV / Chassi", "NIV")}
+                    <div style={{ fontSize:11, color:"#6b7280" }}>Entidade e data da decisão: editar em “Abrir detalhes completos”.</div>
+                  </div>
+                );
 
                 return (
                   <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
