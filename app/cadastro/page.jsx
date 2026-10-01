@@ -296,10 +296,11 @@ function CampoMoedaItem({ label, value, onChange }) {
 function ItemLoteCard({ item, idx, onChange, onRemove, podeRemover, accentColor, invalido }) {
   const upd = (campo, v) => {
     const next = { ...item, [campo]: v };
-    if (campo === "AVALIACAO_UNITARIA" || campo === "QUANTIDADE") {
-      const unit = parseMoedaCad(campo === "AVALIACAO_UNITARIA" ? v : item.AVALIACAO_UNITARIA);
-      const qtd  = Number(campo === "QUANTIDADE" ? v : item.QUANTIDADE) || 0;
-      next.AVALIACAO_TOTAL = unit !== null ? fmtMoedaCad(unit * qtd) : "";
+    // Avaliação GLOBAL (valor do item inteiro, sem quantidade) — gravada em
+    // AVALIACAO_UNITARIA; a avaliação total do catálogo é o próprio valor global.
+    if (campo === "AVALIACAO_UNITARIA") {
+      const global = parseMoedaCad(v);
+      next.AVALIACAO_TOTAL = global !== null ? fmtMoedaCad(global) : "";
     }
     onChange(idx, next, campo);
   };
@@ -312,7 +313,7 @@ function ItemLoteCard({ item, idx, onChange, onRemove, podeRemover, accentColor,
           style={{ position:"absolute", top:10, right:10, width:22, height:22, borderRadius:6, border:"1px solid #fca5a5", background:"#fef2f2", color:"#dc2626", fontSize:12, cursor:"pointer", lineHeight:1 }}>✕</button>
       )}
       <div style={{ fontSize:11, fontWeight:700, color:accentColor, marginBottom:10 }}>Item {idx + 1}</div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr 70px", gap:10, marginBottom:10 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr", gap:10, marginBottom:10 }}>
         <div>
           {lbl("Tipo de bem *")}
           <select value={item.TIPO_BEM} onChange={e => upd("TIPO_BEM", e.target.value)} style={{ ...stTxt, cursor:"pointer" }}>
@@ -325,10 +326,6 @@ function ItemLoteCard({ item, idx, onChange, onRemove, podeRemover, accentColor,
           <input value={item.DESCRICAO} onChange={e => upd("DESCRICAO", e.target.value)}
             placeholder="Ex: 5 cadeiras de escritório, sofá 3 lugares..." style={stTxt}/>
         </div>
-        <div>
-          {lbl("Qtd.")}
-          <input type="number" min="1" value={item.QUANTIDADE} onChange={e => upd("QUANTIDADE", e.target.value)} style={stTxt}/>
-        </div>
       </div>
       <div style={{ fontSize:10, color:"#9ca3af", marginBottom:6 }}>Se for veículo (opcional):</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:10 }}>
@@ -340,13 +337,13 @@ function ItemLoteCard({ item, idx, onChange, onRemove, podeRemover, accentColor,
         <div>{lbl("RENAVAM")}<input value={item.RENAVAM} onChange={e => upd("RENAVAM", e.target.value.replace(/\D/g,""))} style={stTxt}/></div>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-        <CampoMoedaItem label="Avaliação unitária" value={item.AVALIACAO_UNITARIA} onChange={v => upd("AVALIACAO_UNITARIA", v)}/>
+        <CampoMoedaItem label="Avaliação global" value={item.AVALIACAO_UNITARIA} onChange={v => upd("AVALIACAO_UNITARIA", v)}/>
         <div>
           {lbl("Avaliação total")}
           <div style={{ padding:"7px 9px", background:"#f3f4f6", border:"1px solid #e5e7eb", borderRadius:7, fontSize:12, color:"#374151", fontFamily:"'IBM Plex Mono',monospace" }}>
             {item.AVALIACAO_TOTAL ? `R$ ${item.AVALIACAO_TOTAL}` : "—"}
           </div>
-          <div style={{ fontSize:9, color:"#9ca3af", marginTop:3 }}>calculado: unitária × quantidade</div>
+          <div style={{ fontSize:9, color:"#9ca3af", marginTop:3 }}>igual à avaliação global</div>
         </div>
       </div>
       {invalido && <div style={{ fontSize:10, color:"#f87171", marginTop:8 }}>⚠ Preencha ao menos Tipo de bem e Descrição, ou remova o item.</div>}
