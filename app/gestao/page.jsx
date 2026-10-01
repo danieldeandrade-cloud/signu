@@ -926,8 +926,8 @@ function GestaoConteudo() {
                     </div>
                   </div>
                 )}
-                {/* LPC (leilão) — só CEGOC, quando o filtro de status Catálogo está ativo */}
-                {abaAtiva==="CEGOC" && filtroStatus.has("CATÁLOGO") && lpcOptions.length > 0 && (
+                {/* LPC (leilão) — CEGOC e DPJ-GC99, quando o filtro de status Catálogo está ativo */}
+                {(abaAtiva==="CEGOC"||abaAtiva==="DPJ_GC99") && filtroStatus.has("CATÁLOGO") && lpcOptions.length > 0 && (
                   <div>
                     <div style={{ fontSize:10, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:7 }}>LPC (leilão)</div>
                     <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
@@ -1073,7 +1073,7 @@ function GestaoConteudo() {
                       {abaAtiva==="DOACOES"        && <ThSort campo="DATA_DECISAO">Data Decisão</ThSort>}
                       {abaAtiva==="DOACOES"        && <ThSort campo="ENTIDADE_NOME">Entidade</ThSort>}
                       {abaAtiva==="CEGOC"          && <ThSort campo="DESTINACAO">Destinação</ThSort>}
-                      {abaAtiva==="CEGOC" && filtroStatus.has("CATÁLOGO") && <ThSort campo="LPC">LPC</ThSort>}
+                      {(abaAtiva==="CEGOC"||abaAtiva==="DPJ_GC99") && filtroStatus.has("CATÁLOGO") && <ThSort campo="LPC">LPC</ThSort>}
                       <ThSort campo="STATUS_DILIGENCIA">Status</ThSort>
                       <ThSort campo="Responsavel">Responsável</ThSort>
                       <ThSort campo="OBSERVACOES">Observações</ThSort>
@@ -1134,7 +1134,7 @@ function GestaoConteudo() {
                             );
                           })()}
                           {abaAtiva==="CEGOC"          && <Cell muted>{item.DESTINACAO || "—"}</Cell>}
-                          {abaAtiva==="CEGOC" && filtroStatus.has("CATÁLOGO") && <Cell muted>{item.LPC || "—"}</Cell>}
+                          {(abaAtiva==="CEGOC"||abaAtiva==="DPJ_GC99") && filtroStatus.has("CATÁLOGO") && <Cell muted>{item.LPC || "—"}</Cell>}
                           <td style={{ padding:"11px 14px", borderBottom:"1px solid #f3f4f6" }}>
                             <StatusBadge status={status}/>
                           </td>

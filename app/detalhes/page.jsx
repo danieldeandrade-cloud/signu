@@ -1389,23 +1389,12 @@ function DetalhesContent() {
                   </Section>
                   )}
 
-                  {["CEGOC", "DPJ_GC99", "PCDF_1HIGEIA", "PCDF_2HIGEIA"].includes(listaKey) && (
+                  {["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA"].includes(listaKey) && (
                     <Section title="Descrição do bem">
                       <div style={{ fontSize:10, color:"#6b7280", marginBottom:12 }}>
                         Usada para montar o catálogo do leilão público coletivo.
                       </div>
                       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-                        {/* DPJ não tem seção "Identificação" própria (fica com CEGOC/PCDF1/PCDF2) —
-                            NIV/Placa/Peso do item entram aqui, junto do resto da descrição do veículo. */}
-                        {listaKey === "DPJ_GC99" && (editMode ? <>
-                          <FieldEdit label="NIV / Chassi" value={editData?.NIV} onChange={v=>upd("NIV",v)} mono/>
-                          <FieldEdit label="Placa" hint="sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF" placeholder="Ex: ABC1234 ou ABC1234/DF" value={editData?.PLACA} onChange={v=>upd("PLACA", v.toUpperCase().replace(/[^A-Z0-9/]/g,""))} mono/>
-                          <FieldEdit label="Peso estimado (kg)" value={editData?.PESO_KG} onChange={v=>upd("PESO_KG",v)} type="number"/>
-                        </> : <>
-                          <FieldView label="NIV / Chassi" value={current?.NIV} mono/>
-                          <FieldView label="Placa" value={current?.PLACA} mono/>
-                          <FieldView label="Peso estimado (kg)" value={current?.PESO_KG ? `${current.PESO_KG} kg` : null}/>
-                        </>)}
                         {editMode ? <>
                           <FieldEdit label="Marca / Modelo" value={editData?.MARCA_MODELO} onChange={v=>upd("MARCA_MODELO",v)} placeholder="Ex: GM/Corsa Wind"/>
                           <FieldEdit label="Ano fab./modelo" value={editData?.ANO_FAB_MODELO} onChange={v=>upd("ANO_FAB_MODELO",v)} placeholder="Ex: 2005/2006"/>
@@ -1688,7 +1677,7 @@ function DetalhesContent() {
                             label="Situação"
                             value={editData?.STATUS_DILIGENCIA||""}
                             onChange={v=>upd("STATUS_DILIGENCIA",v)}
-                            options={["EM DILIGÊNCIA","LPC","RETIRADO","PRAZO 6 MESES","DOAÇÃO EM ANDAMENTO"]}
+                            options={["EM DILIGÊNCIA","LPC","CATÁLOGO","RETIRADO","PRAZO 6 MESES","DOAÇÃO EM ANDAMENTO"]}
                           />
                         ) : (
                           <FieldView label="Situação">
@@ -1698,6 +1687,7 @@ function DetalhesContent() {
                               const c = {
                                 "EM DILIGÊNCIA":       {color:"#22c55e",bg:"rgba(34,197,94,0.12)",bd:"rgba(34,197,94,0.3)"},
                                 "LPC":                 {color:"#a78bfa",bg:"rgba(167,139,250,0.12)",bd:"rgba(167,139,250,0.3)"},
+                                "CATÁLOGO":            {color:"#0891b2",bg:"rgba(8,145,178,0.12)",bd:"rgba(8,145,178,0.3)"},
                                 "RETIRADO":            {color:"#6b7280",bg:"rgba(107,114,128,0.12)",bd:"rgba(107,114,128,0.3)"},
                                 "PRAZO 6 MESES":       {color:"#fbbf24",bg:"rgba(251,191,36,0.12)",bd:"rgba(251,191,36,0.3)"},
                                 "DOAÇÃO EM ANDAMENTO": {color:"#34d399",bg:"rgba(52,211,153,0.12)",bd:"rgba(52,211,153,0.3)"},
@@ -1706,6 +1696,10 @@ function DetalhesContent() {
                             })()}
                           </FieldView>
                         )}
+                        {/* Lote da GC99 que entrou num leilão (LPC) — só com a situação CATÁLOGO */}
+                        {current?.STATUS_DILIGENCIA === "CATÁLOGO" && (editMode
+                          ? <FieldEdit label="LPC (leilão)" hint="Ex: nºLPC/ano" placeholder="Ex: 2LPC/2026" value={editData?.LPC} onChange={v=>upd("LPC",v)}/>
+                          : <FieldView label="LPC (leilão)" value={current?.LPC}/>)}
                         {editMode
                           ? <FieldEdit label="Motivo de Saída" value={editData?.MOTIVO_SAIDA||""} onChange={v=>upd("MOTIVO_SAIDA",v)} options={["","DOAÇÃO","LEILÃO INDIVIDUAL","LEILÃO COLETIVO","ADJUDICAÇÃO","RESTITUIÇÃO","ALIENAÇÃO PARTICULAR"]}/>
                           : <FieldView label="Motivo de Saída" value={current?.MOTIVO_SAIDA}/>}
