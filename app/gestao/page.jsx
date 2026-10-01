@@ -356,7 +356,7 @@ function GestaoConteudo() {
     (filtroSemFib ? 1 : 0) + (filtroSemAvaliacao ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (filtroSemOficioDetranSefaz ? 1 : 0) + (filtroSemMandado ? 1 : 0) + filtroDestinacao.size + filtroLPC.size + (busca.trim() ? 1 : 0);
   const [ordenacao, setOrdenacao]   = useState({ campo:"_rowNumber", dir:"asc" });
   const [pag, setPag]               = useState(1);
-  const POR_PAGINA = 15;
+  const POR_PAGINA = 50;
 
   const tab = LISTAS_TABS.find(t => t.key === abaAtiva);
 
