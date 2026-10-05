@@ -922,13 +922,23 @@ export default function SIGNUMinhaFila() {
             {Object.entries(LISTA_META).map(([key, meta]) => {
               const count = fila.filter(i => i.listaOrigem === key).length;
               if (!count) return null;
+              const soEssa = filtroLista.size === 1 && filtroLista.has(key);
               return (
-                <div key={key} style={{
+                // Pré-filtro: clicar mostra só essa lista; clicar de novo volta a todas
+                <div key={key}
+                  role="button"
+                  title={soEssa ? "Mostrar todas as listas" : `Mostrar só ${meta.label}`}
+                  onClick={() => setFiltroLista(soEssa ? new Set() : new Set([key]))}
+                  style={{
                   display: "flex", alignItems: "center", gap: 8,
                   background: meta.bg,
-                  border: `1px solid ${meta.color}44`,
+                  border: soEssa ? `2px solid ${meta.color}` : `1px solid ${meta.color}44`,
+                  boxShadow: soEssa ? `0 0 0 3px ${meta.color}33` : "none",
+                  opacity: filtroLista.size > 0 && !filtroLista.has(key) ? 0.45 : 1,
                   borderRadius: 8,
-                  padding: "8px 14px",
+                  padding: soEssa ? "7px 13px" : "8px 14px",
+                  cursor: "pointer",
+                  transition: "opacity .15s, box-shadow .15s",
                 }}>
                   <span style={{
                     width: 8, height: 8, borderRadius: "50%",
