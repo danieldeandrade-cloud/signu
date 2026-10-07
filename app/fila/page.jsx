@@ -468,6 +468,7 @@ export default function SIGNUMinhaFila() {
   const [filtroDestinacao,setFiltroDestinacao]= useState(new Set());
   const [filtroLPC,       setFiltroLPC]       = useState(new Set());
   const [filtroSemFib,    setFiltroSemFib]    = useState(false);
+  const [filtroSemCeb,    setFiltroSemCeb]    = useState(false);
   const [filtroSemOficioBaixa, setFiltroSemOficioBaixa] = useState(false);
   const [filtroSemOficioDetranSefaz, setFiltroSemOficioDetranSefaz] = useState(false);
   const [filtroCobrarAvaliacao, setFiltroCobrarAvaliacao] = useState(false);
@@ -500,6 +501,7 @@ export default function SIGNUMinhaFila() {
     setFiltroDestinacao(new Set());
     setFiltroLPC(new Set());
     setFiltroSemFib(false);
+    setFiltroSemCeb(false);
     setFiltroSemOficioBaixa(false);
     setFiltroSemOficioDetranSefaz(false);
     setFiltroCobrarAvaliacao(false);
@@ -518,7 +520,7 @@ export default function SIGNUMinhaFila() {
 
   const totalFiltrosAtivos =
     filtroStatus.size + filtroLista.size + filtroTipo.size + filtroFlags.size + filtroDestinacao.size + filtroLPC.size +
-    (filtroSemFib ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (filtroSemOficioDetranSefaz ? 1 : 0) + (filtroCobrarAvaliacao ? 1 : 0) + (filtroSemMandado ? 1 : 0) + (busca.trim() ? 1 : 0);
+    (filtroSemFib ? 1 : 0) + (filtroSemCeb ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (filtroSemOficioDetranSefaz ? 1 : 0) + (filtroCobrarAvaliacao ? 1 : 0) + (filtroSemMandado ? 1 : 0) + (busca.trim() ? 1 : 0);
   const [selectedItem,   setSelectedItem]   = useState(null);
   const [drawerEditMode, setDrawerEditMode] = useState(false);
   const [drawerEditData, setDrawerEditData] = useState(null);
@@ -734,6 +736,10 @@ export default function SIGNUMinhaFila() {
     if (filtroSemFib) {
       if (!["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(item.listaOrigem))                          return false;
       if (flagAtiva(item, "FIB"))                                                                        return false;
+    }
+    if (filtroSemCeb) {
+      if (!["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(item.listaOrigem))                          return false;
+      if (flagAtiva(item, "CEB_TEP_TIV"))                                                                return false;
     }
     if (filtroSemOficioBaixa) {
       if (!["PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(item.listaOrigem))                                   return false;
@@ -1076,6 +1082,10 @@ export default function SIGNUMinhaFila() {
                       style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemFib?700:400, cursor:"pointer", border:`1px solid ${filtroSemFib?"#f87171":"#d1d5db"}`, background:filtroSemFib?"rgba(248,113,113,0.15)":"transparent", color:filtroSemFib?"#f87171":"#374151", display:"flex", alignItems:"center", gap:5 }}>
                       {filtroSemFib&&"✓ "}⚠️ Sem FIB <span style={{ opacity:.6, fontSize:10 }}>({fila.filter(i=>["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(i.listaOrigem)&&!flagAtiva(i,"FIB")).length})</span>
                     </button>
+                    <button onClick={() => setFiltroSemCeb(v => !v)}
+                      style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemCeb?700:400, cursor:"pointer", border:`1px solid ${filtroSemCeb?"#60a5fa":"#d1d5db"}`, background:filtroSemCeb?"rgba(96,165,250,0.15)":"transparent", color:filtroSemCeb?"#3b82f6":"#374151", display:"flex", alignItems:"center", gap:5 }}>
+                      {filtroSemCeb&&"✓ "}⚠️ Sem CEB/TEP/TIV <span style={{ opacity:.6, fontSize:10 }}>({fila.filter(i=>["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(i.listaOrigem)&&!flagAtiva(i,"CEB_TEP_TIV")).length})</span>
+                    </button>
                     <button onClick={() => setFiltroSemOficioBaixa(v => !v)}
                       style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemOficioBaixa?700:400, cursor:"pointer", border:`1px solid ${filtroSemOficioBaixa?"#f472b6":"#d1d5db"}`, background:filtroSemOficioBaixa?"rgba(244,114,182,0.15)":"transparent", color:filtroSemOficioBaixa?"#f472b6":"#374151", display:"flex", alignItems:"center", gap:5 }}>
                       {filtroSemOficioBaixa&&"✓ "}⚠️ Sem OF. BX <span style={{ opacity:.6, fontSize:10 }}>({fila.filter(i=>["PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(i.listaOrigem)&&!flagAtiva(i,"OFICIO_BAIXA")).length})</span>
@@ -1107,6 +1117,7 @@ export default function SIGNUMinhaFila() {
                 {[...filtroDestinacao].map(d=><span key={d} onClick={()=>toggleSet(setFiltroDestinacao,d)} style={{ padding:"3px 9px", background:"rgba(34,197,94,0.08)", border:"1px solid rgba(34,197,94,0.3)", borderRadius:20, fontSize:11, color:"#16a34a", cursor:"pointer" }}>{d} ✕</span>)}
                 {[...filtroLPC].map(lpc=><span key={lpc} onClick={()=>toggleSet(setFiltroLPC,lpc)} style={{ padding:"3px 9px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:20, fontSize:11, color:"#a78bfa", cursor:"pointer" }}>LPC {lpc} ✕</span>)}
                 {filtroSemFib && <span onClick={()=>setFiltroSemFib(false)} style={{ padding:"3px 9px", background:"rgba(248,113,113,0.1)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:20, fontSize:11, color:"#f87171", cursor:"pointer" }}>Sem FIB ✕</span>}
+                {filtroSemCeb && <span onClick={()=>setFiltroSemCeb(false)} style={{ padding:"3px 9px", background:"rgba(96,165,250,0.1)", border:"1px solid rgba(96,165,250,0.3)", borderRadius:20, fontSize:11, color:"#3b82f6", cursor:"pointer" }}>Sem CEB/TEP/TIV ✕</span>}
                 {filtroSemOficioBaixa && <span onClick={()=>setFiltroSemOficioBaixa(false)} style={{ padding:"3px 9px", background:"rgba(244,114,182,0.1)", border:"1px solid rgba(244,114,182,0.3)", borderRadius:20, fontSize:11, color:"#f472b6", cursor:"pointer" }}>Sem OF. BX ✕</span>}
                 {filtroSemOficioDetranSefaz && <span onClick={()=>setFiltroSemOficioDetranSefaz(false)} style={{ padding:"3px 9px", background:"rgba(34,211,238,0.1)", border:"1px solid rgba(34,211,238,0.3)", borderRadius:20, fontSize:11, color:"#22d3ee", cursor:"pointer" }}>Sem Of. Detran e Sefaz ✕</span>}
                 {filtroCobrarAvaliacao && <span onClick={()=>setFiltroCobrarAvaliacao(false)} style={{ padding:"3px 9px", background:"rgba(245,158,11,0.12)", border:"1px solid rgba(245,158,11,0.3)", borderRadius:20, fontSize:11, color:"#f59e0b", cursor:"pointer" }}>Cobrar avaliação ✕</span>}
