@@ -799,6 +799,10 @@ export default function SIGNUMinhaFila() {
     return 0;
   });
 
+  // Coluna Lote só existe pra DPJ-GC99 e Doações — aparece quando há itens delas na tela
+  const LISTAS_COM_LOTE = ["DPJ_GC99", "DOACOES"];
+  const mostraLote = sorted.some(i => LISTAS_COM_LOTE.includes(i.listaOrigem));
+
   const novosCount = filtered.filter(i => !i.VISTO_EM).length;
 
   const atrasadosCount = fila.filter(i => i.STATUS_DILIGENCIA === "ATRASADO").length;
@@ -1145,7 +1149,7 @@ export default function SIGNUMinhaFila() {
                     {[
                       { col:"id",               label:"ID",           w:120 },
                       { col:"PROCESSO_SEI",      label:"PA SEI",       w:200 },
-                      { col:"LOTE",              label:"Lote",         w:70  },
+                      ...(mostraLote ? [{ col:"LOTE", label:"Lote", w:70 }] : []),
                       { col:"TIPO_BEM",          label:"Tipo",         w:100 },
                       { col:"STATUS_DILIGENCIA", label:"Status",       w:160 },
                       { col:"listaOrigem",       label:"Lista",        w:90  },
@@ -1208,7 +1212,7 @@ export default function SIGNUMinhaFila() {
                           {item.id}
                         </td>
                         <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#1f2937", whiteSpace:"nowrap" }}>{item.PROCESSO_SEI||"—"}</td>
-                        <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#1f2937" }}>{item.LOTE ? `#${item.LOTE}` : "—"}</td>
+                        {mostraLote && <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#1f2937" }}>{LISTAS_COM_LOTE.includes(item.listaOrigem) && item.LOTE ? `#${item.LOTE}` : "—"}</td>}
                         <td style={{ padding:"9px 12px", fontSize:12 }}>{(TIPO_ICON[item.TIPO_BEM]||"")+" "+(item.TIPO_BEM||"—")}</td>
                         <td style={{ padding:"9px 12px" }}>
                           <span style={{ padding:"2px 8px", borderRadius:12, fontSize:11, fontWeight:700, background:sMeta.bg, color:sMeta.color, whiteSpace:"nowrap" }}>
