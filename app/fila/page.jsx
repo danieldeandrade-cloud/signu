@@ -619,6 +619,7 @@ export default function SIGNUMinhaFila() {
       const payload = { ...drawerEditData };
       // Não sobrescrever OBSERVACOES — gerenciado separadamente
       delete payload.OBSERVACOES;
+      delete payload.PROCESSO_SEI; // campo só da tela (ver carregarFila)
       // Serializa booleanos
       ["FIB","CEB_TEP_TIV","OFICIO_BAIXA","OFICIO_DETRAN_SEFAZ","RESTRICAO_ROUBO"].forEach(k => {
         if (k in payload) payload[k] = boolStr(payload[k]);
@@ -634,7 +635,7 @@ export default function SIGNUMinhaFila() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.erro || "Erro ao salvar");
       // Atualiza o item na tabela sem recarregar tudo
-      const atualizado = { ...json.item, id: selectedItem.id, listaOrigem: selectedItem.listaOrigem, STATUS_DILIGENCIA: json.item.STATUS_DILIGENCIA || json.item[LISTAS_FILA.find(l=>l.key===selectedItem.listaOrigem)?.statusField] || selectedItem.STATUS_DILIGENCIA };
+      const atualizado = { ...json.item, id: selectedItem.id, listaOrigem: selectedItem.listaOrigem, PROCESSO_SEI: json.item.ID_PASEI || json.item.PA || json.item.PA_PJE || "", STATUS_DILIGENCIA: json.item.STATUS_DILIGENCIA || json.item[LISTAS_FILA.find(l=>l.key===selectedItem.listaOrigem)?.statusField] || selectedItem.STATUS_DILIGENCIA };
       setFila(prev => prev.map(i => i._rowNumber === row && i.listaOrigem === selectedItem.listaOrigem ? { ...atualizado } : i));
       setSelectedItem(atualizado);
       setDrawerEditMode(false);
@@ -702,6 +703,8 @@ export default function SIGNUMinhaFila() {
           ...r,
           id: r.ID_LEGADO || `${cfg.prefixo}-${String(r._rowNumber).padStart(4,"0")}`,
           listaOrigem: cfg.key,
+          // Nº do processo SEI: a DPJ guarda em PA (PA_PJE nos registros legados), as demais em ID_PASEI
+          PROCESSO_SEI: r.ID_PASEI || r.PA || r.PA_PJE || "",
           STATUS_DILIGENCIA: r[cfg.statusField] || r.STATUS_DILIGENCIA || "",
           diasSemAtualizacao: 0, // campo calculado — não disponível na planilha ainda
         }));
@@ -788,6 +791,8 @@ export default function SIGNUMinhaFila() {
       const db = b.ULTIMA_ANALISE ? new Date(b.ULTIMA_ANALISE).getTime() : 0;
       return (da - db) * mul;
     }
+    if (sortCol === "PROCESSO_SEI")     return (a.PROCESSO_SEI||"").localeCompare(b.PROCESSO_SEI||"", "pt-BR", { numeric:true }) * mul;
+    if (sortCol === "LOTE")             return ((Number(a.LOTE)||0) - (Number(b.LOTE)||0)) * mul;
     if (sortCol === "TIPO_BEM")         return (a.TIPO_BEM||"").localeCompare(b.TIPO_BEM||"") * mul;
     if (sortCol === "STATUS_DILIGENCIA")return (a.STATUS_DILIGENCIA||"").localeCompare(b.STATUS_DILIGENCIA||"") * mul;
     if (sortCol === "listaOrigem")      return (a.listaOrigem||"").localeCompare(b.listaOrigem||"") * mul;
@@ -1139,7 +1144,8 @@ export default function SIGNUMinhaFila() {
                   <tr style={{ background:"#f3f4f6", borderBottom:"1px solid #e5e7eb" }}>
                     {[
                       { col:"id",               label:"ID",           w:120 },
-                      { col:"ID_PASEI",          label:"Processo",     w:200 },
+                      { col:"PROCESSO_SEI",      label:"PA SEI",       w:200 },
+                      { col:"LOTE",              label:"Lote",         w:70  },
                       { col:"TIPO_BEM",          label:"Tipo",         w:100 },
                       { col:"STATUS_DILIGENCIA", label:"Status",       w:160 },
                       { col:"listaOrigem",       label:"Lista",        w:90  },
@@ -1201,7 +1207,8 @@ export default function SIGNUMinhaFila() {
                           )}
                           {item.id}
                         </td>
-                        <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#1f2937" }}>{item.ID_PASEI||"—"}</td>
+                        <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#1f2937", whiteSpace:"nowrap" }}>{item.PROCESSO_SEI||"—"}</td>
+                        <td style={{ padding:"9px 12px", fontSize:11, fontFamily:"monospace", color:"#1f2937" }}>{item.LOTE ? `#${item.LOTE}` : "—"}</td>
                         <td style={{ padding:"9px 12px", fontSize:12 }}>{(TIPO_ICON[item.TIPO_BEM]||"")+" "+(item.TIPO_BEM||"—")}</td>
                         <td style={{ padding:"9px 12px" }}>
                           <span style={{ padding:"2px 8px", borderRadius:12, fontSize:11, fontWeight:700, background:sMeta.bg, color:sMeta.color, whiteSpace:"nowrap" }}>
@@ -1279,7 +1286,7 @@ export default function SIGNUMinhaFila() {
                     {/* Campos principais */}
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 }}>
                       {[
-                        ["Processo (ID_PASEI)", selectedItem.ID_PASEI, true],
+                        ["PA SEI", selectedItem.PROCESSO_SEI, true],
                         ["Status",             selectedItem.STATUS_DILIGENCIA],
                         ["Tipo de Bem",        selectedItem.TIPO_BEM],
                         selectedItem.listaOrigem !== "DOACOES" && ["Destinação", selectedItem.DESTINACAO],
