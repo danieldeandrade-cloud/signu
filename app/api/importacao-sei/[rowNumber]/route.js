@@ -23,6 +23,7 @@ import { getAllRows, addRow, updateRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico } from '@/lib/historico';
+import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO } from '@/lib/duplicidadeVeiculo';
 
 const GESTORES = [
   'danieldeandrade.pessoal@gmail.com',
@@ -67,6 +68,12 @@ export async function PATCH(request, { params }) {
       // da importação SEI.
       if (['pcdf1', 'pcdf2'].includes(staging.LISTA_DESTINO) && !campos.DESTINACAO) {
         campos.DESTINACAO = 'RECICLAGEM';
+      }
+      // Já existe numa lista de veículos? Não cria outro — foi assim que surgiu
+      // o PA 00052-00023387/2026-87 em CEGOC e PCDF 2ª ao mesmo tempo.
+      if (LISTAS_VEICULO.includes(staging.LISTA_DESTINO)) {
+        const dup = await acharDuplicadoVeiculo(campos);
+        if (dup) return NextResponse.json({ erro: mensagemDuplicado(dup) }, { status: 409 });
       }
       const novoItem = await addRow(sheetDestino, { ...campos, MODIFICADO_POR: autor });
 

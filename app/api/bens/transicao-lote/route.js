@@ -16,6 +16,7 @@ import { getAllRows, addRow, deleteRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico } from '@/lib/historico';
+import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO } from '@/lib/duplicidadeVeiculo';
 
 export async function POST(request) {
   try {
@@ -49,6 +50,10 @@ export async function POST(request) {
     // 1) cria todos no destino
     for (const item of alvo) {
       try {
+        // Já existe em outra lista de veículos (fora a própria origem)? Vira
+        // falha e o item fica onde está — não cria duplicado no destino.
+        const dup = await acharDuplicadoVeiculo(item, { ignorar: [{ lista: origem, rowNumber: Number(item._rowNumber) }] });
+        if (dup) throw new Error(mensagemDuplicado(dup));
         const { _rowNumber, ...dadosBem } = item;
         const novoItem = await addRow(sheetDestino, {
           ...dadosBem,

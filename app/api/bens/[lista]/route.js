@@ -11,6 +11,7 @@ import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico } from '@/lib/historico';
 import { reorganizarFilaDoacoes } from '@/lib/reorganizarFilaDoacoes';
+import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO } from '@/lib/duplicidadeVeiculo';
 
 export async function GET(request, { params }) {
   try {
@@ -45,6 +46,12 @@ export async function POST(request, { params }) {
     const { lista } = await params;
     const sheetName = resolveSheetName(lista);
     const body = await request.json();
+
+    // Mesmo veículo em duas listas de veículos não pode (ver lib/duplicidadeVeiculo.js)
+    if (LISTAS_VEICULO.includes(lista)) {
+      const dup = await acharDuplicadoVeiculo(body);
+      if (dup) return NextResponse.json({ erro: mensagemDuplicado(dup), duplicado: { lista: dup.lista, rowNumber: dup.rowNumber } }, { status: 409 });
+    }
 
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     const autor = getNomePorEmail(token?.email) || 'Desconhecido';

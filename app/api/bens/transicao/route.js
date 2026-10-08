@@ -15,6 +15,7 @@ import { getAllRows, addRow, updateRow, deleteRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico } from '@/lib/historico';
+import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO } from '@/lib/duplicidadeVeiculo';
 
 export async function POST(request) {
   try {
@@ -61,6 +62,10 @@ export async function POST(request) {
     // Regra 1 — CEGOC -> PCDF 2ª HIGEIA (cria no destino antes de apagar na origem)
     if (destino === 'pcdf2') {
       const sheetDestino = resolveSheetName('pcdf2');
+
+      // Destino (ou outra lista de veículos) já tem esse veículo? Não cria um 2º.
+      const dup = await acharDuplicadoVeiculo(item, { ignorar: [{ lista: origem, rowNumber: Number(rowNumber) }] });
+      if (dup) return NextResponse.json({ erro: mensagemDuplicado(dup) }, { status: 409 });
 
       // Remove metadados internos do google-spreadsheet antes de gravar na nova aba
       const { _rowNumber: _, ...dadosBem } = item;

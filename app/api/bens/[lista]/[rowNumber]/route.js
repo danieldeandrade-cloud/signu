@@ -11,6 +11,7 @@ import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico, diffCampos } from '@/lib/historico';
 import { reorganizarFilaDoacoes } from '@/lib/reorganizarFilaDoacoes';
+import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO } from '@/lib/duplicidadeVeiculo';
 
 export async function GET(request, { params }) {
   try {
@@ -65,6 +66,20 @@ export async function PATCH(request, { params }) {
           { erro: 'Este item mudou de posição na planilha desde que a página foi carregada. Recarregue e tente de novo — evita sobrescrever outro registro por engano.' },
           { status: 409 }
         );
+      }
+    }
+
+    // Trocar PA/NIV para os de um veículo que já está em outra lista de veículos
+    // criaria duplicidade (ver lib/duplicidadeVeiculo.js) — só checa se mudou.
+    if (LISTAS_VEICULO.includes(lista)) {
+      const mudouPa  = 'ID_PASEI' in body && String(body.ID_PASEI || '').trim() !== String(itemAntes.ID_PASEI || '').trim();
+      const mudouNiv = 'NIV' in body && String(body.NIV || '').trim() !== String(itemAntes.NIV || '').trim();
+      if (mudouPa || mudouNiv) {
+        const dup = await acharDuplicadoVeiculo(
+          { ID_PASEI: mudouPa ? body.ID_PASEI : '', NIV: mudouNiv ? body.NIV : '' },
+          { ignorar: [{ lista, rowNumber: Number(rowNumber) }] }
+        );
+        if (dup) return NextResponse.json({ erro: mensagemDuplicado(dup) }, { status: 409 });
       }
     }
 
