@@ -1,6 +1,6 @@
 "use client";
 import Sidebar from "@/components/Sidebar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -13,16 +13,6 @@ const LISTAS_CONFIG = [
   { key:"DOACOES",      rota:"doacoes_diligencia", label:"Doações", icon:"🤝", color:"#34d399", bg:"#064e3b", statusField:"STATUS_LOCAL_PA"   },
   { key:"CAIXA_SEI",    rota:"sei",               label:"Caixa SEI",icon:"📬",color:"#fbbf24", bg:"#451a03", statusField:"ACAO"             },
 ];
-
-// Distribuição por TIPO DE BEM — preenchida via API
-let TIPOS_POR_LISTA = {
-  CEGOC:        {},
-  PCDF_1HIGEIA: {},
-  PCDF_2HIGEIA: {},
-  DPJ_GC99:     {},
-  DOACOES:      {},
-  CAIXA_SEI:    {},
-};
 
 const TIPOS = ["CARRO","MOTO","CAMINHONETE","CAMINHÃO","REBOQUE","OUTROS"];
 const TIPO_ICON = { CARRO:"🚗", MOTO:"🏍️", CAMINHONETE:"🛻", CAMINHÃO:"🚛", REBOQUE:"🚜", OUTROS:"📦" };
@@ -49,45 +39,51 @@ function resolverNomeServidor(email, nomeGoogle) {
   return SERVIDORES.find(s => s.toLowerCase() === (nomeGoogle||"").toLowerCase()) || null;
 }
 
-const LISTAS_FILA = [
-  { key:"CEGOC",        rota:"cegoc",  prefixo:"CEG",   statusField:"STATUS_DILIGENCIA" },
-  { key:"PCDF_1HIGEIA", rota:"pcdf1",  prefixo:"PCDF1", statusField:"STATUS_DILIGENCIA" },
-  { key:"PCDF_2HIGEIA", rota:"pcdf2",  prefixo:"PCDF2", statusField:"STATUS_DILIGENCIA" },
-  { key:"DPJ_GC99",     rota:"dpj",    prefixo:"DPJ",   statusField:"STATUS_DILIGENCIA" },
-  { key:"CAIXA_SEI",    rota:"sei",    prefixo:"CAIXA", statusField:"ACAO"              },
-];
+// ─── REGRAS DOS INDICADORES ───────────────────────────────────────────────────
+// Mesmas regras do relatório por e-mail (app/api/notificacoes/route.js):
+// status encerrado fica fora dos indicadores operacionais; "parado" = ativo
+// sem nenhuma mexida (ULTIMA_ANALISE → DATA_ATUALIZACAO → DATA_CADASTRO) há
+// DIAS_PARADO dias ou mais.
+const STATUS_ENCERRADO = ["RETIRADO","BAIXADO","CONCLUÍDO","CONCLUIDO","CANCELADO","ARQUIVADO","DOAÇÃO REALIZADA","VENDIDO E RETIRADO"];
+const DIAS_PARADO = 21;
+const ehEncerrado = (st) => STATUS_ENCERRADO.includes(String(st || "").toUpperCase().trim());
+const LISTAS_BENS = ["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA","DPJ_GC99","DOACOES"]; // Caixa SEI é processo, não bem
+const PREFIXO = { CEGOC:"CEG", PCDF_1HIGEIA:"PCDF1", PCDF_2HIGEIA:"PCDF2", DPJ_GC99:"DPJ", DOACOES:"DOA", CAIXA_SEI:"SEI" };
 
-const FLOWS = [
-  { nome:"Alertas Bens Atrasados",   ultimo:"Hoje 08:00",  icon:"⏰" },
-  { nome:"Notificação Novo Bem",     ultimo:"Hoje 09:14",  icon:"🔔" },
-  { nome:"Relatório Semanal",        ultimo:"Seg 07:30",   icon:"📊" },
-  { nome:"Transição CEGOC→PCDF2",   ultimo:"Ontem 14:22", icon:"🔄" },
-  { nome:"Transição CEGOC→Catálogo",ultimo:"Ontem 11:05", icon:"📋" },
-  { nome:"DPJ Prazo 6 Meses",       ultimo:"Hoje 07:15",  icon:"📅" },
-];
-
-const STATUS_COLOR = {
-  "EM DILIGÊNCIA":"#22c55e","AGUARDANDO":"#60a5fa","ATRASADO":"#f87171","PRAZO 6 MESES":"#fbbf24",
-};
-
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
-function totalTipo(tipo) {
-  return Object.values(TIPOS_POR_LISTA).reduce((a, l) => a + (l[tipo] || 0), 0);
+function parseDataFlex(v) {
+  if (!v) return 0;
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+  m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+  const d = new Date(s);
+  return isNaN(d) ? 0 : d.getTime();
 }
-function tipoEmLista(tipo, listaKey) {
-  return TIPOS_POR_LISTA[listaKey]?.[tipo] || 0;
+function diasSemMexida(item) {
+  const t = parseDataFlex(item.ULTIMA_ANALISE) || parseDataFlex(item.DATA_ATUALIZACAO) || parseDataFlex(item.DATA_CADASTRO);
+  return t ? Math.floor((Date.now() - t) / 86400000) : null;
 }
+// Tipos fora da lista do gráfico (ELETRÔNICO, MÓVEIS, vazio…) entram em OUTROS
+function normTipo(t) {
+  const x = String(t || "").toUpperCase().trim();
+  if (x === "CAMIONETA") return "CAMINHONETE";
+  return TIPOS.includes(x) ? x : "OUTROS";
+}
+const pesoKg = (r) => { const n = parseFloat(String(r.PESO_KG ?? "").replace(",", ".")); return isNaN(n) ? 0 : n; };
+const fmtPeso = (kg) => kg >= 1000
+  ? `${(kg / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} t`
+  : `${Math.round(kg).toLocaleString("pt-BR")} kg`;
+
+// Automações que existem de verdade no SIGNU (crons em vercel.json + rotinas internas)
+const AUTOMACOES = [
+  { icon:"📧", nome:"Relatório por e-mail (gestores e servidores)", quando:"Dias úteis, 7h" },
+  { icon:"📅", nome:"DPJ: fim do prazo de 6 meses → Em diligência", quando:"Dias úteis, 7h" },
+  { icon:"🤝", nome:"Fila de doações: entidade prevista dos lotes", quando:"A cada alteração" },
+  { icon:"📥", nome:"Importação SEI (leitura de processos + IA)",  quando:"Manual · revisão na Gestão" },
+];
 
 // ─── SUBCOMPONENTES ───────────────────────────────────────────────────────────
-function Stat({ label, value, color }) {
-  return (
-    <div style={{ textAlign:"center" }}>
-      <div style={{ fontSize:13, fontWeight:700, color }}>{value}</div>
-      <div style={{ fontSize:9, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
-    </div>
-  );
-}
-
 // Barra horizontal simples
 function BarH({ value, max, color, height=8 }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
@@ -147,7 +143,7 @@ function GraficoBarras({ filtroLista, tiposPorLista }) {
             </defs>
             <rect x={x} y={y} width={barW} height={barH2} rx="4" fill={`url(#grad-${d.tipo})`}/>
             {/* Valor no topo */}
-            <text x={x + barW/2} y={y - 5} fontSize="10" fill="#fff" textAnchor="middle" fontWeight="600">{d.total}</text>
+            <text x={x + barW/2} y={y - 5} fontSize="10" fill="#0f172a" textAnchor="middle" fontWeight="600">{d.total}</text>
             {/* Label embaixo */}
             <text x={x + barW/2} y={PADDING.top + chartH + 14} fontSize="9" fill="#374151" textAnchor="middle">{d.tipo}</text>
             <text x={x + barW/2} y={PADDING.top + chartH + 25} fontSize="11" textAnchor="middle">{TIPO_ICON[d.tipo]}</text>
@@ -192,7 +188,7 @@ function GraficoRosca({ filtroLista, tiposPorLista }) {
         {slices.map(s => (
           <path key={s.tipo} d={s.path} fill={TIPO_COLOR[s.tipo] || "#6b7280"} opacity="0.85"/>
         ))}
-        <text x={CX} y={CY - 6} textAnchor="middle" fontSize="18" fontWeight="800" fill="#fff">{total}</text>
+        <text x={CX} y={CY - 6} textAnchor="middle" fontSize="18" fontWeight="800" fill="#0f172a">{total}</text>
         <text x={CX} y={CY + 10} textAnchor="middle" fontSize="9" fill="#4b5563">TOTAL</text>
       </svg>
       <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
@@ -264,7 +260,7 @@ function TabelaTipos({ filtroLista, tiposPorLista, LISTAS }) {
               const meta = LISTAS.find(l => l.key === key);
               return (
                 <td key={key} style={{ textAlign:"center", padding:"10px 12px", color: meta?.color || "#fff", fontWeight:800, fontFamily:"'IBM Plex Mono',monospace" }}>
-                  {meta?.total || listas.find(([k])=>k===key)?.[1] ? Object.values(TIPOS_POR_LISTA[key]||{}).reduce((a,v)=>a+v,0) : 0}
+                  {Object.values(tiposPorLista[key] || {}).reduce((a,v)=>a+v,0)}
                 </td>
               );
             })}
@@ -294,12 +290,8 @@ export default function InicioPage() {
   const [hoveredCard,    setHoveredCard]    = useState(null);
   const [filtroLista,    setFiltroLista]    = useState("TODAS");
   const [abaRelatorio,   setAbaRelatorio]   = useState("barras");
-  const [listas,         setListas]         = useState(
-    LISTAS_CONFIG.map(c => ({ ...c, total:0, atrasados:0, em_diligencia:0, aguardando:0, pesoKg:0, carregando:true }))
-  );
-  const [tiposPorLista,  setTiposPorLista]  = useState(TIPOS_POR_LISTA);
-  const [filaItens,      setFilaItens]      = useState([]);
-  const [nomeUsuario,    setNomeUsuario]     = useState(null);
+  const [dados,          setDados]          = useState(null);  // { [key]: rows[] } — null = carregando
+  const [falhas,         setFalhas]         = useState([]);
   const [isGestor,       setIsGestor]       = useState(false);
   // filtroServidor: null = todos (visão gestores), string = nome do servidor
   const [filtroServidor, setFiltroServidor] = useState(undefined); // undefined = ainda resolvendo
@@ -312,77 +304,100 @@ export default function InicioPage() {
     const nomeGoogle = session.user.name  || "";
     const gestor     = GESTORES_GMAIL.includes(email);
     setIsGestor(gestor);
-    if (gestor) {
-      setFiltroServidor(null); // gestores veem tudo por padrão
-    } else {
-      const nome = resolverNomeServidor(email, nomeGoogle);
-      setNomeUsuario(nome);
-      setFiltroServidor(nome); // servidor vê só os próprios dados
-    }
+    setFiltroServidor(gestor ? null : resolverNomeServidor(email, nomeGoogle)); // gestor vê tudo; servidor, só o dele
     setSessionResolvida(true);
   }, [session]);
 
-  // 2. Busca dados sempre que o filtro de servidor muda
+  // 2. Busca as listas sempre que o filtro de servidor muda
+  const reqRef = useRef(0);
   useEffect(() => {
     if (!sessionResolvida) return;
+    const req = ++reqRef.current;
     const qs = filtroServidor ? `?atribuidoA=${encodeURIComponent(filtroServidor)}` : "";
-    setListas(LISTAS_CONFIG.map(c => ({ ...c, total:0, atrasados:0, em_diligencia:0, aguardando:0, pesoKg:0, carregando:true })));
-    setTiposPorLista({ CEGOC:{}, PCDF_1HIGEIA:{}, PCDF_2HIGEIA:{}, DPJ_GC99:{}, DOACOES:{}, CAIXA_SEI:{} });
-    setFilaItens([]);
-
-    LISTAS_CONFIG.forEach(async (cfg) => {
-      try {
-        const res  = await fetch(`/api/bens/${cfg.rota}${qs}`);
-        const json = await res.json();
-        const dados = json.dados || [];
-
-        const total         = dados.length;
-        const atrasados     = dados.filter(r => r[cfg.statusField] === "ATRASADO").length;
-        const em_diligencia = dados.filter(r => r[cfg.statusField] === "EM DILIGÊNCIA").length;
-        const aguardando    = dados.filter(r => r[cfg.statusField] === "AGUARDANDO").length;
-
-        const tipos = {};
-        dados.forEach(r => { const t = r.TIPO_BEM || "OUTROS"; tipos[t] = (tipos[t]||0)+1; });
-
-        const pesoKg = dados.reduce((a, r) => {
-          const n = parseFloat(String(r.PESO_KG ?? "").replace(",", "."));
-          return a + (isNaN(n) ? 0 : n);
-        }, 0);
-
-        setListas(prev => prev.map(l => l.key === cfg.key
-          ? { ...l, total, atrasados, em_diligencia, aguardando, pesoKg, carregando:false }
-          : l
-        ));
-        setTiposPorLista(prev => ({ ...prev, [cfg.key]: tipos }));
-
-        // Itens individuais para o painel lateral (excluindo SEI arquivados)
-        const itens = dados
-          .filter(r => !(cfg.key === "CAIXA_SEI" && r.ACAO === "ARQUIVADO"))
-          .map(r => ({
-            id:    r.ID_LEGADO || `${LISTAS_FILA.find(l=>l.key===cfg.key)?.prefixo||cfg.key}-${String(r._rowNumber).padStart(4,"0")}`,
-            tipo:  r.TIPO_BEM || "—",
-            lista: cfg.label,
-            status:r[cfg.statusField] || r.STATUS_DILIGENCIA || "—",
-            color: cfg.color,
-          }));
-        setFilaItens(prev => [...prev, ...itens]);
-      } catch {
-        setListas(prev => prev.map(l => l.key === cfg.key ? { ...l, carregando:false } : l));
-      }
+    setDados(null);
+    Promise.allSettled(LISTAS_CONFIG.map(async (cfg) => {
+      const res = await fetch(`/api/bens/${cfg.rota}${qs}`, { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.erro || `HTTP ${res.status}`);
+      return json.dados || [];
+    })).then(rs => {
+      if (req !== reqRef.current) return; // filtro trocou no meio
+      const novo = {};
+      rs.forEach((r, i) => { novo[LISTAS_CONFIG[i].key] = r.status === "fulfilled" ? r.value : []; });
+      setFalhas(LISTAS_CONFIG.filter((_, i) => rs[i].status === "rejected").map(c => c.label));
+      setDados(novo);
     });
   }, [filtroServidor, sessionResolvida]);
 
-  // Usa listas carregadas no lugar do array estático
-  const LISTAS = listas;
+  // 3. Indicadores (todos calculados aqui, a partir das linhas reais)
+  const ind = useMemo(() => {
+    const porLista = LISTAS_CONFIG.map(cfg => {
+      const rows = dados?.[cfg.key] || [];
+      const status = (r) => String(r[cfg.statusField] || "").trim();
+      const ativos = rows.filter(r => !ehEncerrado(status(r)));
+      const parados = ativos.filter(r => (diasSemMexida(r) ?? 0) >= DIAS_PARADO);
+      const porStatus = {};
+      ativos.forEach(r => {
+        const st = status(r) || (cfg.key === "DOACOES" && !String(r.RESPONSAVEL || "").trim() ? "AGUARDANDO INÍCIO" : "SEM STATUS");
+        porStatus[st] = (porStatus[st] || 0) + 1;
+      });
+      const reciclagem = rows.filter(r => r.DESTINACAO === "RECICLAGEM" || cfg.key === "PCDF_1HIGEIA" || cfg.key === "PCDF_2HIGEIA");
+      return {
+        ...cfg,
+        rows, ativos, parados,
+        total: rows.length,
+        encerrados: rows.length - ativos.length,
+        statusTop: Object.entries(porStatus).sort((a, b) => b[1] - a[1]),
+        pesoReciclagem: reciclagem.reduce((a, r) => a + pesoKg(r), 0),
+        pesoBaixado: reciclagem.filter(r => ehEncerrado(status(r))).reduce((a, r) => a + pesoKg(r), 0),
+        // Lotes de doação aguardando início ficam sem responsável de propósito
+        semResponsavel: ativos.filter(r => !String(r.RESPONSAVEL || "").trim() && !(cfg.key === "DOACOES" && !status(r))).length,
+        novos: ativos.filter(r => !r.VISTO_EM).length,
+      };
+    });
+    const bens = porLista.filter(l => LISTAS_BENS.includes(l.key));
+    const soma = (arr, k) => arr.reduce((a, l) => a + l[k], 0);
+    const paradosTop = bens
+      .flatMap(l => l.parados.map(r => ({ r, l, dias: diasSemMexida(r) })))
+      .sort((a, b) => b.dias - a.dias);
+    const tiposPorLista = {};
+    bens.forEach(l => {
+      const t = {};
+      l.ativos.forEach(r => { const k = normTipo(r.TIPO_BEM); t[k] = (t[k] || 0) + 1; });
+      tiposPorLista[l.key] = t;
+    });
+    return {
+      porLista, bens, paradosTop, tiposPorLista,
+      ativos: bens.reduce((a, l) => a + l.ativos.length, 0),
+      total: soma(bens, "total"),
+      encerrados: soma(bens, "encerrados"),
+      parados: bens.reduce((a, l) => a + l.parados.length, 0),
+      semResponsavel: soma(porLista, "semResponsavel"),
+      novos: soma(porLista, "novos"),
+      pesoReciclagem: soma(bens, "pesoReciclagem"),
+      pesoBaixado: soma(bens, "pesoBaixado"),
+      sei: porLista.find(l => l.key === "CAIXA_SEI"),
+    };
+  }, [dados]);
 
-  const totalGeral = LISTAS.reduce((a, l) => a + l.total, 0);
-  const totalAtrasados = LISTAS.reduce((a, l) => a + l.atrasados, 0);
-  const totalEmDiligencia = LISTAS.reduce((a, l) => a + l.em_diligencia, 0);
-  const taxaExecucao = totalGeral > 0 ? Math.round((totalEmDiligencia / totalGeral) * 100) : 0;
-  const totalPesoKg = LISTAS.reduce((a, l) => a + (l.pesoKg || 0), 0);
-  const pesoDisplay = totalPesoKg >= 1000
-    ? `${(totalPesoKg / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} t`
-    : `${Math.round(totalPesoKg).toLocaleString("pt-BR")} kg`;
+  const carregando = dados === null;
+  const nomeCurto = filtroServidor ? filtroServidor.split(" ")[0] : "";
+  const abrirItem = (l, r) => router.push(`/detalhes?lista=${l.rota}&row=${r._rowNumber}`);
+  const idItem = (l, r) => r.ID || r.ID_LEGADO || `${PREFIXO[l.key]}-${String(r._rowNumber).padStart(4, "0")}`;
+
+  const kpis = [
+    { label:"Bens em andamento", value:ind.ativos.toLocaleString("pt-BR"), icon:"📦", color:"#2563eb",
+      sub:`de ${ind.total.toLocaleString("pt-BR")} cadastrados · ${ind.encerrados.toLocaleString("pt-BR")} encerrados` },
+    { label:`Parados há +${DIAS_PARADO} dias`, value:ind.parados.toLocaleString("pt-BR"), icon:"⏳", color:"#dc2626",
+      sub:"sem nenhuma atualização (mesma regra do e-mail)" },
+    filtroServidor
+      ? { label:"Novos para você", value:ind.novos.toLocaleString("pt-BR"), icon:"🆕", color:"#16a34a", sub:"atribuídos e ainda não abertos" }
+      : { label:"Sem responsável", value:ind.semResponsavel.toLocaleString("pt-BR"), icon:"👤", color:"#d97706", sub:"itens ativos sem ninguém atribuído" },
+    { label:"Peso — reciclagem", value:fmtPeso(ind.pesoReciclagem), icon:"♻️", color:"#7c3aed",
+      sub:`${fmtPeso(ind.pesoBaixado)} já baixados` },
+    { label:"Caixa SEI pendente", value:(ind.sei?.ativos.length || 0).toLocaleString("pt-BR"), icon:"📬", color:"#ca8a04",
+      sub:"processos ainda não arquivados" },
+  ];
 
   return (
     <div className="signu-layout" style={{ background:"#dde1e7", fontFamily:"'Inter',system-ui,sans-serif", color:"#111827" }}>
@@ -401,12 +416,12 @@ export default function InicioPage() {
             <span style={{ fontSize:12,color:"#6b7280",marginLeft:8 }}>SIGNU · NULEJ · TJDFT</span>
           </div>
           <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-            <div style={{ fontSize:11,color:"#6b7280",fontFamily:"'IBM Plex Mono',monospace" }}>
+            <div style={{ fontSize:11,color:"#9ca3af",fontFamily:"'IBM Plex Mono',monospace" }}>
               {new Date().toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short",year:"numeric"})}
             </div>
-            {totalAtrasados > 0 && (
+            {!carregando && ind.parados > 0 && (
               <div style={{ display:"flex",alignItems:"center",gap:5,background:"rgba(248,113,113,0.1)",border:"1px solid rgba(248,113,113,0.3)",borderRadius:20,padding:"4px 12px",fontSize:11,color:"#f87171",fontWeight:600 }}>
-                ⚠️ {totalAtrasados} atrasados
+                ⏳ {ind.parados} parados há +{DIAS_PARADO} dias
               </div>
             )}
           </div>
@@ -442,27 +457,25 @@ export default function InicioPage() {
             )}
           </div>
 
+          {falhas.length > 0 && (
+            <div style={{ marginBottom:16, padding:"8px 12px", background:"#fef2f2", border:"1px solid #fecaca", borderRadius:8, fontSize:12, color:"#b91c1c" }}>
+              Não foi possível carregar: {falhas.join(", ")}. Os números abaixo estão incompletos — recarregue a página.
+            </div>
+          )}
+
           {/* KPI CARDS */}
           <div className="signu-grid-5" style={{ marginBottom:24 }}>
-            {[
-              { label:"Total de Bens",   value:totalGeral,        icon:"📦", color:"#2563eb", sub:"em 6 listas operacionais" },
-              { label:"Em Diligência",   value:totalEmDiligencia, icon:"⚡", color:"#22c55e", sub:`${taxaExecucao}% taxa de execução` },
-              { label:"Bens Atrasados",  value:totalAtrasados,    icon:"⚠️", color:"#f87171", sub:"+30 dias sem atualização" },
-              { label:"Peso estimado",   value:pesoDisplay,       icon:"⚖️", color:"#7c3aed", sub:"total nas listas (reciclagem)" },
-              { label: filtroServidor ? "Fila do servidor" : "Total na fila", value:filaItens.length, icon:"📋", color:"#60a5fa", sub: filtroServidor ? `itens de ${filtroServidor.split(" ")[0]}` : isGestor ? "todos os servidores" : "itens atribuídos a você" },
-            ].map(({ label,value,icon,color,sub }) => {
-              const ainda = listas.some(l => l.carregando);
-              return (
+            {kpis.map(({ label,value,icon,color,sub }) => (
               <div key={label} style={{ background:"#fff",border:`1px solid ${color}22`,borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"18px 20px",position:"relative",overflow:"hidden" }}>
                 <div style={{ position:"absolute",top:0,right:0,width:60,height:60,borderRadius:"0 12px 0 60px",background:`${color}08` }}/>
                 <div style={{ fontSize:22,marginBottom:8 }}>{icon}</div>
                 <div style={{ fontSize:28,fontWeight:800,color:"#0f172a",lineHeight:1,marginBottom:4 }}>
-                  {ainda ? <span style={{ fontSize:18,color:`${color}60` }}>…</span> : value.toLocaleString("pt-BR")}
+                  {carregando ? <span style={{ fontSize:18,color:`${color}60` }}>…</span> : value}
                 </div>
                 <div style={{ fontSize:12,fontWeight:600,color,marginBottom:3 }}>{label}</div>
                 <div style={{ fontSize:11,color:"#6b7280" }}>{sub}</div>
               </div>
-            );})}
+            ))}
           </div>
 
           {/* GRID: LISTAS + LATERAL */}
@@ -470,27 +483,44 @@ export default function InicioPage() {
             <div>
               <div style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14 }}>Listas Operacionais</div>
               <div className="signu-grid-2">
-                {LISTAS.map((lista) => {
-                  const pct = Math.round((lista.em_diligencia/lista.total)*100);
+                {ind.porLista.map((lista) => {
+                  const pctEncerrado = lista.total ? Math.round((lista.encerrados / lista.total) * 100) : 0;
                   return (
-                    <div key={lista.key} onClick={() => router.push("/gestao")} onMouseEnter={()=>setHoveredCard(lista.key)} onMouseLeave={()=>setHoveredCard(null)} style={{ background:"#fff",border:`1px solid ${hoveredCard===lista.key?lista.color+"55":lista.color+"18"}`,borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"16px 18px",cursor:"pointer",transition:"all 0.18s ease",transform:hoveredCard===lista.key?"translateY(-2px)":"none" }}>
-                      <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
+                    <div key={lista.key} onClick={() => router.push(`/gestao?aba=${lista.key}`)} onMouseEnter={()=>setHoveredCard(lista.key)} onMouseLeave={()=>setHoveredCard(null)} style={{ background:"#fff",border:`1px solid ${hoveredCard===lista.key?lista.color+"55":lista.color+"18"}`,borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"16px 18px",cursor:"pointer",transition:"all 0.18s ease",transform:hoveredCard===lista.key?"translateY(-2px)":"none" }}>
+                      <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10 }}>
                         <div style={{ display:"flex",alignItems:"center",gap:8 }}>
                           <span style={{ fontSize:18 }}>{lista.icon}</span>
                           <span style={{ fontSize:12,fontWeight:700,color:lista.color,background:lista.bg,padding:"2px 8px",borderRadius:4 }}>{lista.label}</span>
                         </div>
-                        <span style={{ fontSize:22,fontWeight:800,color:"#0f172a" }}>
-                          {lista.carregando ? <span style={{ fontSize:14,color:`${lista.color}60` }}>…</span> : lista.total.toLocaleString("pt-BR")}
-                        </span>
+                        <div style={{ textAlign:"right" }}>
+                          <span style={{ fontSize:22,fontWeight:800,color:"#0f172a" }}>
+                            {carregando ? <span style={{ fontSize:14,color:`${lista.color}60` }}>…</span> : lista.ativos.length.toLocaleString("pt-BR")}
+                          </span>
+                          {!carregando && <div style={{ fontSize:10,color:"#6b7280" }}>ativos · {lista.total.toLocaleString("pt-BR")} no total</div>}
+                        </div>
                       </div>
-                      <div style={{ height:4,background:"#e5e7eb",borderRadius:4,marginBottom:10,overflow:"hidden" }}>
-                        <div style={{ height:"100%",width:`${pct}%`,background:lista.color,borderRadius:4 }}/>
+                      {/* Barra: parcela já encerrada da lista */}
+                      <div title={`${pctEncerrado}% encerrados`} style={{ height:4,background:"#e5e7eb",borderRadius:4,marginBottom:10,overflow:"hidden" }}>
+                        <div style={{ height:"100%",width:`${pctEncerrado}%`,background:lista.color,borderRadius:4 }}/>
                       </div>
-                      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:4 }}>
-                        <Stat label="Em dilig." value={lista.em_diligencia} color="#22c55e"/>
-                        <Stat label="Aguard."  value={lista.aguardando}    color="#60a5fa"/>
-                        <Stat label="Atrasados" value={lista.atrasados}    color={lista.atrasados>0?"#f87171":"#6b7280"}/>
-                      </div>
+                      {!carregando && (
+                        <>
+                          <div style={{ display:"flex",flexWrap:"wrap",gap:4,marginBottom:8,minHeight:20 }}>
+                            {lista.statusTop.slice(0, 3).map(([st, n]) => (
+                              <span key={st} style={{ fontSize:10,padding:"2px 7px",borderRadius:10,background:"#f3f4f6",color:"#374151",whiteSpace:"nowrap" }}>
+                                {st.toLowerCase()} <strong style={{ color:"#0f172a" }}>{n}</strong>
+                              </span>
+                            ))}
+                            {lista.statusTop.length === 0 && <span style={{ fontSize:10,color:"#9ca3af" }}>nenhum item ativo</span>}
+                          </div>
+                          <div style={{ display:"flex",justifyContent:"space-between",fontSize:10,color:"#6b7280" }}>
+                            <span>{lista.encerrados.toLocaleString("pt-BR")} encerrados ({pctEncerrado}%)</span>
+                            <span style={{ color: lista.parados.length ? "#dc2626" : "#6b7280", fontWeight: lista.parados.length ? 700 : 400 }}>
+                              ⏳ {lista.parados.length} parados +{DIAS_PARADO}d
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
@@ -499,53 +529,56 @@ export default function InicioPage() {
 
             {/* Lateral */}
             <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
-              {/* Fila — dados reais filtrados */}
+              {/* Parados há mais tempo */}
               <div style={{ background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"16px 18px" }}>
-                <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14 }}>
-                  <div>
-                    <div style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.1em" }}>
-                      {filtroServidor ? `Fila — ${filtroServidor.split(" ")[0]}` : "Fila Geral"}
-                    </div>
-                    {filtroServidor && <div style={{ fontSize:10,color:"#6b7280",marginTop:2 }}>{filtroServidor}</div>}
+                <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4 }}>
+                  <div style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.1em" }}>
+                    Parados há mais tempo{nomeCurto ? ` — ${nomeCurto}` : ""}
                   </div>
-                  <button onClick={() => router.push("/fila")} style={{ fontSize:11,color:"#2563eb",background:"none",border:"none",cursor:"pointer",fontWeight:600 }}>Ver todos →</button>
+                  <button onClick={() => router.push("/fila")} style={{ fontSize:11,color:"#2563eb",background:"none",border:"none",cursor:"pointer",fontWeight:600 }}>Minha Fila →</button>
                 </div>
-                {listas.some(l => l.carregando) ? (
+                <div style={{ fontSize:10,color:"#6b7280",marginBottom:12 }}>Itens ativos sem atualização há {DIAS_PARADO} dias ou mais</div>
+                {carregando ? (
                   <div style={{ textAlign:"center",padding:"20px 0",color:"#6b7280",fontSize:12 }}>carregando…</div>
-                ) : filaItens.length === 0 ? (
-                  <div style={{ textAlign:"center",padding:"20px 0",color:"#22c55e",fontSize:12 }}>
+                ) : ind.paradosTop.length === 0 ? (
+                  <div style={{ textAlign:"center",padding:"20px 0",color:"#16a34a",fontSize:12 }}>
                     <div style={{ fontSize:20,marginBottom:6 }}>✅</div>
-                    {filtroServidor ? "Nenhum item pendente" : "Fila vazia"}
+                    Nenhum item parado
                   </div>
                 ) : (
                   <>
-                    {filaItens.slice(0,5).map((item, idx) => (
-                      <div key={`${item.id}-${idx}`} style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"#f9fafb",borderRadius:8,borderLeft:`3px solid ${item.color}`,marginBottom:6 }}>
+                    {ind.paradosTop.slice(0, 6).map(({ r, l, dias }) => (
+                      <div key={`${l.key}-${r._rowNumber}`} onClick={() => abrirItem(l, r)}
+                        style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"#f9fafb",borderRadius:8,borderLeft:`3px solid ${l.color}`,marginBottom:6,cursor:"pointer" }}>
                         <div style={{ flex:1,minWidth:0 }}>
-                          <div style={{ fontSize:11,fontFamily:"'IBM Plex Mono',monospace",color:"#374151",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{item.id}</div>
-                          <div style={{ fontSize:11,color:"#6b7280" }}>{item.lista}</div>
+                          <div style={{ fontSize:11,fontFamily:"'IBM Plex Mono',monospace",color:"#374151",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+                            {r.ID_PASEI || r.PA || idItem(l, r)}
+                          </div>
+                          <div style={{ fontSize:10,color:"#6b7280",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+                            {l.label}{!filtroServidor ? ` · ${r.RESPONSAVEL || "sem responsável"}` : ""}
+                          </div>
                         </div>
-                        <div style={{ textAlign:"right",flexShrink:0 }}>
-                          <div style={{ fontSize:10,fontWeight:600,color:STATUS_COLOR[item.status]||"#6b7280" }}>{item.status}</div>
-                        </div>
+                        <div style={{ fontSize:11,fontWeight:700,color:"#dc2626",flexShrink:0 }}>{dias} dias</div>
                       </div>
                     ))}
-                    {filaItens.length > 5 && (
-                      <button onClick={()=>router.push("/fila")} style={{ width:"100%",padding:"7px",background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:8,color:"#2563eb",fontSize:11,fontWeight:600,cursor:"pointer",marginTop:4 }}>
-                        +{filaItens.length - 5} itens a mais → Ver fila completa
-                      </button>
+                    {ind.paradosTop.length > 6 && (
+                      <div style={{ fontSize:11,color:"#6b7280",textAlign:"center",marginTop:6 }}>
+                        +{ind.paradosTop.length - 6} itens parados
+                      </div>
                     )}
                   </>
                 )}
               </div>
-              {/* Flows */}
+              {/* Automações reais do sistema */}
               <div style={{ background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"16px 18px" }}>
-                <div style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14 }}>Power Automate — 6 Flows</div>
-                {FLOWS.map(f => (
-                  <div key={f.nome} style={{ display:"flex",alignItems:"center",gap:8,marginBottom:7 }}>
-                    <span style={{ width:6,height:6,borderRadius:"50%",background:"#22c55e",flexShrink:0,animation:"pulse 2s infinite" }}/>
-                    <span style={{ fontSize:11,color:"#1f2937",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{f.icon} {f.nome}</span>
-                    <span style={{ fontSize:10,color:"#6b7280",flexShrink:0 }}>{f.ultimo}</span>
+                <div style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14 }}>Automações do SIGNU</div>
+                {AUTOMACOES.map(f => (
+                  <div key={f.nome} style={{ display:"flex",alignItems:"flex-start",gap:8,marginBottom:9 }}>
+                    <span style={{ fontSize:13,lineHeight:1.2 }}>{f.icon}</span>
+                    <div style={{ flex:1,minWidth:0 }}>
+                      <div style={{ fontSize:11,color:"#1f2937" }}>{f.nome}</div>
+                      <div style={{ fontSize:10,color:"#6b7280" }}>{f.quando}</div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -558,13 +591,13 @@ export default function InicioPage() {
             <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:12 }}>
               <div>
                 <div style={{ fontSize:14,fontWeight:700,color:"#0f172a",marginBottom:3 }}>📊 Distribuição por Tipo de Bem</div>
-                <div style={{ fontSize:11,color:"#6b7280" }}>Carros, motos, caminhões diligenciados por lista</div>
+                <div style={{ fontSize:11,color:"#6b7280" }}>Bens em andamento (sem os encerrados), por lista. Tipos fora da lista entram em “Outros”.</div>
               </div>
               <div style={{ display:"flex",gap:8,alignItems:"center",flexWrap:"wrap" }}>
                 {/* Filtro por lista */}
                 <select value={filtroLista} onChange={e=>setFiltroLista(e.target.value)} style={{ padding:"5px 10px",background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:6,color:"#2563eb",fontSize:12,cursor:"pointer",outline:"none" }}>
                   <option value="TODAS">Todas as listas</option>
-                  {LISTAS.map(l => <option key={l.key} value={l.key}>{l.label}</option>)}
+                  {ind.bens.map(l => <option key={l.key} value={l.key}>{l.label}</option>)}
                 </select>
                 {/* Abas gráfico/tabela */}
                 <div style={{ display:"flex",background:"#f3f4f6",borderRadius:8,padding:3,gap:2 }}>
@@ -575,76 +608,78 @@ export default function InicioPage() {
               </div>
             </div>
 
-            {/* Peso estimado por lista */}
+            {/* Peso estimado (reciclagem) por lista */}
             {(() => {
-              const fmt = (kg) => kg >= 1000
-                ? `${(kg / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} t`
-                : `${Math.round(kg).toLocaleString("pt-BR")} kg`;
-              const alvo = filtroLista === "TODAS" ? LISTAS : LISTAS.filter(l => l.key === filtroLista);
-              const comPeso = alvo.filter(l => (l.pesoKg || 0) > 0);
+              const alvo = filtroLista === "TODAS" ? ind.bens : ind.bens.filter(l => l.key === filtroLista);
+              const comPeso = alvo.filter(l => l.pesoReciclagem > 0);
               if (comPeso.length === 0) return null;
-              const total = comPeso.reduce((a, l) => a + (l.pesoKg || 0), 0);
+              const total = comPeso.reduce((a, l) => a + l.pesoReciclagem, 0);
               return (
                 <div style={{ display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:18,padding:"12px 14px",background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:10 }}>
-                  <span style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.06em" }}>⚖️ Peso estimado</span>
+                  <span style={{ fontSize:11,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:"0.06em" }}>♻️ Peso estimado — reciclagem</span>
                   {comPeso.map(l => (
                     <span key={l.key} style={{ display:"flex",alignItems:"center",gap:6,fontSize:12,background:"#fff",border:`1px solid ${l.color}33`,borderRadius:8,padding:"4px 10px" }}>
                       <span style={{ width:6,height:6,borderRadius:"50%",background:l.color }}/>
                       <span style={{ color:"#4b5563" }}>{l.label}</span>
-                      <strong style={{ color:"#0f172a" }}>{fmt(l.pesoKg)}</strong>
+                      <strong style={{ color:"#0f172a" }}>{fmtPeso(l.pesoReciclagem)}</strong>
                     </span>
                   ))}
                   {comPeso.length > 1 && (
-                    <span style={{ marginLeft:"auto",fontSize:12,color:"#4b5563" }}>Total&nbsp;<strong style={{ color:"#7c3aed" }}>{fmt(total)}</strong></span>
+                    <span style={{ marginLeft:"auto",fontSize:12,color:"#4b5563" }}>Total&nbsp;<strong style={{ color:"#7c3aed" }}>{fmtPeso(total)}</strong></span>
                   )}
                 </div>
               );
             })()}
 
-            {/* Conteúdo dinâmico */}
-            {abaRelatorio === "barras" && (
-              <div>
-                <GraficoBarras filtroLista={filtroLista} tiposPorLista={tiposPorLista}/>
-                <div style={{ display:"flex",gap:12,marginTop:16,flexWrap:"wrap" }}>
-                  {TIPOS.map(tipo => {
-                    const chaves = filtroLista==="TODAS" ? Object.keys(tiposPorLista) : [filtroLista];
-                    const total = chaves.reduce((a,l)=>a+(tiposPorLista[l]?.[tipo]||0),0);
-                    if(!total) return null;
-                    return (
-                      <div key={tipo} style={{ display:"flex",alignItems:"center",gap:6,background:`${TIPO_COLOR[tipo]}12`,border:`1px solid ${TIPO_COLOR[tipo]}30`,borderRadius:8,padding:"6px 12px" }}>
-                        <span>{TIPO_ICON[tipo]}</span>
-                        <span style={{ fontSize:11,color:"#1f2937" }}>{tipo}</span>
-                        <span style={{ fontSize:13,fontWeight:800,color:"#0f172a" }}>{total}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {carregando ? (
+              <div style={{ textAlign:"center",padding:"30px 0",color:"#6b7280",fontSize:12 }}>carregando…</div>
+            ) : (
+              <>
+                {abaRelatorio === "barras" && (
+                  <div>
+                    <GraficoBarras filtroLista={filtroLista} tiposPorLista={ind.tiposPorLista}/>
+                    <div style={{ display:"flex",gap:12,marginTop:16,flexWrap:"wrap" }}>
+                      {TIPOS.map(tipo => {
+                        const chaves = filtroLista==="TODAS" ? Object.keys(ind.tiposPorLista) : [filtroLista];
+                        const total = chaves.reduce((a,l)=>a+(ind.tiposPorLista[l]?.[tipo]||0),0);
+                        if(!total) return null;
+                        return (
+                          <div key={tipo} style={{ display:"flex",alignItems:"center",gap:6,background:`${TIPO_COLOR[tipo]}12`,border:`1px solid ${TIPO_COLOR[tipo]}30`,borderRadius:8,padding:"6px 12px" }}>
+                            <span>{TIPO_ICON[tipo]}</span>
+                            <span style={{ fontSize:11,color:"#1f2937" }}>{tipo}</span>
+                            <span style={{ fontSize:13,fontWeight:800,color:"#0f172a" }}>{total}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-            {abaRelatorio === "rosca" && (
-              <div style={{ display:"grid",gridTemplateColumns:"auto 1fr",gap:32,alignItems:"center" }}>
-                <GraficoRosca filtroLista={filtroLista} tiposPorLista={tiposPorLista}/>
-                <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10 }}>
-                  {TIPOS.map(tipo => {
-                    const chaves = filtroLista==="TODAS" ? Object.keys(tiposPorLista) : [filtroLista];
-                    const total = chaves.reduce((a,l)=>a+(tiposPorLista[l]?.[tipo]||0),0);
-                    if(!total) return null;
-                    const color = TIPO_COLOR[tipo];
-                    return (
-                      <div key={tipo} style={{ background:`${color}10`,border:`1px solid ${color}25`,borderRadius:10,padding:"12px 14px",textAlign:"center" }}>
-                        <div style={{ fontSize:22,marginBottom:4 }}>{TIPO_ICON[tipo]}</div>
-                        <div style={{ fontSize:20,fontWeight:800,color:"#0f172a" }}>{total}</div>
-                        <div style={{ fontSize:10,color,fontWeight:600,marginTop:2 }}>{tipo}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+                {abaRelatorio === "rosca" && (
+                  <div style={{ display:"grid",gridTemplateColumns:"auto 1fr",gap:32,alignItems:"center" }}>
+                    <GraficoRosca filtroLista={filtroLista} tiposPorLista={ind.tiposPorLista}/>
+                    <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10 }}>
+                      {TIPOS.map(tipo => {
+                        const chaves = filtroLista==="TODAS" ? Object.keys(ind.tiposPorLista) : [filtroLista];
+                        const total = chaves.reduce((a,l)=>a+(ind.tiposPorLista[l]?.[tipo]||0),0);
+                        if(!total) return null;
+                        const color = TIPO_COLOR[tipo];
+                        return (
+                          <div key={tipo} style={{ background:`${color}10`,border:`1px solid ${color}25`,borderRadius:10,padding:"12px 14px",textAlign:"center" }}>
+                            <div style={{ fontSize:22,marginBottom:4 }}>{TIPO_ICON[tipo]}</div>
+                            <div style={{ fontSize:20,fontWeight:800,color:"#0f172a" }}>{total}</div>
+                            <div style={{ fontSize:10,color,fontWeight:600,marginTop:2 }}>{tipo}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-            {abaRelatorio === "tabela" && (
-              <TabelaTipos filtroLista={filtroLista} tiposPorLista={tiposPorLista} LISTAS={LISTAS}/>
+                {abaRelatorio === "tabela" && (
+                  <TabelaTipos filtroLista={filtroLista} tiposPorLista={ind.tiposPorLista} LISTAS={ind.bens}/>
+                )}
+              </>
             )}
           </div>
 
