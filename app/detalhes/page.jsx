@@ -1503,6 +1503,11 @@ function DetalhesContent() {
                           : <FieldView label="Peso estimado (kg)" value={current?.PESO_KG ? `${current.PESO_KG} kg` : null}/>}
                       </div>
                       <Toggle label="FIB Expedida" value={editMode?editData?.FIB:current?.FIB} onChange={v=>upd("FIB",v)} editMode={editMode}/>
+                      {/* Reciclagem: restrição de roubo/furto aqui, como na PCDF 1ª/2ª
+                          (circulação tem as 3 restrições na seção própria, abaixo) */}
+                      {!cegocCirculacao && (
+                        <Toggle label="Restrição Roubo/Furto" value={editMode?editData?.RESTRICAO_ROUBO:current?.RESTRICAO_ROUBO} onChange={v=>upd("RESTRICAO_ROUBO",v)} editMode={editMode}/>
+                      )}
                       {current?.STATUS_DILIGENCIA === "CATÁLOGO" && (
                         <div style={{ marginTop:10 }}>
                           <Toggle label="Ofício enviado para DETRAN e SEFAZ" value={editMode?editData?.OFICIO_DETRAN_SEFAZ:current?.OFICIO_DETRAN_SEFAZ} onChange={v=>upd("OFICIO_DETRAN_SEFAZ",v)} editMode={editMode}/>
