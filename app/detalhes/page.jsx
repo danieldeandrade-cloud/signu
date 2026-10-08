@@ -5,7 +5,8 @@ import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEntidades } from "@/lib/useEntidades";
-import { parseNotas, tsToMs } from "@/lib/observacoes";
+import { parseNotas, tsToMs, substituirNota } from "@/lib/observacoes";
+import { getNomePorEmail } from "@/lib/servidores";
 
 // Mapa rota API → chave interna de lista
 const ROTA_TO_KEY = {
@@ -619,12 +620,50 @@ function MultasChecklist({ multasStr, onSalvar }) {
   );
 }
 
-function TimelineObservacoes({ obsStr, onSalvar, salvando }) {
+// Quem pode retificar/excluir uma anotação: o próprio autor ou um gestor.
+// Notas antigas sem autor (migradas da planilha) ficam só com os gestores.
+const GESTORES_OBS = ["danieldeandrade.pessoal@gmail.com", "danieldeandrade@icloud.com", "carlosalex1318@gmail.com"];
+const primeiroNome = (s) => (s || "").trim().split(/\s+/)[0].toLowerCase();
+
+function TimelineObservacoes({ obsStr, onSalvar, onAlterarNota, salvando }) {
   const [novaNota, setNovaNota] = useState("");
   const [salvandoNota, setSalvandoNota] = useState(false);
+  const [editando, setEditando] = useState(null);   // _start da nota em edição
+  const [textoEdicao, setTextoEdicao] = useState("");
+  const [alterando, setAlterando] = useState(false);
   const { data: session } = useSession();
   const nomeUsuario = session?.user?.name || "";
+  const email = (session?.user?.email || "").toLowerCase();
+  const ehGestor = GESTORES_OBS.includes(email);
+  const meusNomes = [primeiroNome(nomeUsuario), primeiroNome(getNomePorEmail(email))].filter(Boolean);
+  const podeAlterar = (nota) => ehGestor || (nota.autor && meusNomes.includes(primeiroNome(nota.autor)));
   const notas = parseNotas(obsStr);
+
+  const carimbo = () => {
+    const agora = new Date();
+    return `${agora.toLocaleDateString("pt-BR")} ${agora.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })}`;
+  };
+  const quem = () => getNomePorEmail(email) || nomeUsuario || "usuário";
+
+  const salvarRetificacao = async (nota) => {
+    const texto = textoEdicao.trim();
+    if (!texto || texto === nota.texto) { setEditando(null); return; }
+    // Mantém data/autor originais (a nota não muda de lugar na linha do tempo)
+    const cab = nota.autor ? `[${nota.ts} | ${nota.autor}]` : (nota.ts ? `[${nota.ts}]` : "");
+    const novoTrecho = `${cab ? cab + " " : ""}${texto} (retificado em ${carimbo()} por ${quem()})`;
+    setAlterando(true);
+    const ok = await onAlterarNota(nota, novoTrecho);
+    setAlterando(false);
+    if (ok) setEditando(null);
+  };
+
+  const excluir = async (nota) => {
+    const resumo = nota.texto.length > 120 ? nota.texto.slice(0, 120) + "…" : nota.texto;
+    if (!window.confirm(`Excluir esta anotação?\n\n${nota.autor ? nota.autor + " · " : ""}${nota.ts}\n"${resumo}"\n\nO texto original fica guardado no histórico de alterações.`)) return;
+    setAlterando(true);
+    await onAlterarNota(nota, "");
+    setAlterando(false);
+  };
 
   const handleSalvarNota = async () => {
     if (!novaNota.trim()) return;
@@ -675,17 +714,39 @@ function TimelineObservacoes({ obsStr, onSalvar, salvando }) {
               {/* Bolinha */}
               <div style={{ position:"absolute", left:-20, top:6, width:10, height:10, borderRadius:"50%", background: i===0 ? "#2563eb" : "rgba(37,99,235,0.3)", border:"2px solid #fff", boxSizing:"border-box" }}/>
               <div style={{ background:"#f9fafb", border:`1px solid ${i===0?"rgba(37,99,235,0.2)":"#f3f4f6"}`, borderRadius:8, padding:"10px 14px" }}>
-                {(nota.ts || nota.autor) && (
-                  <div style={{ display:"flex", gap:8, marginBottom:5, alignItems:"center" }}>
-                    {nota.autor && (
-                      <span style={{ fontSize:11, fontWeight:700, color:"#2563eb" }}>{nota.autor}</span>
-                    )}
-                    {nota.ts && (
-                      <span style={{ fontSize:10, color:"#6b7280" }}>{nota.ts}</span>
-                    )}
+                <div style={{ display:"flex", gap:8, marginBottom: (nota.ts || nota.autor) ? 5 : 0, alignItems:"center" }}>
+                  {nota.autor && (
+                    <span style={{ fontSize:11, fontWeight:700, color:"#2563eb" }}>{nota.autor}</span>
+                  )}
+                  {nota.ts && (
+                    <span style={{ fontSize:10, color:"#6b7280" }}>{nota.ts}</span>
+                  )}
+                  {podeAlterar(nota) && editando !== nota._start && (
+                    <span style={{ marginLeft:"auto", display:"flex", gap:4 }}>
+                      <button onClick={() => { setEditando(nota._start); setTextoEdicao(nota.texto.replace(/\s*\(retificado em [^)]*\)\s*$/, "")); }} disabled={alterando}
+                        title="Retificar esta anotação" style={{ background:"none", border:"1px solid #d1d5db", borderRadius:6, padding:"1px 7px", fontSize:11, color:"#4b5563", cursor:"pointer" }}>✏️ Retificar</button>
+                      <button onClick={() => excluir(nota)} disabled={alterando}
+                        title="Excluir esta anotação" style={{ background:"none", border:"1px solid #fecaca", borderRadius:6, padding:"1px 7px", fontSize:11, color:"#dc2626", cursor:"pointer" }}>🗑 Excluir</button>
+                    </span>
+                  )}
+                </div>
+                {editando === nota._start ? (
+                  <div>
+                    <textarea value={textoEdicao} onChange={e => setTextoEdicao(e.target.value)} rows={3} autoFocus
+                      style={{ width:"100%", boxSizing:"border-box", padding:"8px 10px", background:"#fff", border:"1.5px solid #93c5fd", borderRadius:8, color:"#0f172a", fontSize:13, lineHeight:1.5, resize:"vertical", outline:"none", fontFamily:"inherit" }}/>
+                    <div style={{ display:"flex", gap:6, marginTop:6, alignItems:"center" }}>
+                      <button onClick={() => salvarRetificacao(nota)} disabled={alterando || !textoEdicao.trim()}
+                        style={{ padding:"5px 12px", borderRadius:6, border:"1px solid rgba(34,197,94,0.5)", background:"rgba(34,197,94,0.12)", color:"#15803d", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                        {alterando ? "Salvando…" : "✓ Salvar retificação"}
+                      </button>
+                      <button onClick={() => setEditando(null)} disabled={alterando}
+                        style={{ padding:"5px 12px", borderRadius:6, border:"1px solid #d1d5db", background:"#f3f4f6", color:"#4b5563", fontSize:12, cursor:"pointer" }}>Cancelar</button>
+                      <span style={{ fontSize:10, color:"#6b7280" }}>A nota recebe a marca “retificado em … por …”.</span>
+                    </div>
                   </div>
+                ) : (
+                  <p style={{ fontSize:13, color:"#111827", lineHeight:1.6, margin:0 }}>{nota.texto}</p>
                 )}
-                <p style={{ fontSize:13, color:"#111827", lineHeight:1.6, margin:0 }}>{nota.texto}</p>
               </div>
             </div>
           ))}
@@ -1867,6 +1928,38 @@ function DetalhesContent() {
                     <TimelineObservacoes
                       obsStr={bem?.OBSERVACOES || ""}
                       salvando={salvando}
+                      onAlterarNota={async (nota, novoTrecho) => {
+                        // Relê do servidor antes de alterar: se alguém mexeu nas
+                        // observações nesse meio-tempo, não grava por cima.
+                        setSalvando(true);
+                        try {
+                          const atual = await fetch(`/api/bens/${lista}/${row}`).then(r => r.json());
+                          const obsAtual = atual?.item?.OBSERVACOES || "";
+                          // Acha a MESMA nota no texto atual (a posição pode ter mudado
+                          // se alguém adicionou outra anotação no meio-tempo)
+                          const alvo = parseNotas(obsAtual).find(n => n._raw === nota._raw);
+                          const novoObs = alvo ? substituirNota(obsAtual, alvo, novoTrecho) : null;
+                          if (novoObs === null) {
+                            if (atual?.item) setBem(atual.item);
+                            throw new Error("Essa anotação foi alterada ou removida por outra pessoa. A lista foi atualizada — confira e tente de novo.");
+                          }
+                          const res = await fetch(`/api/bens/${lista}/${row}`, {
+                            method:"PATCH",
+                            headers:{"Content-Type":"application/json"},
+                            body: JSON.stringify({ OBSERVACOES: novoObs, _verificacaoId: listaKey === "DPJ_GC99" ? (bem?.PA || bem?.PA_PJE) : bem?.ID_PASEI }),
+                          });
+                          const json = await res.json();
+                          if (!res.ok) throw new Error(json.erro || "Erro ao salvar");
+                          setBem(json.item);
+                          showToast(novoTrecho ? "Anotação retificada!" : "Anotação excluída!");
+                          return true;
+                        } catch(e) {
+                          showToast(e.message, "error");
+                          return false;
+                        } finally {
+                          setSalvando(false);
+                        }
+                      }}
                       onSalvar={async (novoObs) => {
                         setSalvando(true);
                         try {
