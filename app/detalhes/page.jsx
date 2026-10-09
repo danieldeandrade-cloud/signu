@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { useEntidades } from "@/lib/useEntidades";
 import { parseNotas, tsToMs, substituirNota } from "@/lib/observacoes";
 import { resumoLote } from "@/lib/lotesDpj";
+import { agoraServidor, carimboBR } from "@/lib/horaServidor";
 import { getNomePorEmail } from "@/lib/servidores";
 
 // Mapa rota API → chave interna de lista
@@ -507,12 +508,11 @@ function Toast({ msg, type }) {
 // ─── TIMELINE DE OBSERVAÇÕES ─────────────────────────────────────────────────
 // parseNotas vem de @/lib/observacoes (ordena sempre com a mais recente primeiro)
 
-function formatarNovaEntrada(texto, nomeUsuario) {
-  const agora = new Date();
-  const data  = agora.toLocaleDateString("pt-BR");
-  const hora  = agora.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
+// Carimbo pela hora do SERVIDOR (fuso de Brasília), não do computador de quem
+// anota — relógio local errado deixava a nota com horário trocado.
+async function formatarNovaEntrada(texto, nomeUsuario) {
   const autor = (nomeUsuario || "").split(" ")[0] || "Sistema";
-  return `[${data} ${hora} | ${autor}] ${texto.trim()}`;
+  return `[${carimboBR(await agoraServidor())} | ${autor}] ${texto.trim()}`;
 }
 
 // ── Checklist de RENAJUD ──────────────────────────────────────────────────────
@@ -696,10 +696,7 @@ function TimelineObservacoes({ obsStr, onSalvar, onAlterarNota, salvando }) {
   const podeAlterar = (nota) => ehGestor || (nota.autor && meusNomes.includes(primeiroNome(nota.autor)));
   const notas = parseNotas(obsStr);
 
-  const carimbo = () => {
-    const agora = new Date();
-    return `${agora.toLocaleDateString("pt-BR")} ${agora.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })}`;
-  };
+  const carimbo = async () => carimboBR(await agoraServidor());
   const quem = () => getNomePorEmail(email) || nomeUsuario || "usuário";
 
   const salvarRetificacao = async (nota) => {
@@ -707,7 +704,7 @@ function TimelineObservacoes({ obsStr, onSalvar, onAlterarNota, salvando }) {
     if (!texto || texto === nota.texto) { setEditando(null); return; }
     // Mantém data/autor originais (a nota não muda de lugar na linha do tempo)
     const cab = nota.autor ? `[${nota.ts} | ${nota.autor}]` : (nota.ts ? `[${nota.ts}]` : "");
-    const novoTrecho = `${cab ? cab + " " : ""}${texto} (retificado em ${carimbo()} por ${quem()})`;
+    const novoTrecho = `${cab ? cab + " " : ""}${texto} (retificado em ${await carimbo()} por ${quem()})`;
     setAlterando(true);
     const ok = await onAlterarNota(nota, novoTrecho);
     setAlterando(false);
@@ -725,7 +722,7 @@ function TimelineObservacoes({ obsStr, onSalvar, onAlterarNota, salvando }) {
   const handleSalvarNota = async () => {
     if (!novaNota.trim()) return;
     setSalvandoNota(true);
-    const entrada = formatarNovaEntrada(novaNota, nomeUsuario);
+    const entrada = await formatarNovaEntrada(novaNota, nomeUsuario);
     // Prepend: nova nota fica no topo do campo
     const novoObs = obsStr?.trim()
       ? `${entrada}\n${obsStr.trim()}`
@@ -1147,8 +1144,7 @@ function DetalhesContent() {
   const reabrirItem = async ({ status, motivo }) => {
     setSalvando(true);
     try {
-      const agora = new Date();
-      const ts = `${agora.toLocaleDateString("pt-BR")} ${agora.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })}`;
+      const ts = carimboBR(await agoraServidor());
       const autor = (session?.user?.name || "").split(" ")[0] || "Sistema";
       const nota = `[${ts} | ${autor}] ↩️ Item REABERTO (${status}). Motivo: ${motivo}.${bem?.MOTIVO_RETIRADA ? ` Estava retirado por: ${bem.MOTIVO_RETIRADA}.` : ""}`;
       const payload = {

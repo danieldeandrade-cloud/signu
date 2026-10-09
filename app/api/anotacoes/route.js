@@ -40,7 +40,9 @@ export async function POST(request) {
     }
 
     const sheetName = resolveSheetName(SHEET);
-    const timestamp = new Date().toLocaleString('pt-BR');
+    // aaaa-mm-dd HH:MM (Brasília): dd/mm/aaaa era lido como mês/dia pela planilha (locale en_US)
+    const d = new Date();
+    const timestamp = `${d.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })} ${d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}`;
 
     const novaLinha = await addRow(sheetName, {
       DATA:          timestamp,
