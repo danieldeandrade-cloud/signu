@@ -3,6 +3,7 @@ import Sidebar from "@/components/Sidebar";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { agruparUnidades } from "@/lib/lotesDpj";
 
 // ─── CONFIG DAS LISTAS ────────────────────────────────────────────────────────
 const LISTAS_CONFIG = [
@@ -338,8 +339,15 @@ export default function InicioPage() {
     const porLista = LISTAS_CONFIG.map(cfg => {
       const rows = dados?.[cfg.key] || [];
       const status = (r) => String(r[cfg.statusField] || "").trim();
-      const ativos = rows.filter(r => !ehEncerrado(status(r)));
-      const parados = ativos.filter(r => podeFicarParado(cfg.key, status(r)) && (diasSemMexida(r) ?? 0) >= DIAS_PARADO);
+      // Unidade de contagem: na DPJ-GC99 é o LOTE (vários itens = 1); nas
+      // demais, cada linha (lib/lotesDpj.js). Um lote "mexeu" se qualquer
+      // item dele foi atualizado.
+      const unidades = agruparUnidades(rows, cfg.key, cfg.statusField).map(({ rep, itens }) => {
+        const ds = itens.map(diasSemMexida).filter(d => d !== null);
+        return { ...rep, _itens: itens, _dias: ds.length ? Math.min(...ds) : null };
+      });
+      const ativos = unidades.filter(r => !ehEncerrado(status(r)));
+      const parados = ativos.filter(r => podeFicarParado(cfg.key, status(r)) && (r._dias ?? 0) >= DIAS_PARADO);
       const porStatus = {};
       ativos.forEach(r => {
         const st = status(r) || (cfg.key === "DOACOES" && !String(r.RESPONSAVEL || "").trim() ? "AGUARDANDO INÍCIO" : "SEM STATUS");
@@ -349,25 +357,26 @@ export default function InicioPage() {
       return {
         ...cfg,
         rows, ativos, parados,
-        total: rows.length,
-        encerrados: rows.length - ativos.length,
+        total: unidades.length,
+        encerrados: unidades.length - ativos.length,
         statusTop: Object.entries(porStatus).sort((a, b) => b[1] - a[1]),
         pesoReciclagem: reciclagem.reduce((a, r) => a + pesoKg(r), 0),
         pesoBaixado: reciclagem.filter(r => ehEncerrado(status(r))).reduce((a, r) => a + pesoKg(r), 0),
         // Lotes de doação aguardando início ficam sem responsável de propósito
         semResponsavel: ativos.filter(r => !String(r.RESPONSAVEL || "").trim() && !(cfg.key === "DOACOES" && !status(r))).length,
-        novos: ativos.filter(r => !r.VISTO_EM).length,
+        novos: ativos.filter(r => r._itens.some(i => !i.VISTO_EM)).length,
       };
     });
     const bens = porLista.filter(l => LISTAS_BENS.includes(l.key));
     const soma = (arr, k) => arr.reduce((a, l) => a + l[k], 0);
     const paradosTop = bens
-      .flatMap(l => l.parados.map(r => ({ r, l, dias: diasSemMexida(r) })))
+      .flatMap(l => l.parados.map(r => ({ r, l, dias: r._dias })))
       .sort((a, b) => b.dias - a.dias);
     const tiposPorLista = {};
     bens.forEach(l => {
       const t = {};
-      l.ativos.forEach(r => { const k = normTipo(r.TIPO_BEM); t[k] = (t[k] || 0) + 1; });
+      // Tipos contam por ITEM (um lote da DPJ pode ter eletrodoméstico + informática)
+      l.ativos.flatMap(u => u._itens).forEach(r => { const k = normTipo(r.TIPO_BEM); t[k] = (t[k] || 0) + 1; });
       tiposPorLista[l.key] = t;
     });
     return {
@@ -500,7 +509,7 @@ export default function InicioPage() {
                           <span style={{ fontSize:22,fontWeight:800,color:"#0f172a" }}>
                             {carregando ? <span style={{ fontSize:14,color:`${lista.color}60` }}>…</span> : lista.ativos.length.toLocaleString("pt-BR")}
                           </span>
-                          {!carregando && <div style={{ fontSize:10,color:"#6b7280" }}>ativos · {lista.total.toLocaleString("pt-BR")} no total</div>}
+                          {!carregando && <div style={{ fontSize:10,color:"#6b7280" }}>{lista.key === "DPJ_GC99" ? "lotes ativos" : "ativos"} · {lista.total.toLocaleString("pt-BR")} no total</div>}
                         </div>
                       </div>
                       {/* Barra: parcela já encerrada da lista */}
@@ -556,7 +565,7 @@ export default function InicioPage() {
                         style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"#f9fafb",borderRadius:8,borderLeft:`3px solid ${l.color}`,marginBottom:6,cursor:"pointer" }}>
                         <div style={{ flex:1,minWidth:0 }}>
                           <div style={{ fontSize:11,fontFamily:"'IBM Plex Mono',monospace",color:"#374151",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
-                            {r.ID_PASEI || r.PA || idItem(l, r)}
+                            {r.ID_PASEI || r.PA || idItem(l, r)}{r.LOTE && l.key === "DPJ_GC99" ? ` · lote #${r.LOTE}` : ""}
                           </div>
                           <div style={{ fontSize:10,color:"#6b7280",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
                             {l.label}{!filtroServidor ? ` · ${r.RESPONSAVEL || "sem responsável"}` : ""}

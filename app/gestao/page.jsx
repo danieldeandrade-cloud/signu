@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { exportarListaParaExcel, exportarTodasAsListasParaExcel } from "@/lib/exportarExcel";
 import { ultimaObs } from "@/lib/observacoes";
 import { useEntidades } from "@/lib/useEntidades";
+import { contarUnidades } from "@/lib/lotesDpj";
 import { montarFilaDoacoes, blocoDoacao, BLOCO, BLOCO_META } from "@/lib/filaDoacoes";
 
 // Exportação HTML formatada para o relatório RENAJUD (abre no Excel com colunas e cores)
@@ -584,7 +585,8 @@ function GestaoConteudo() {
     const naoAptos  = abaAtiva === "DOACOES"
       ? dados.filter(i => getStatus(i, abaAtiva) === "AGUARDANDO APTIDÃO").length
       : 0;
-    const total     = dados.length - naoAptos;
+    // DPJ-GC99: o total é de LOTES (itens do mesmo lote contam 1) — lib/lotesDpj.js
+    const total     = abaAtiva === "DPJ_GC99" ? contarUnidades(dados, "DPJ_GC99") : dados.length - naoAptos;
     const atrasados = dados.filter(i => getStatus(i, abaAtiva) === "ATRASADO").length;
     const emDilig   = dados.filter(i => getStatus(i, abaAtiva) === "EM DILIGÊNCIA").length;
     const aguardando= dados.filter(i => getStatus(i, abaAtiva) === "AGUARDANDO").length;
@@ -703,7 +705,7 @@ function GestaoConteudo() {
           {/* Stats rápidos */}
           <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
             {[
-              { label:"Total",        value:stats.total,     color:tab.color },
+              { label: abaAtiva === "DPJ_GC99" ? "Lotes" : "Total", value:stats.total, color:tab.color },
               { label:"Em Diligência",value:stats.emDilig,   color:"#22c55e" },
               { label:"Aguardando",   value:stats.aguardando,color:"#60a5fa" },
               { label:"Atrasados",    value:stats.atrasados, color:"#f87171" },
@@ -805,6 +807,7 @@ function GestaoConteudo() {
               </button>
               <span style={{ fontSize:11, color:"#6b7280" }}>
                 {filtrados.length} de {dados.length} registro{dados.length !== 1 ? "s" : ""}
+                {abaAtiva === "DPJ_GC99" && ` · ${contarUnidades(filtrados, "DPJ_GC99")} lote${contarUnidades(filtrados, "DPJ_GC99") !== 1 ? "s" : ""}`}
               </span>
               {totalFiltrosAtivos > 0 && (
                 <button onClick={limparFiltros} style={{ fontSize:11, color:"#4b5563", background:"none", border:"none", cursor:"pointer", textDecoration:"underline" }}>Limpar filtros</button>

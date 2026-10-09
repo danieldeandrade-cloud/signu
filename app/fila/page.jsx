@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { parseNotas, ultimaObs } from "@/lib/observacoes";
+import { contarUnidades } from "@/lib/lotesDpj";
 
 // Lista de servidores (exibida no seletor manual de fallback)
 const SERVIDORES = [
@@ -923,7 +924,8 @@ export default function SIGNUMinhaFila() {
               color: "#4b5563",
               margin: "4px 0 0",
             }}>
-              Bens atribuídos a <strong style={{ color: "#1e40af" }}>{usuarioAtual}</strong> — {fila.length} itens em {LISTAS_FILA.length} listas
+              Bens atribuídos a <strong style={{ color: "#1e40af" }}>{usuarioAtual}</strong> — {LISTAS_FILA.reduce((a, c) => a + contarUnidades(fila.filter(i => i.listaOrigem === c.key), c.key), 0)} itens em {LISTAS_FILA.filter(c => fila.some(i => i.listaOrigem === c.key)).length} listas
+              {fila.some(i => i.listaOrigem === "DPJ_GC99" && i.LOTE) && <span style={{ color:"#6b7280" }}> (na DPJ-GC99 cada lote conta 1, mesmo com vários itens)</span>}
             </p>
           </div>
 
@@ -935,7 +937,8 @@ export default function SIGNUMinhaFila() {
             flexWrap: "wrap",
           }}>
             {Object.entries(LISTA_META).map(([key, meta]) => {
-              const count = fila.filter(i => i.listaOrigem === key).length;
+              // DPJ-GC99 conta por lote (itens do mesmo lote = 1) — lib/lotesDpj.js
+              const count = contarUnidades(fila.filter(i => i.listaOrigem === key), key);
               if (!count) return null;
               const soEssa = filtroLista.size === 1 && filtroLista.has(key);
               return (

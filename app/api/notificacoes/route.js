@@ -9,6 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { agruparUnidades } from '@/lib/lotesDpj';
 import { getAllRows } from '@/lib/googleSheets';
 import { SERVIDORES_EMAIL, GESTORES_EMAIL, getNomeResponsavel } from '@/lib/servidores';
 
@@ -349,9 +350,11 @@ export async function GET(request) {
     const filaDoacao = { total: 0, porStatus: {} };
 
     for (const lista of LISTAS) {
-      const rows = await getAllRows(lista.sheetName);
       const ehDoacao = lista.nome === 'Doações';
-      rows.forEach(r => {
+      // DPJ-GC99: conta por LOTE (vários itens avaliados à parte = 1 lote);
+      // o lote "mexeu" se qualquer item dele foi atualizado (lib/lotesDpj.js).
+      const unidades = agruparUnidades(await getAllRows(lista.sheetName), lista.nome, lista.statusField);
+      unidades.forEach(({ rep: r, itens }) => {
         const status = (r[lista.statusField] || '').trim();
         // Doações é fila de trabalho inteira; nas demais listas entram só os não-encerrados
         if (!ehDoacao && !estaAtivo(status)) return;
@@ -363,7 +366,7 @@ export async function GET(request) {
           status: status || '(sem status)',
           responsavel: getNomeResponsavel(r),
           obs: (r.OBSERVACOES || '').substring(0, 60),
-          dias: diasSemMexida(r),
+          dias: itens.map(diasSemMexida).filter(d => d !== null).reduce((m, d) => (m === null || d < m ? d : m), null),
           _raw: r,
         };
         itensAtivos.push(item);

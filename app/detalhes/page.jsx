@@ -1145,9 +1145,13 @@ function DetalhesContent() {
     setSalvando(true);
     try {
       const payload = {
-        LOTE: bem.LOTE, PA: bem.PA, PJE: bem.PJE, DATA_ENTRADA: bem.DATA_ENTRADA,
+        // Dados do LOTE: o item novo herda tudo que é do lote, inclusive a
+        // situação — sem isso ele nascia sem status (ex.: lote #4775, 5 itens
+        // em branco, contados à parte como se fossem lotes).
+        LOTE: bem.LOTE, PA: bem.PA || bem.PA_PJE, PJE: bem.PJE, DATA_ENTRADA: bem.DATA_ENTRADA,
         PRAZO_6MESES: bem.PRAZO_6MESES, RESPONSAVEL: bem.RESPONSAVEL || bem.Responsavel,
-        MOTIVO_SAIDA: bem.MOTIVO_SAIDA,
+        STATUS_DILIGENCIA: bem.STATUS_DILIGENCIA, LPC: bem.LPC,
+        MOTIVO_SAIDA: bem.MOTIVO_SAIDA, DATA_SAIDA: bem.DATA_SAIDA,
         TIPO_BEM: novoItem.TIPO_BEM, DESCRICAO: novoItem.DESCRICAO.trim(), QUANTIDADE: novoItem.QUANTIDADE || "1",
       };
       ["NIV", "PLACA", "MARCA_MODELO", "ANO_FAB_MODELO", "COR", "RENAVAM", "AVALIACAO_UNITARIA", "AVALIACAO_TOTAL"]
