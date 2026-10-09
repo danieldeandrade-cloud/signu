@@ -19,7 +19,7 @@ const auth = new JWT({
 const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID, auth);
 await doc.loadInfo();
 
-const ABAS = ['Bens_PCDF_1HIGEIA', 'Bens_PCDF_2HIGEIA'];
+const ABAS = ['Bens_PCDF_1HIGEIA', 'Bens_PCDF_2HIGEIA', 'Bens_CEGOC'];
 
 for (const nome of ABAS) {
   const sheet = doc.sheetsByTitle[nome];

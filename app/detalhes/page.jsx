@@ -56,7 +56,10 @@ const CAMPOS_LOTE_DPJ = ["STATUS_DILIGENCIA", "LPC", "DATA_SAIDA", "MOTIVO_SAIDA
 const ROTULO_CAMPO_LOTE = { STATUS_DILIGENCIA:"Situação", LPC:"LPC", DATA_SAIDA:"Data de saída", MOTIVO_SAIDA:"Motivo de saída" };
 const ITEM_DPJ_SAIU = ["RETIRADO", "BAIXADO", "VENDIDO E RETIRADO"]; // item que já saiu do depósito
 // CEGOC: bem de circulação leiloado — VENDIDO (arrematado) e VENDIDO E RETIRADO (já saiu do pátio)
-const STATUS_OPTIONS_CEGOC = [...STATUS_OPTIONS, "VENDIDO", "VENDIDO E RETIRADO"];
+const STATUS_OPTIONS_CEGOC = [...STATUS_OPTIONS, "VENDIDO", "VENDIDO E RETIRADO", "RETIRADO"];
+// RETIRADO (CEGOC/PCDF): encerra a trajetória com motivo obrigatório, mas o item
+// pode ser REABERTO depois (botão "Reabrir item") se voltar p/ novas diligências.
+const LISTAS_RETIRADA = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA"];
 const STATUS_2HIGEIA  = ["EM PROCESSAMENTO","TEP REGISTRADO","ENVIAR OFÍCIO DETRAN","AGUARDAR RESPOSTA DETRAN","GERAR TAP","FINALIZADO"];
 // Status Local PA das doações — igual ao usado no cadastro (lib compartilhada seria melhor, mas o padrão do projeto é const por arquivo)
 const STATUS_LOCAL_PA_OPTIONS = ["EM ANÁLISE","AGUARDANDO ENTIDADE","AGUARDANDO APTIDÃO","EM DILIGÊNCIA","SEMA","SGC","GC","ENTIDADE","CONCLUÍDO","CANCELADO"];
@@ -401,7 +404,7 @@ function TransicaoModal({ tipo, bem, onClose, onConfirm, salvando }) {
 // aplicar — o bem sai do controle ativo do NULEJ (ex.: restituído ao
 // proprietário). Só mexe em editData local; quem salva de verdade é o botão
 // "Salvar" de sempre da tela.
-function MotivoRetiradaModal({ bem, onClose, onConfirm }) {
+function MotivoRetiradaModal({ bem, higeia, onClose, onConfirm }) {
   const [motivo, setMotivo] = useState("");
   return (
     <div style={{ position:"fixed",inset:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"center" }}>
@@ -410,7 +413,7 @@ function MotivoRetiradaModal({ bem, onClose, onConfirm }) {
         <div style={{ fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8 }}>Confirmar Retirada</div>
         <h2 style={{ fontSize:18,fontWeight:700,color:"#0f172a",margin:"0 0 4px" }}>🚪 Retirar do controle do NULEJ</h2>
         <p style={{ fontSize:13,color:"#374151",margin:"0 0 20px",lineHeight:1.5 }}>
-          O bem sai do acompanhamento ativo (a etapa HIGEIA é finalizada). Informe o motivo — ex.: «restituído ao proprietário».
+          O bem sai do acompanhamento ativo{higeia ? " (a etapa HIGEIA é finalizada)" : ""}. Informe o motivo — ex.: «restituído ao proprietário». Se ele voltar para novas diligências, dá para reabrir depois.
         </p>
         <div style={{ background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:10,padding:"12px 14px",marginBottom:20,display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 16px" }}>
           {[["ID_PASEI",bem?.ID_PASEI],["Tipo",bem?.TIPO_BEM],["NIV",bem?.NIV],["Placa",bem?.PLACA]].map(([l,v])=>(
@@ -432,6 +435,54 @@ function MotivoRetiradaModal({ bem, onClose, onConfirm }) {
               background:motivo.trim()?"linear-gradient(135deg,#4b5563,#6b7280)":"#e5e7eb",
               color:motivo.trim()?"#fff":"#6b7280",fontSize:13,fontWeight:700 }}>
             ✓ Confirmar Retirada
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Reabertura de item RETIRADO (CEGOC/PCDF): pede o motivo e o status em que
+// ele volta. Ex.: restituído por decisão, mas retornou para venda em leilão.
+function ReabrirItemModal({ bem, listaKey, onClose, onConfirm }) {
+  const opcoes = listaKey === "CEGOC"
+    ? ["EM DILIGÊNCIA", "LPC", "CATÁLOGO", "RENAJUD", "EM DILIGÊNCIA HIGEIA", "AGUARDANDO"]
+    : ["EM DILIGÊNCIA HIGEIA", "EM DILIGÊNCIA", "AGUARDANDO"];
+  const [status, setStatus] = useState(opcoes[0]);
+  const [motivo, setMotivo] = useState("");
+  return (
+    <div style={{ position:"fixed",inset:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"center" }}>
+      <div onClick={onClose} style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(6px)" }}/>
+      <div style={{ position:"relative",width:460,maxWidth:"calc(100vw - 32px)",background:"#fff",border:"1.5px solid #b0b8c4",borderRadius:16,padding:28,zIndex:1 }}>
+        <div style={{ fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8 }}>Reabrir item</div>
+        <h2 style={{ fontSize:18,fontWeight:700,color:"#0f172a",margin:"0 0 4px" }}>↩️ Voltar para o acompanhamento</h2>
+        <p style={{ fontSize:13,color:"#374151",margin:"0 0 14px",lineHeight:1.5 }}>
+          O item volta a contar como ativo, na fila do responsável. A reabertura e o motivo da retirada anterior ficam registrados nas observações.
+        </p>
+        {bem?.MOTIVO_RETIRADA && (
+          <div style={{ fontSize:12,color:"#4b5563",background:"#f3f4f6",borderRadius:8,padding:"8px 12px",marginBottom:14 }}>
+            <strong>Retirado por:</strong> {bem.MOTIVO_RETIRADA}
+          </div>
+        )}
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6 }}>Volta com o status *</div>
+          <select value={status} onChange={e=>setStatus(e.target.value)}
+            style={{ width:"100%",padding:"10px 12px",background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:8,color:"#0f172a",fontSize:13,outline:"none" }}>
+            {opcoes.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6 }}>Motivo da reabertura *</div>
+          <textarea value={motivo} onChange={e=>setMotivo(e.target.value)} placeholder="Ex.: Bem retornou para venda em leilão (decisão de 10/10/2026)."
+            style={{ width:"100%",minHeight:80,padding:"10px 12px",background:"#f3f4f6",border:"1.5px solid #b0b8c4",borderRadius:8,color:"#0f172a",fontSize:13,resize:"vertical",outline:"none",lineHeight:1.5,boxSizing:"border-box" }}/>
+        </div>
+        <div style={{ display:"flex",gap:10 }}>
+          <button onClick={onClose} style={{ flex:1,padding:"11px",borderRadius:8,border:"1.5px solid #c4c9d0",background:"transparent",color:"#374151",fontSize:13,cursor:"pointer" }}>Cancelar</button>
+          <button onClick={()=>motivo.trim()&&onConfirm({ status, motivo: motivo.trim() })} disabled={!motivo.trim()}
+            style={{ flex:2,padding:"11px",borderRadius:8,border:"none",cursor:motivo.trim()?"pointer":"not-allowed",
+              background:motivo.trim()?"linear-gradient(135deg,#1d4ed8,#2563eb)":"#e5e7eb",
+              color:motivo.trim()?"#fff":"#6b7280",fontSize:13,fontWeight:700 }}>
+            ↩️ Reabrir item
           </button>
         </div>
       </div>
@@ -765,6 +816,7 @@ function TimelineObservacoes({ obsStr, onSalvar, onAlterarNota, salvando }) {
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 function DetalhesContent() {
   const router       = useRouter();
+  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const lista        = searchParams.get("lista"); // ex: "cegoc"
   const row          = searchParams.get("row");   // ex: "142"
@@ -784,7 +836,8 @@ function DetalhesContent() {
   const [editMode,    setEditMode]    = useState(false);
   const [editData,    setEditData]    = useState(null);
   const [modal,       setModal]       = useState(null); // "HIGEIA" | "CATALOGO"
-  const [modalRetirada, setModalRetirada] = useState(false); // PCDF 1ª/2ª: pede motivo antes de aplicar RETIRADO
+  const [modalRetirada, setModalRetirada] = useState(false); // CEGOC/PCDF: pede motivo antes de aplicar RETIRADO
+  const [modalReabrir,  setModalReabrir]  = useState(false); // item RETIRADO voltando p/ novas diligências
   const [toast,       setToast]       = useState({ msg:"", type:"" });
   const [activeTab,   setActiveTab]   = useState("dados");
   const [loading,     setLoading]     = useState(true);
@@ -1073,7 +1126,7 @@ function DetalhesContent() {
   // etc) — exige motivo antes de aplicar, então só abre o modal aqui; quem
   // efetivamente muda o STATUS_DILIGENCIA é confirmarRetirada(), no confirm.
   const handleStatusDiligencia = (v) => {
-    if (v === "RETIRADO" && (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA")) {
+    if (v === "RETIRADO" && LISTAS_RETIRADA.includes(listaKey)) {
       setModalRetirada(true);
       return;
     }
@@ -1088,16 +1141,48 @@ function DetalhesContent() {
     });
   };
 
+  // Reabre um item RETIRADO: volta p/ o status escolhido, limpa o motivo da
+  // retirada (que fica registrado na observação) e, na PCDF, reinicia a etapa
+  // HIGEIA (a retirada a tinha dado como FINALIZADA).
+  const reabrirItem = async ({ status, motivo }) => {
+    setSalvando(true);
+    try {
+      const agora = new Date();
+      const ts = `${agora.toLocaleDateString("pt-BR")} ${agora.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })}`;
+      const autor = (session?.user?.name || "").split(" ")[0] || "Sistema";
+      const nota = `[${ts} | ${autor}] ↩️ Item REABERTO (${status}). Motivo: ${motivo}.${bem?.MOTIVO_RETIRADA ? ` Estava retirado por: ${bem.MOTIVO_RETIRADA}.` : ""}`;
+      const payload = {
+        STATUS_DILIGENCIA: status,
+        MOTIVO_RETIRADA: "",
+        OBSERVACOES: bem?.OBSERVACOES?.trim() ? `${nota}\n${bem.OBSERVACOES.trim()}` : nota,
+        _verificacaoId: bem?.ID_PASEI || "",
+      };
+      if (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") {
+        payload[listaKey === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA"] = "";
+      }
+      const res = await fetch(`/api/bens/${lista}/${row}`, {
+        method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.erro || "Erro ao reabrir");
+      setBem(json.item);
+      setModalReabrir(false);
+      showToast(`Item reaberto em ${status}.`);
+    } catch (e) {
+      showToast(e.message, "error");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const confirmarRetirada = (motivo) => {
     setEditData(prev => {
-      const campoStatus = listaKey === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA";
-      return {
-        ...prev,
-        STATUS_DILIGENCIA: "RETIRADO",
-        MOTIVO_RETIRADA: motivo,
-        [campoStatus]: "FINALIZADO",
-        OFICIO_BAIXA: "FALSE",
-      };
+      const next = { ...prev, STATUS_DILIGENCIA: "RETIRADO", MOTIVO_RETIRADA: motivo };
+      if (listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") {
+        next[listaKey === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA"] = "FINALIZADO";
+        next.OFICIO_BAIXA = "FALSE";
+      }
+      return next;
     });
     setModalRetirada(false);
   };
@@ -1371,6 +1456,14 @@ function DetalhesContent() {
                   </div>
                 </div>
 
+                {/* Reabrir — item RETIRADO (CEGOC/PCDF) que voltou p/ novas diligências */}
+                {LISTAS_RETIRADA.includes(listaKey) && !editMode && bem?.STATUS_DILIGENCIA === "RETIRADO" && (
+                  <button onClick={() => setModalReabrir(true)} disabled={salvando}
+                    style={{ display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:8,border:"1.5px solid #2563eb",background:"rgba(37,99,235,0.08)",color:"#1d4ed8",fontSize:13,fontWeight:700,cursor:"pointer",alignSelf:"center" }}>
+                    ↩️ Reabrir item
+                  </button>
+                )}
+
                 {/* Botão Concluir — apenas Caixa SEI, fora do modo edição, quando ainda não concluído */}
                 {listaKey === "CAIXA_SEI" && !editMode && current?.ACAO !== "ARQUIVADO" && (
                   <button onClick={async () => {
@@ -1455,7 +1548,7 @@ function DetalhesContent() {
                           ? <FieldEdit label="Etapa HIGEIA" value={editData?.[campoStatus]||"EM PROCESSAMENTO"} onChange={v=>handleEtapaHigeia(campoStatus,v)} options={STATUS_2HIGEIA}/>
                           : <FieldView label="Etapa HIGEIA" value={current?.[campoStatus]||"EM PROCESSAMENTO"} highlight={current?.[campoStatus]==="FINALIZADO"?"#22c55e":"#2563eb"}/>;
                       })()}
-                      {(listaKey === "PCDF_1HIGEIA" || listaKey === "PCDF_2HIGEIA") && current?.STATUS_DILIGENCIA === "RETIRADO" && (
+                      {LISTAS_RETIRADA.includes(listaKey) && current?.STATUS_DILIGENCIA === "RETIRADO" && (
                         editMode
                           ? <FieldEdit label="Motivo da Retirada" value={editData?.MOTIVO_RETIRADA||""} onChange={v=>upd("MOTIVO_RETIRADA",v)}/>
                           : <FieldView label="Motivo da Retirada" value={current?.MOTIVO_RETIRADA}/>
@@ -2209,7 +2302,8 @@ function DetalhesContent() {
           </div>
         </div>
       )}
-      {modalRetirada && <MotivoRetiradaModal bem={current} onClose={()=>setModalRetirada(false)} onConfirm={confirmarRetirada}/>}
+      {modalRetirada && <MotivoRetiradaModal bem={current} higeia={listaKey !== "CEGOC"} onClose={()=>setModalRetirada(false)} onConfirm={confirmarRetirada}/>}
+      {modalReabrir && <ReabrirItemModal bem={bem} listaKey={listaKey} onClose={()=>setModalReabrir(false)} onConfirm={reabrirItem}/>}
       <Toast msg={toast.msg} type={toast.type}/>
     </>
   );

@@ -440,7 +440,7 @@ function MotivoRetiradaModal({ item, onClose, onConfirm }) {
       <div style={{ position:"relative", width:420, background:"#fff", border:"1.5px solid #b0b8c4", borderRadius:16, padding:24, zIndex:1 }}>
         <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a", margin:"0 0 4px" }}>🚪 Retirar do controle do NULEJ</h2>
         <p style={{ fontSize:12.5, color:"#374151", margin:"0 0 16px", lineHeight:1.5 }}>
-          O bem sai do acompanhamento ativo. Informe o motivo — ex.: «restituído ao proprietário».
+          O bem sai do acompanhamento ativo. Informe o motivo — ex.: «restituído ao proprietário». Se voltar para novas diligências, dá para reabrir pelo Detalhes.
         </p>
         <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5 }}>{item?.ID_PASEI}</div>
         <textarea value={motivo} onChange={e=>setMotivo(e.target.value)} placeholder="Ex.: Restituído ao proprietário, processo SEI arquivado."
@@ -590,7 +590,7 @@ export default function SIGNUMinhaFila() {
   // etc) — exige motivo antes de aplicar, então só abre o modal aqui; quem
   // efetivamente muda o STATUS_DILIGENCIA é confirmarRetiradaDrawer().
   const handleStatusDrawer = (v) => {
-    if (v === "RETIRADO" && (selectedItem?.listaOrigem === "PCDF_1HIGEIA" || selectedItem?.listaOrigem === "PCDF_2HIGEIA")) {
+    if (v === "RETIRADO" && ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA"].includes(selectedItem?.listaOrigem)) {
       setModalRetirada(true);
       return;
     }
@@ -598,14 +598,15 @@ export default function SIGNUMinhaFila() {
   };
 
   const confirmarRetiradaDrawer = (motivo) => {
-    const campoStatus = selectedItem.listaOrigem === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA";
-    setDrawerEditData(prev => ({
-      ...prev,
-      STATUS_DILIGENCIA: "RETIRADO",
-      MOTIVO_RETIRADA: motivo,
-      [campoStatus]: "FINALIZADO",
-      OFICIO_BAIXA: "FALSE",
-    }));
+    setDrawerEditData(prev => {
+      const next = { ...prev, STATUS_DILIGENCIA: "RETIRADO", MOTIVO_RETIRADA: motivo };
+      // PCDF: retirada finaliza a etapa HIGEIA e dispensa o ofício de baixa
+      if (selectedItem.listaOrigem === "PCDF_1HIGEIA" || selectedItem.listaOrigem === "PCDF_2HIGEIA") {
+        next[selectedItem.listaOrigem === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA"] = "FINALIZADO";
+        next.OFICIO_BAIXA = "FALSE";
+      }
+      return next;
+    });
     setModalRetirada(false);
   };
 
@@ -1415,7 +1416,7 @@ export default function SIGNUMinhaFila() {
 
                 return (
                   <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-                    {(selectedItem.listaOrigem==="PCDF_1HIGEIA"||selectedItem.listaOrigem==="PCDF_2HIGEIA") ? (
+                    {["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(selectedItem.listaOrigem) ? (
                       <div key="STATUS_DILIGENCIA">
                         <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:5 }}>Status</div>
                         <select value={drawerEditData.STATUS_DILIGENCIA||""} onChange={e=>handleStatusDrawer(e.target.value)}
@@ -1425,7 +1426,7 @@ export default function SIGNUMinhaFila() {
                         </select>
                       </div>
                     ) : inp("Status", "STATUS_DILIGENCIA", statusOptionsDoItem(selectedItem))}
-                    {(selectedItem.listaOrigem==="PCDF_1HIGEIA"||selectedItem.listaOrigem==="PCDF_2HIGEIA") && drawerEditData.STATUS_DILIGENCIA==="RETIRADO" && inp("Motivo da Retirada","MOTIVO_RETIRADA")}
+                    {["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(selectedItem.listaOrigem) && drawerEditData.STATUS_DILIGENCIA==="RETIRADO" && inp("Motivo da Retirada","MOTIVO_RETIRADA")}
                     {inp("Destinação", "DESTINACAO", DESTINACOES_OPT)}
                     {inp("NIV / Chassi", "NIV")}
                     {(selectedItem.listaOrigem==="PCDF_1HIGEIA"||selectedItem.listaOrigem==="PCDF_2HIGEIA") && inp("Nº SEI do TEP","TEP_SEI")}
