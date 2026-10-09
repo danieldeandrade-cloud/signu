@@ -20,6 +20,7 @@ const SERVIDORES = [
   "Cláudia Santos", "Loara Passo", "Letícia Mota", "Marcelo Oliveira",
 ];
 const RENAJUD_SERVIDORES = ["Amanda Junqueira", "Letícia Mota"];
+const RESPONSAVEL_DPJ = "Cláudia Santos"; // itens da DPJ-GC99 já entram com ela
 // Mesma regra de app/cadastro/page.jsx — servidoras fora do rateio automático
 // nessas listas (ainda podem ser atribuídas na mão).
 const EXCLUIR_AUTO_DISTRIBUICAO = {
@@ -246,7 +247,10 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
       const jaResponsavel = encontrados
         .map(d => d.item.RESPONSAVEL || d.item.Responsavel || "")
         .find(Boolean);
-      if (jaResponsavel) {
+      if (item.LISTA_DESTINO === "dpj") {
+        // DPJ-GC99 é sempre da Cláudia (regra do NULEJ) — dá pra trocar na mão
+        upd("RESPONSAVEL", RESPONSAVEL_DPJ);
+      } else if (jaResponsavel) {
         upd("RESPONSAVEL", jaResponsavel);
         setHerdouResponsavel(encontrados.find(d => (d.item.RESPONSAVEL || d.item.Responsavel) === jaResponsavel)?.rota);
       } else if (campos.RESPONSAVEL === "__AUTO__") {

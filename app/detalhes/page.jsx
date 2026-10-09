@@ -1754,7 +1754,9 @@ function DetalhesContent() {
                           ? <FieldEdit label="PJE (nº do processo judicial)" value={editData?.PJE} onChange={v=>upd("PJE",v)} mono/>
                           : <FieldView label="PJE (nº do processo judicial)" value={current?.PJE} mono/>}
                         <FieldView label="Data de Entrada" value={current?.DATA_ENTRADA}/>
-                        <FieldView label="Prazo 6 Meses" value={current?.PRAZO_6MESES} highlight="#fbbf24"/>
+                        {["RETIRADO","BAIXADO"].includes(String(current?.STATUS_DILIGENCIA || "").toUpperCase().trim())
+                          ? <FieldView label="Prazo 6 Meses" value="— (item encerrado, prazo não se aplica)"/>
+                          : <FieldView label="Prazo 6 Meses" value={current?.PRAZO_6MESES} highlight="#fbbf24"/>}
                         {editMode ? (
                           <FieldEdit
                             label="Situação"

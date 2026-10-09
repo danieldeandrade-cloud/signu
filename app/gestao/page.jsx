@@ -1112,7 +1112,9 @@ function GestaoConteudo() {
                     ) : pagina.map((item, ri) => {
                       const status = getStatus(item, abaAtiva);
                       const idDisplay = displayId(item, abaAtiva);
-                      const prazoVencido = item.PRAZO_6MESES && new Date(item.PRAZO_6MESES) <= new Date();
+                      // DPJ já retirada/baixada: o prazo de 6 meses não conta mais (nem fica vermelho)
+                      const dpjEncerrado = abaAtiva === "DPJ_GC99" && ["RETIRADO","BAIXADO"].includes(String(item.STATUS_DILIGENCIA || "").toUpperCase().trim());
+                      const prazoVencido = !dpjEncerrado && item.PRAZO_6MESES && new Date(item.PRAZO_6MESES) <= new Date();
                       return (
                         <tr key={item._rowNumber}
                           onClick={() => router.push(`/detalhes?lista=${LISTA_API_MAP[abaAtiva]}&row=${item._rowNumber}&voltar=gestao`)}
@@ -1150,7 +1152,7 @@ function GestaoConteudo() {
                           <Cell>{TIPO_ICON[item.TIPO_BEM] || "📦"} {item.TIPO_BEM || "—"}</Cell>
                           <Cell mono muted>{item.NIV || "—"}</Cell>
                           {abaAtiva==="DPJ_GC99"      && <Cell right>{item.LOTE ? `#${item.LOTE}` : "—"}</Cell>}
-                          {abaAtiva==="DPJ_GC99"      && <Cell mono><span style={{ color: prazoVencido ? "#f87171" : "#111827" }}>{item.PRAZO_6MESES || "—"}</span></Cell>}
+                          {abaAtiva==="DPJ_GC99"      && <Cell mono><span title={dpjEncerrado ? "Item encerrado — prazo não se aplica" : undefined} style={{ color: prazoVencido ? "#f87171" : "#111827" }}>{dpjEncerrado ? "—" : (item.PRAZO_6MESES || "—")}</span></Cell>}
                           {(abaAtiva==="PCDF_1HIGEIA"||abaAtiva==="PCDF_2HIGEIA") && <Cell muted>{item.DEPOSITO || "—"}</Cell>}
                           {abaAtiva==="PCDF_2HIGEIA"  && <Cell right>{item.RESTRICAO_ROUBO === "TRUE" || item.RESTRICAO_ROUBO === true ? "🔒 Sim" : "—"}</Cell>}
                           {abaAtiva==="DOACOES"        && <Cell mono muted>{item.DATA_DECISAO || "—"}</Cell>}
