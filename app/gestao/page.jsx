@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { exportarListaParaExcel, exportarTodasAsListasParaExcel } from "@/lib/exportarExcel";
 import { ultimaObs } from "@/lib/observacoes";
 import { useEntidades } from "@/lib/useEntidades";
-import { contarUnidades } from "@/lib/lotesDpj";
+import { contarUnidades, resumoLote } from "@/lib/lotesDpj";
 import { montarFilaDoacoes, blocoDoacao, BLOCO, BLOCO_META } from "@/lib/filaDoacoes";
 
 // Exportação HTML formatada para o relatório RENAJUD (abre no Excel com colunas e cores)
@@ -545,6 +545,15 @@ function GestaoConteudo() {
     () => [...new Set(dados.filter(i => String(i.LPC || "").trim()).map(i => i.LPC.trim()))].sort(),
     [dados]
   );
+
+  // DPJ: resumo de cada lote (itens / quantos já saíram), p/ a coluna Lote
+  const resumoPorLote = useMemo(() => {
+    if (abaAtiva !== "DPJ_GC99") return {};
+    const grupos = {};
+    dados.forEach(i => { const k = String(i.LOTE || "").trim(); if (k) (grupos[k] ||= []).push(i); });
+    return Object.fromEntries(Object.entries(grupos).map(([k, itens]) =>
+      [k, resumoLote(itens, st => ["RETIRADO","BAIXADO","VENDIDO E RETIRADO"].includes(String(st || "").toUpperCase().trim()))]));
+  }, [dados, abaAtiva]);
 
   const totalPags = Math.ceil(filtrados.length / POR_PAGINA);
   const pagina = filtrados.slice((pag-1)*POR_PAGINA, pag*POR_PAGINA);
@@ -1154,7 +1163,16 @@ function GestaoConteudo() {
                           })()}
                           <Cell>{TIPO_ICON[item.TIPO_BEM] || "📦"} {item.TIPO_BEM || "—"}</Cell>
                           <Cell mono muted>{item.NIV || "—"}</Cell>
-                          {abaAtiva==="DPJ_GC99"      && <Cell right>{item.LOTE ? `#${item.LOTE}` : "—"}</Cell>}
+                          {abaAtiva==="DPJ_GC99"      && (() => {
+                            // Lote com vários itens: mostra quantos já saíram (podem ter destinos diferentes)
+                            const r = resumoPorLote[String(item.LOTE || "").trim()];
+                            return (
+                              <Cell right>
+                                {item.LOTE ? `#${item.LOTE}` : "—"}
+                                {r && r.total > 1 && <span title={`${r.sairam} de ${r.total} itens do lote já saíram`} style={{ marginLeft:6, fontSize:10, color: r.sairam ? "#6b7280" : "#047857" }}>{r.sairam}/{r.total} saíram</span>}
+                              </Cell>
+                            );
+                          })()}
                           {abaAtiva==="DPJ_GC99"      && <Cell mono><span title={dpjEncerrado ? "Item encerrado — prazo não se aplica" : undefined} style={{ color: prazoVencido ? "#f87171" : "#111827" }}>{dpjEncerrado ? "—" : (item.PRAZO_6MESES || "—")}</span></Cell>}
                           {(abaAtiva==="PCDF_1HIGEIA"||abaAtiva==="PCDF_2HIGEIA") && <Cell muted>{item.DEPOSITO || "—"}</Cell>}
                           {abaAtiva==="PCDF_2HIGEIA"  && <Cell right>{item.RESTRICAO_ROUBO === "TRUE" || item.RESTRICAO_ROUBO === true ? "🔒 Sim" : "—"}</Cell>}

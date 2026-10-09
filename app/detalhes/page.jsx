@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEntidades } from "@/lib/useEntidades";
 import { parseNotas, tsToMs, substituirNota } from "@/lib/observacoes";
+import { resumoLote } from "@/lib/lotesDpj";
 import { getNomePorEmail } from "@/lib/servidores";
 
 // Mapa rota API → chave interna de lista
@@ -49,6 +50,11 @@ const STATUS_OPTIONS  = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES
 // PCDF 1ª/2ª: RETIRADO = bem saiu do controle ativo do NULEJ (restituído, etc)
 // — só essas duas listas, não faz sentido em CEGOC. Ver handleStatusDiligencia.
 const STATUS_OPTIONS_PCDF = [...STATUS_OPTIONS, "RETIRADO"];
+// DPJ: campos que são do destino do item mas costumam valer pro lote todo —
+// ao mudar um deles, o Detalhes pergunta a quais outros itens do lote aplicar.
+const CAMPOS_LOTE_DPJ = ["STATUS_DILIGENCIA", "LPC", "DATA_SAIDA", "MOTIVO_SAIDA"];
+const ROTULO_CAMPO_LOTE = { STATUS_DILIGENCIA:"Situação", LPC:"LPC", DATA_SAIDA:"Data de saída", MOTIVO_SAIDA:"Motivo de saída" };
+const ITEM_DPJ_SAIU = ["RETIRADO", "BAIXADO", "VENDIDO E RETIRADO"]; // item que já saiu do depósito
 // CEGOC: bem de circulação leiloado — VENDIDO (arrematado) e VENDIDO E RETIRADO (já saiu do pátio)
 const STATUS_OPTIONS_CEGOC = [...STATUS_OPTIONS, "VENDIDO", "VENDIDO E RETIRADO"];
 const STATUS_2HIGEIA  = ["EM PROCESSAMENTO","TEP REGISTRADO","ENVIAR OFÍCIO DETRAN","AGUARDAR RESPOSTA DETRAN","GERAR TAP","FINALIZADO"];
@@ -786,6 +792,10 @@ function DetalhesContent() {
   const [erroLoad,    setErroLoad]    = useState(null);
   // DPJ: outros itens do mesmo lote + form de adicionar mais um
   const [itensIrmaos,     setItensIrmaos]     = useState([]);
+  // DPJ: depois de salvar mudança em campo do LOTE num item que tem irmãos,
+  // pergunta a quais outros itens aplicar (vende-se 1, os outros podem ficar)
+  const [propagarLote,    setPropagarLote]    = useState(null); // { campos, sel:Set<rowNumber> }
+  const [aplicandoLote,   setAplicandoLote]   = useState(false);
   const [carregandoIrmaos, setCarregandoIrmaos] = useState(false);
   const [novoItemAberto,  setNovoItemAberto]  = useState(false);
   const [novoItem,        setNovoItem]        = useState(novoItemLoteVazio());
@@ -922,9 +932,17 @@ function DetalhesContent() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.erro || "Erro ao salvar");
+      const antes = bem;
       setBem(json.item);
       setEditMode(false);
       showToast("Alterações salvas com sucesso!");
+      if (listaKey === "DPJ_GC99" && itensIrmaos.length > 0) {
+        const campos = {};
+        CAMPOS_LOTE_DPJ.forEach(k => {
+          if (k in payload && String(payload[k] ?? "").trim() !== String(antes?.[k] ?? "").trim()) campos[k] = payload[k] ?? "";
+        });
+        if (Object.keys(campos).length) setPropagarLote({ campos, sel: new Set() });
+      }
     } catch(e) {
       showToast(e.message, "error");
     } finally {
@@ -1136,6 +1154,28 @@ function DetalhesContent() {
     setCarregandoIrmaos(false);
   };
   useEffect(() => { carregarItensLote(); }, [listaKey, bem?.LOTE, row]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const aplicarNoLote = async () => {
+    if (!propagarLote || propagarLote.sel.size === 0) { setPropagarLote(null); return; }
+    setAplicandoLote(true);
+    let ok = 0; const erros = [];
+    for (const it of itensIrmaos.filter(i => propagarLote.sel.has(i._rowNumber))) {
+      try {
+        const res = await fetch(`/api/bens/dpj/${it._rowNumber}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...propagarLote.campos, _verificacaoId: it.PA || it.PA_PJE || "" }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.erro || "erro");
+        ok++;
+      } catch (e) { erros.push(`${it.DESCRICAO || it.TIPO_BEM || "item"}: ${e.message}`); }
+    }
+    setAplicandoLote(false);
+    setPropagarLote(null);
+    carregarItensLote();
+    if (erros.length) showToast(`Aplicado a ${ok} item(ns); ${erros.length} falharam — ${erros[0]}`, "error");
+    else showToast(`Alteração aplicada também a ${ok} item(ns) do lote.`);
+  };
 
   const salvarNovoItemLote = async () => {
     if (!novoItem.TIPO_BEM || !novoItem.DESCRICAO.trim()) {
@@ -1823,9 +1863,19 @@ function DetalhesContent() {
                   {/* ── DPJ: outros itens do lote + adicionar mais um ── */}
                   {listaKey === "DPJ_GC99" && bem?.LOTE && (
                     <Section title={`Itens deste lote (#${bem.LOTE})`}>
-                      <div style={{ fontSize:10, color:"#6b7280", marginBottom:12 }}>
-                        Cada item é uma linha própria, todas com o mesmo LOTE/PA PJE deste.
+                      <div style={{ fontSize:10, color:"#6b7280", marginBottom:8 }}>
+                        Cada item é uma linha própria, com situação própria (pode-se vender 1 e os demais seguirem no depósito).
                       </div>
+                      {itensIrmaos.length > 0 && (() => {
+                        const { total, sairam } = resumoLote([bem, ...itensIrmaos], st => ITEM_DPJ_SAIU.includes(String(st || "").toUpperCase().trim()));
+                        return (
+                          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
+                            <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#eff6ff", color:"#1d4ed8", fontWeight:700 }}>{total} itens no lote</span>
+                            <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#ecfdf5", color:"#047857", fontWeight:700 }}>{total - sairam} no depósito / em andamento</span>
+                            {sairam > 0 && <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#f3f4f6", color:"#4b5563", fontWeight:700 }}>{sairam} já saíram</span>}
+                          </div>
+                        );
+                      })()}
                       {carregandoIrmaos && <div style={{ fontSize:12, color:"#6b7280" }}>Carregando…</div>}
                       {!carregandoIrmaos && itensIrmaos.length === 0 && (
                         <div style={{ fontSize:12, color:"#9ca3af", fontStyle:"italic", marginBottom:12 }}>Nenhum outro item neste lote ainda.</div>
@@ -1837,7 +1887,10 @@ function DetalhesContent() {
                               style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:8, cursor:"pointer", textAlign:"left", width:"100%" }}>
                               <div>
                                 <div style={{ fontSize:12, fontWeight:600, color:"#0f172a" }}>{it.TIPO_BEM || "—"}{it.DESCRICAO ? ` — ${it.DESCRICAO}` : ""}</div>
-                                <div style={{ fontSize:10, color:"#6b7280" }}>Qtd. {it.QUANTIDADE || "1"}{it.AVALIACAO_TOTAL ? ` · R$ ${it.AVALIACAO_TOTAL}` : ""}</div>
+                                <div style={{ fontSize:10, color:"#6b7280", display:"flex", gap:6, alignItems:"center", marginTop:2 }}>
+                                  <span style={{ fontWeight:700, padding:"1px 7px", borderRadius:10, background: ITEM_DPJ_SAIU.includes(String(it.STATUS_DILIGENCIA||"").toUpperCase().trim()) ? "#f3f4f6" : "#ecfdf5", color: ITEM_DPJ_SAIU.includes(String(it.STATUS_DILIGENCIA||"").toUpperCase().trim()) ? "#6b7280" : "#047857" }}>{it.STATUS_DILIGENCIA || "sem situação"}</span>
+                                  {it.AVALIACAO_TOTAL ? <span>R$ {it.AVALIACAO_TOTAL}</span> : null}
+                                </div>
                               </div>
                               <span style={{ fontSize:11, color:"#2563eb" }}>Abrir →</span>
                             </button>
@@ -2120,6 +2173,42 @@ function DetalhesContent() {
       </div>
 
       {modal && <TransicaoModal tipo={modal} bem={current} onClose={()=>setModal(null)} onConfirm={handleTransicao} salvando={salvando}/>}
+      {propagarLote && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,0.45)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:16 }}>
+          <div style={{ background:"#fff", borderRadius:12, maxWidth:560, width:"100%", maxHeight:"85vh", overflow:"auto", padding:"20px 22px", boxShadow:"0 20px 50px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize:15, fontWeight:700, color:"#0f172a", marginBottom:6 }}>Aplicar também a outros itens do lote #{bem?.LOTE}?</div>
+            <div style={{ fontSize:12, color:"#4b5563", marginBottom:12 }}>
+              Este item foi salvo com: {Object.entries(propagarLote.campos).map(([k, v]) => <strong key={k} style={{ marginRight:8 }}>{ROTULO_CAMPO_LOTE[k] || k}: {v || "(vazio)"}</strong>)}
+              <br/>Marque os itens que tiveram o mesmo destino. Os não marcados ficam como estão.
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
+              {itensIrmaos.map(it => {
+                const marcado = propagarLote.sel.has(it._rowNumber);
+                return (
+                  <label key={it._rowNumber} style={{ display:"flex", gap:10, alignItems:"flex-start", padding:"8px 10px", border:`1px solid ${marcado ? "#93c5fd" : "#e5e7eb"}`, background: marcado ? "#eff6ff" : "#f9fafb", borderRadius:8, cursor:"pointer" }}>
+                    <input type="checkbox" checked={marcado} onChange={() => setPropagarLote(p => { const sel = new Set(p.sel); sel.has(it._rowNumber) ? sel.delete(it._rowNumber) : sel.add(it._rowNumber); return { ...p, sel }; })} style={{ marginTop:2 }}/>
+                    <div>
+                      <div style={{ fontSize:12, fontWeight:600, color:"#0f172a" }}>{it.TIPO_BEM || "—"}{it.DESCRICAO ? ` — ${it.DESCRICAO}` : ""}</div>
+                      <div style={{ fontSize:10, color:"#6b7280" }}>Situação atual: {it.STATUS_DILIGENCIA || "—"}{it.LPC ? ` · LPC ${it.LPC}` : ""}</div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+              <button onClick={() => setPropagarLote(p => ({ ...p, sel: new Set(itensIrmaos.map(i => i._rowNumber)) }))} disabled={aplicandoLote}
+                style={{ padding:"8px 12px", borderRadius:8, border:"1px solid #d1d5db", background:"#f3f4f6", color:"#374151", fontSize:12, cursor:"pointer" }}>Marcar todos</button>
+              <div style={{ flex:1 }}/>
+              <button onClick={() => setPropagarLote(null)} disabled={aplicandoLote}
+                style={{ padding:"8px 14px", borderRadius:8, border:"1px solid #d1d5db", background:"#fff", color:"#374151", fontSize:12, cursor:"pointer" }}>Só este item</button>
+              <button onClick={aplicarNoLote} disabled={aplicandoLote || propagarLote.sel.size === 0}
+                style={{ padding:"8px 14px", borderRadius:8, border:"none", background: propagarLote.sel.size ? "#2563eb" : "#93c5fd", color:"#fff", fontSize:12, fontWeight:700, cursor: propagarLote.sel.size ? "pointer" : "default" }}>
+                {aplicandoLote ? "Aplicando…" : `Aplicar a ${propagarLote.sel.size} item(ns)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {modalRetirada && <MotivoRetiradaModal bem={current} onClose={()=>setModalRetirada(false)} onConfirm={confirmarRetirada}/>}
       <Toast msg={toast.msg} type={toast.type}/>
     </>

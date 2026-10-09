@@ -353,8 +353,10 @@ export async function GET(request) {
       const ehDoacao = lista.nome === 'Doações';
       // DPJ-GC99: conta por LOTE (vários itens avaliados à parte = 1 lote);
       // o lote "mexeu" se qualquer item dele foi atualizado (lib/lotesDpj.js).
-      const unidades = agruparUnidades(await getAllRows(lista.sheetName), lista.nome, lista.statusField);
-      unidades.forEach(({ rep: r, itens }) => {
+      const unidades = agruparUnidades(await getAllRows(lista.sheetName), lista.nome, lista.statusField,
+        (st) => STATUS_ENCERRADO.includes(String(st || '').toUpperCase().trim()));
+      unidades.forEach(({ rep: r, itens: todos, ativos }) => {
+        const itens = ativos.length ? ativos : todos; // parado: só itens ainda em andamento
         const status = (r[lista.statusField] || '').trim();
         // Doações é fila de trabalho inteira; nas demais listas entram só os não-encerrados
         if (!ehDoacao && !estaAtivo(status)) return;

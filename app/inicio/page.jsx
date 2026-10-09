@@ -342,8 +342,9 @@ export default function InicioPage() {
       // Unidade de contagem: na DPJ-GC99 é o LOTE (vários itens = 1); nas
       // demais, cada linha (lib/lotesDpj.js). Um lote "mexeu" se qualquer
       // item dele foi atualizado.
-      const unidades = agruparUnidades(rows, cfg.key, cfg.statusField).map(({ rep, itens }) => {
-        const ds = itens.map(diasSemMexida).filter(d => d !== null);
+      const unidades = agruparUnidades(rows, cfg.key, cfg.statusField, ehEncerrado).map(({ rep, itens, ativos: itensAtivos }) => {
+        // "parado" olha só os itens que ainda estão em andamento no lote
+        const ds = (itensAtivos.length ? itensAtivos : itens).map(diasSemMexida).filter(d => d !== null);
         return { ...rep, _itens: itens, _dias: ds.length ? Math.min(...ds) : null };
       });
       const ativos = unidades.filter(r => !ehEncerrado(status(r)));
@@ -376,7 +377,7 @@ export default function InicioPage() {
     bens.forEach(l => {
       const t = {};
       // Tipos contam por ITEM (um lote da DPJ pode ter eletrodoméstico + informática)
-      l.ativos.flatMap(u => u._itens).forEach(r => { const k = normTipo(r.TIPO_BEM); t[k] = (t[k] || 0) + 1; });
+      l.ativos.flatMap(u => u._itens.filter(i => !ehEncerrado(i[l.statusField]))).forEach(r => { const k = normTipo(r.TIPO_BEM); t[k] = (t[k] || 0) + 1; });
       tiposPorLista[l.key] = t;
     });
     return {
