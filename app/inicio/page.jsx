@@ -47,6 +47,10 @@ function resolverNomeServidor(email, nomeGoogle) {
 const STATUS_ENCERRADO = ["RETIRADO","BAIXADO","CONCLUÍDO","CONCLUIDO","CANCELADO","ARQUIVADO","DOAÇÃO REALIZADA","VENDIDO E RETIRADO"];
 const DIAS_PARADO = 21;
 const ehEncerrado = (st) => STATUS_ENCERRADO.includes(String(st || "").toUpperCase().trim());
+// DPJ-GC99 em "PRAZO 6 MESES" não conta como parado: o NULEJ só assume o item
+// depois do marco de 6 meses da entrada (mesma regra do e-mail).
+const podeFicarParado = (listaKey, st) =>
+  !(listaKey === "DPJ_GC99" && String(st || "").toUpperCase().trim() === "PRAZO 6 MESES");
 const LISTAS_BENS = ["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA","DPJ_GC99","DOACOES"]; // Caixa SEI é processo, não bem
 const PREFIXO = { CEGOC:"CEG", PCDF_1HIGEIA:"PCDF1", PCDF_2HIGEIA:"PCDF2", DPJ_GC99:"DPJ", DOACOES:"DOA", CAIXA_SEI:"SEI" };
 
@@ -335,7 +339,7 @@ export default function InicioPage() {
       const rows = dados?.[cfg.key] || [];
       const status = (r) => String(r[cfg.statusField] || "").trim();
       const ativos = rows.filter(r => !ehEncerrado(status(r)));
-      const parados = ativos.filter(r => (diasSemMexida(r) ?? 0) >= DIAS_PARADO);
+      const parados = ativos.filter(r => podeFicarParado(cfg.key, status(r)) && (diasSemMexida(r) ?? 0) >= DIAS_PARADO);
       const porStatus = {};
       ativos.forEach(r => {
         const st = status(r) || (cfg.key === "DOACOES" && !String(r.RESPONSAVEL || "").trim() ? "AGUARDANDO INÍCIO" : "SEM STATUS");
@@ -389,7 +393,7 @@ export default function InicioPage() {
     { label:"Bens em andamento", value:ind.ativos.toLocaleString("pt-BR"), icon:"📦", color:"#2563eb",
       sub:`de ${ind.total.toLocaleString("pt-BR")} cadastrados · ${ind.encerrados.toLocaleString("pt-BR")} encerrados` },
     { label:`Parados há +${DIAS_PARADO} dias`, value:ind.parados.toLocaleString("pt-BR"), icon:"⏳", color:"#dc2626",
-      sub:"sem nenhuma atualização (mesma regra do e-mail)" },
+      sub:"sem atualização (fora DPJ em prazo de 6 meses)" },
     filtroServidor
       ? { label:"Novos para você", value:ind.novos.toLocaleString("pt-BR"), icon:"🆕", color:"#16a34a", sub:"atribuídos e ainda não abertos" }
       : { label:"Sem responsável", value:ind.semResponsavel.toLocaleString("pt-BR"), icon:"👤", color:"#d97706", sub:"itens ativos sem ninguém atribuído" },

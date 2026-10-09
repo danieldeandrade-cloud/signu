@@ -45,6 +45,15 @@ const estaAtivo = (status) => {
   return s !== '' && !STATUS_ENCERRADO.includes(s);
 };
 
+// "Parado" = ativo sem mexida há DIAS_SEM_ANALISE dias. Fora da conta:
+//  - encerrados (Doações entra inteira no relatório, inclusive CONCLUÍDO);
+//  - DPJ-GC99 em "PRAZO 6 MESES": o NULEJ só assume o item depois do marco
+//    de 6 meses da entrada (o cron /api/cron/prazo-dpj promove p/ EM DILIGÊNCIA).
+const contaComoParado = (b) =>
+  b.dias !== null && b.dias >= DIAS_SEM_ANALISE &&
+  !STATUS_ENCERRADO.includes(String(b.status || '').toUpperCase().trim()) &&
+  !(b.lista === 'DPJ-GC99' && String(b.status || '').toUpperCase().trim() === 'PRAZO 6 MESES');
+
 // Colunas de status "operacionais" mostradas na matriz por lista / panorama
 const STATUS_PRINCIPAIS = ['EM DILIGÊNCIA', 'EM DILIGÊNCIA HIGEIA', 'PRAZO 6 MESES', 'LPC', 'CATÁLOGO', 'RENAJUD'];
 
@@ -252,7 +261,7 @@ function htmlGestor({ porServidor, porLista, filaDoacao, itensAtivos }) {
 
   // ── Itens parados há +N dias ──
   const parados = itensAtivos
-    .filter(b => b.dias !== null && b.dias >= DIAS_SEM_ANALISE)
+    .filter(contaComoParado)
     .sort((a, b) => (b.dias ?? 0) - (a.dias ?? 0));
   const paradosTop = parados.slice(0, 30);
   const linhasParados = paradosTop.map(b => `
@@ -386,7 +395,7 @@ export async function GET(request) {
     // Alertas por servidor: itens ativos, com responsável, parados há +N dias
     const porResponsavel = {};
     itensAtivos
-      .filter(b => b.responsavel && b.dias !== null && b.dias >= DIAS_SEM_ANALISE)
+      .filter(b => b.responsavel && contaComoParado(b))
       .sort((a, b) => (b.dias ?? 0) - (a.dias ?? 0))
       .forEach(b => { (porResponsavel[b.responsavel] ||= []).push(b); });
 
