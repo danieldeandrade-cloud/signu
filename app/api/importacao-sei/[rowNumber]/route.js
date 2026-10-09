@@ -23,7 +23,7 @@ import { getAllRows, addRow, updateRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico } from '@/lib/historico';
-import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO } from '@/lib/duplicidadeVeiculo';
+import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO, faltaResponsavel } from '@/lib/duplicidadeVeiculo';
 
 const GESTORES = [
   'danieldeandrade.pessoal@gmail.com',
@@ -68,6 +68,9 @@ export async function PATCH(request, { params }) {
       // da importação SEI.
       if (['pcdf1', 'pcdf2'].includes(staging.LISTA_DESTINO) && !campos.DESTINACAO) {
         campos.DESTINACAO = 'RECICLAGEM';
+      }
+      if (faltaResponsavel(staging.LISTA_DESTINO, campos)) {
+        return NextResponse.json({ erro: 'Defina o responsável antes de promover — sem ele o item não aparece na Minha Fila de ninguém.' }, { status: 400 });
       }
       // Já existe numa lista de veículos? Não cria outro — foi assim que surgiu
       // o PA 00052-00023387/2026-87 em CEGOC e PCDF 2ª ao mesmo tempo.

@@ -11,7 +11,7 @@ import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico } from '@/lib/historico';
 import { reorganizarFilaDoacoes } from '@/lib/reorganizarFilaDoacoes';
-import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO } from '@/lib/duplicidadeVeiculo';
+import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO, faltaResponsavel } from '@/lib/duplicidadeVeiculo';
 
 export async function GET(request, { params }) {
   try {
@@ -46,6 +46,10 @@ export async function POST(request, { params }) {
     const { lista } = await params;
     const sheetName = resolveSheetName(lista);
     const body = await request.json();
+
+    if (faltaResponsavel(lista, body)) {
+      return NextResponse.json({ erro: 'Defina o responsável antes de salvar — sem ele o item não aparece na Minha Fila de ninguém.' }, { status: 400 });
+    }
 
     // Mesmo veículo em duas listas de veículos não pode (ver lib/duplicidadeVeiculo.js)
     if (LISTAS_VEICULO.includes(lista)) {

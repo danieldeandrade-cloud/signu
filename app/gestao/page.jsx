@@ -488,7 +488,7 @@ function GestaoConteudo() {
       res = res.filter(i => filtroTipo.has(i.TIPO_BEM));
     }
     if (filtroResp.size > 0) {
-      res = res.filter(i => filtroResp.has(i.RESPONSAVEL || i.Responsavel || ""));
+      res = res.filter(i => filtroResp.has(String(i.RESPONSAVEL || i.Responsavel || "").trim()));
     }
     if (filtroFlags.size > 0) {
       res = res.filter(i => [...filtroFlags].every(flag => hasFlag(i, flag)));
@@ -879,6 +879,18 @@ function GestaoConteudo() {
                           </button>
                         );
                       })}
+                      {/* Itens sem ninguém atribuído (valor "" no filtro) */}
+                      {(() => {
+                        const count = dados.filter(i => !String(i.RESPONSAVEL||i.Responsavel||"").trim()).length;
+                        if (!count) return null;
+                        const ativo = filtroResp.has("");
+                        return (
+                          <button onClick={()=>{toggleSet(setFiltroResp,"");setPag(1);}}
+                            style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:ativo?700:400, cursor:"pointer", border:`1px solid ${ativo?"#d97706":"#d1d5db"}`, background:ativo?"rgba(217,119,6,0.12)":"transparent", color:ativo?"#d97706":"#374151", transition:"all 0.15s", display:"flex", alignItems:"center", gap:5 }}>
+                            {ativo&&"✓ "}⚠️ Sem responsável <span style={{ fontSize:10, opacity:.5 }}>({count})</span>
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -987,7 +999,7 @@ function GestaoConteudo() {
                   <span key={t} onClick={()=>{toggleSet(setFiltroTipo,t);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"#f3f4f6", border:"1px solid #d1d5db", borderRadius:20, fontSize:11, color:"#1f2937", cursor:"pointer" }}>{t} ✕</span>
                 ))}
                 {[...filtroResp].map(r=>(
-                  <span key={r} onClick={()=>{toggleSet(setFiltroResp,r);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:20, fontSize:11, color:"#a78bfa", cursor:"pointer" }}>{r} ✕</span>
+                  <span key={r} onClick={()=>{toggleSet(setFiltroResp,r);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:20, fontSize:11, color:"#a78bfa", cursor:"pointer" }}>{r || "Sem responsável"} ✕</span>
                 ))}
                 {[...filtroFlags].map(f=>{const meta=FLAGS_CONFIG.find(x=>x.key===f);return(
                   <span key={f} onClick={()=>{toggleFlag(f);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:meta?.bg||"#f3f4f6", border:`1px solid ${meta?.color||"#d1d5db"}`, borderRadius:20, fontSize:11, color:meta?.color||"#1f2937", cursor:"pointer" }}>{meta?.label||f} ✕</span>
@@ -1089,7 +1101,7 @@ function GestaoConteudo() {
                       {abaAtiva==="CEGOC"          && <ThSort campo="DESTINACAO">Destinação</ThSort>}
                       {(abaAtiva==="CEGOC"||abaAtiva==="DPJ_GC99") && filtroStatus.has("CATÁLOGO") && <ThSort campo="LPC">LPC</ThSort>}
                       <ThSort campo="STATUS_DILIGENCIA">Status</ThSort>
-                      <ThSort campo="Responsavel">Responsável</ThSort>
+                      <ThSort campo="RESPONSAVEL">Responsável</ThSort>
                       <ThSort campo="OBSERVACOES">Observações</ThSort>
                       <th style={{ padding:"10px 14px", fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:600, borderBottom:"1px solid #e5e7eb" }}>Flags</th>
                     </tr>
