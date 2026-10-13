@@ -45,6 +45,9 @@ export const config = {
     // api/importacao-sei fica de fora: o POST (usado pelo script Python da
     // automação SEI, sem sessão) e o GET (sessão de gestor) fazem a própria
     // autenticação dentro da rota — ver app/api/importacao-sei/route.js.
-    '/((?!api/auth|api/notificacoes|api/importacao-sei|_next/static|_next/image|favicon.ico).*)',
+    // api/cron idem: chamado pela Vercel sem sessão, autentica por CRON_SECRET.
+    // Sem isso a rotina do prazo de 6 meses (DPJ) era redirecionada pro /login
+    // e nunca rodou (achado em 2026-10-13: lote 4775 vencido e não promovido).
+    '/((?!api/auth|api/notificacoes|api/importacao-sei|api/cron|_next/static|_next/image|favicon.ico).*)',
   ],
 };

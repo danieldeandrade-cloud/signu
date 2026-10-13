@@ -923,6 +923,10 @@ function DetalhesContent() {
     if (!lista || !row) return;
     setLoading(true);
     setErroLoad(null);
+    // Trocou de item (ex.: outro item do mesmo lote): sai do modo edição — a
+    // edição aberta era do item anterior e não pode ser salva neste
+    setEditMode(false);
+    setEditData(null);
     fetch(`/api/bens/${lista}/${row}`)
       .then(r => r.json())
       .then(json => {
@@ -942,6 +946,12 @@ function DetalhesContent() {
   };
 
   const handleEdit = () => {
+    // Só edita depois que o item DESTA página terminou de carregar (ao trocar
+    // de item do mesmo lote, o anterior ficava na tela por alguns instantes)
+    if (String(bem?._rowNumber) !== String(row)) {
+      showToast("Aguarde o item terminar de carregar e tente de novo.", "error");
+      return;
+    }
     setEditData({ ...bem });
     setEditMode(true);
   };

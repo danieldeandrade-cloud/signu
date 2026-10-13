@@ -3,6 +3,7 @@ import Sidebar from "@/components/Sidebar";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useEntidades, ENTIDADES_FALLBACK } from "@/lib/useEntidades";
 import { montarFilaDoacoes } from "@/lib/filaDoacoes";
+import { prazo6Meses } from "@/lib/prazoDpj";
 
 // Listas onde buscar duplicatas (todas)
 const TODAS_LISTAS_ROTA = [
@@ -97,7 +98,7 @@ const CAMPOS = {
     { id:"PA",                label:"PA (nº do processo SEI) *", type:"text", required:true, placeholder:"Ex: 0037595/2026" },
     { id:"PJE",               label:"PJE (nº do processo judicial)", type:"text", placeholder:"Ex: 0714761-93.2023.8.07.0009" },
     { id:"DATA_ENTRADA",      label:"Data de Entrada *",   type:"date",     required:true },
-    { id:"PRAZO_6MESES",      label:"Prazo 6 Meses",       type:"date",     readonly:true,  hint:"Calculado automaticamente (+180 dias)" },
+    { id:"PRAZO_6MESES",      label:"Prazo 6 Meses",       type:"date",     readonly:true,  hint:"Calculado automaticamente (6 meses da entrada)" },
     { id:"RESPONSAVEL",       label:"Responsável *",       type:"select",   required:true,  options:SERVIDORES, autoDistribute:true },
     { id:"MOTIVO_SAIDA",      label:"Motivo de Saída",     type:"select",   options:["", ...MOTIVOS_SAIDA] },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Registros de movimentação..." },
@@ -544,9 +545,7 @@ export default function CadastroPage() {
     if (id === "RENAVAM") val = String(val).replace(/\D/g, "");
     const next = { ...formData, [id]: val };
     if (id === "DATA_ENTRADA" && listaKey === "DPJ_GC99" && val) {
-      const d = new Date(val);
-      d.setDate(d.getDate() + 180);
-      next.PRAZO_6MESES = d.toISOString().split("T")[0];
+      next.PRAZO_6MESES = prazo6Meses(val); // 6 meses de calendário (lib/prazoDpj.js)
     }
     // Doação "aguardando aptidão" não tem entidade ainda — limpa o preenchimento automático
     if (id === "STATUS_LOCAL_PA" && val === "AGUARDANDO APTIDÃO") next.ENTIDADE_NOME = "";

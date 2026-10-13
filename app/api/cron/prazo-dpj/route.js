@@ -4,11 +4,11 @@
 // /api/notificacoes — ver vercel.json).
 //
 // Regra do NULEJ: todo item novo da DPJ-GC99 nasce em STATUS_DILIGENCIA =
-// "PRAZO 6 MESES" (ver app/cadastro/page.jsx) — dentro do prazo de 180 dias
-// da entrada, o NULEJ ainda não precisa diligenciar. Esta rota varre
+// "PRAZO 6 MESES" (ver app/cadastro/page.jsx) — dentro dos 6 meses (de
+// calendário) da entrada, o NULEJ ainda não precisa diligenciar. Esta rota varre
 // Bens_DPJ_GC99 e promove sozinho pra "EM DILIGÊNCIA" todo item que:
 //   - ainda está em STATUS_DILIGENCIA === "PRAZO 6 MESES"
-//   - e cuja DATA_ENTRADA + 180 dias já passou
+//   - e cuja DATA_ENTRADA + 6 meses de calendário já chegou (lib/prazoDpj.js)
 // Itens que o gestor já moveu manualmente pra outro status (LPC, RETIRADO,
 // DOAÇÃO EM ANDAMENTO etc.) não são tocados — só o caminho automático
 // "PRAZO 6 MESES" → "EM DILIGÊNCIA".
@@ -17,9 +17,9 @@
 
 import { NextResponse } from 'next/server';
 import { getAllRows, updateRow } from '@/lib/googleSheets';
+import { prazo6Meses, prazoVencido } from '@/lib/prazoDpj';
 
 const SHEET = 'Bens_DPJ_GC99';
-const PRAZO_DIAS = 180;
 
 // Converte data (ISO aaaa-mm-dd ou dd/mm/aaaa) em ms; null se não der
 function parseDataFlex(v) {
@@ -58,11 +58,13 @@ export async function GET(request) {
       const entrada = parseDataFlex(r.DATA_ENTRADA);
       if (!entrada) continue;
 
+      // Prazo = 6 meses de calendário da entrada (lib/prazoDpj.js), não 180 dias
+      if (!prazoVencido(r.DATA_ENTRADA)) continue;
       const diasPassados = Math.floor((agora - entrada) / 86400000);
-      if (diasPassados < PRAZO_DIAS) continue;
 
       await updateRow(SHEET, r._rowNumber, {
         STATUS_DILIGENCIA: 'EM DILIGÊNCIA',
+        PRAZO_6MESES: prazo6Meses(r.DATA_ENTRADA),
         MODIFICADO_POR: 'Sistema (prazo 6 meses vencido)',
       });
       promovidos.push({

@@ -34,7 +34,20 @@ export async function PATCH(request, { params }) {
   try {
     const { lista, rowNumber } = await params;
     const sheetName = resolveSheetName(lista);
-    const { _verificacaoId, ...body } = await request.json();
+    const { _verificacaoId, _rowNumber: rowDoItem, ...body } = await request.json();
+
+    // Trava 2 (2026-10-13): a tela manda o _rowNumber do item que ela tinha
+    // carregado. Se não bate com a linha da URL, a tela estava mostrando OUTRO
+    // item (ex.: trocou de item do mesmo lote antes de terminar de carregar) —
+    // e itens do mesmo lote DPJ têm o mesmo PA, então _verificacaoId não
+    // percebia. Caso real: 08/10, lote 4774, geladeira gravada por cima da
+    // lava-louças.
+    if (rowDoItem !== undefined && rowDoItem !== null && String(rowDoItem) !== String(rowNumber)) {
+      return NextResponse.json(
+        { erro: 'A tela estava mostrando outro item (a página mudou de item antes de salvar). Nada foi gravado — recarregue a página e refaça a edição.' },
+        { status: 409 }
+      );
+    }
 
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     const autor = getNomePorEmail(token?.email) || 'Desconhecido';
