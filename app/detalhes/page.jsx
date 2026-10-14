@@ -1455,7 +1455,7 @@ function DetalhesContent() {
                           {current?.TIPO_BEM || "Bem"} — {current?.ID_PASEI || "—"}
                         </h1>
                         <div style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:12,color:"#6b7280",marginTop:3 }}>
-                          NIV: {current?.NIV || "—"}{current?.PLACA ? ` · Placa: ${current.PLACA}` : ""} · Responsável: {responsavel || "—"}
+                          {listaKey === "DOACOES" && current?.LOTE ? `Lote #${current.LOTE} · ` : ""}NIV: {current?.NIV || "—"}{current?.PLACA ? ` · Placa: ${current.PLACA}` : ""} · Responsável: {responsavel || "—"}
                         </div>
                       </>
                     )}
@@ -1818,6 +1818,10 @@ function DetalhesContent() {
                     <Section title="Campos Doações">
                       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
                         <FieldView label="ID_PASEI" value={current?.ID_PASEI} mono highlight="#2563eb"/>
+                        {/* Lote de origem (DPJ-GC99) do bem doado */}
+                        {editMode
+                          ? <FieldEdit label="Lote" value={editData?.LOTE} onChange={v=>upd("LOTE",v)} mono/>
+                          : <FieldView label="Lote" value={current?.LOTE ? `#${current.LOTE}` : null} mono highlight="#2563eb"/>}
                         {editMode
                           ? <FieldEdit label="Data da Decisão" value={editData?.DATA_DECISAO} onChange={v=>upd("DATA_DECISAO",v)} type="date"/>
                           : <FieldView label="Data da Decisão" value={current?.DATA_DECISAO} mono/>}

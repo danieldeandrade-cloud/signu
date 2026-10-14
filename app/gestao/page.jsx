@@ -1133,6 +1133,7 @@ function GestaoConteudo() {
                       {abaAtiva==="DPJ_GC99"      && <ThSort campo="PRAZO_6MESES">Prazo 6m</ThSort>}
                       {(abaAtiva==="PCDF_1HIGEIA"||abaAtiva==="PCDF_2HIGEIA") && <ThSort campo="DEPOSITO">Depósito</ThSort>}
                       {abaAtiva==="PCDF_2HIGEIA"  && <ThSort campo="RESTRICAO_ROUBO">Roubo</ThSort>}
+                      {abaAtiva==="DOACOES"        && <ThSort campo="LOTE">Lote</ThSort>}
                       {abaAtiva==="DOACOES"        && <ThSort campo="DATA_DECISAO">Data Decisão</ThSort>}
                       {abaAtiva==="DOACOES"        && <ThSort campo="ENTIDADE_NOME">Entidade</ThSort>}
                       {abaAtiva==="CEGOC"          && <ThSort campo="DESTINACAO">Destinação</ThSort>}
@@ -1201,6 +1202,7 @@ function GestaoConteudo() {
                           {abaAtiva==="DPJ_GC99"      && <Cell mono><span title={dpjEncerrado ? "Item encerrado — prazo não se aplica" : undefined} style={{ color: prazoVencido ? "#f87171" : "#111827" }}>{dpjEncerrado ? "—" : (item.PRAZO_6MESES || "—")}</span></Cell>}
                           {(abaAtiva==="PCDF_1HIGEIA"||abaAtiva==="PCDF_2HIGEIA") && <Cell muted>{item.DEPOSITO || "—"}</Cell>}
                           {abaAtiva==="PCDF_2HIGEIA"  && <Cell right>{item.RESTRICAO_ROUBO === "TRUE" || item.RESTRICAO_ROUBO === true ? "🔒 Sim" : "—"}</Cell>}
+                          {abaAtiva==="DOACOES"        && <Cell mono>{item.LOTE ? `#${item.LOTE}` : "—"}</Cell>}
                           {abaAtiva==="DOACOES"        && <Cell mono muted>{item.DATA_DECISAO || "—"}</Cell>}
                           {abaAtiva==="DOACOES"        && (() => {
                             const ent = item._entidadePrevista || item.ENTIDADE_NOME || item.ENTIDADE;

@@ -140,6 +140,7 @@ const CAMPOS = {
     { id:"DATA_DECISAO",      label:"Data da Decisão *",   type:"date",     required:true, hint:"Data da decisão que autorizou a doação — define a ordem da fila" },
     { id:"ENTIDADE_NOME",     label:"Entidade Credenciada *", type:"select", required:true, options:ENTIDADES_FALLBACK },
     { id:"ID_PASEI",          label:"ID_PASEI *",          type:"text",     required:true,  placeholder:"Ex: 0038491-22.2024.8.07.0001" },
+    { id:"LOTE",              label:"Lote",                type:"text",     placeholder:"Ex: 4775", hint:"lote da DPJ-GC99 de onde vem o bem — preenchido sozinho se o PA já estiver na DPJ" },
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"PLACA",             label:"PLACA", hint:"sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF", type:"text", placeholder:"Ex: ABC1234 ou ABC1234/DF" },
@@ -502,6 +503,11 @@ export default function CadastroPage() {
       );
       setBuscandoDup(false);
       if (encontrados.length > 0) setDuplicata({ campo, valor: v, encontrados });
+      // Doação: se o PA já existe na DPJ-GC99, traz o número do lote de lá
+      if (listaKey === "DOACOES" && campo === "ID_PASEI") {
+        const lotes = [...new Set(encontrados.filter(e => e.lista === "DPJ-GC99" && e.item.LOTE).map(e => String(e.item.LOTE).trim()))];
+        if (lotes.length === 1) setFormData(prev => (prev.LOTE ? prev : { ...prev, LOTE: lotes[0] }));
+      }
     }, 600);
   };
 
