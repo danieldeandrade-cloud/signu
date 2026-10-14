@@ -11,6 +11,7 @@ import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico, diffCampos } from '@/lib/historico';
 import { reorganizarFilaDoacoes } from '@/lib/reorganizarFilaDoacoes';
+import { statusHigeiaPara } from '@/lib/statusReciclagem';
 import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO } from '@/lib/duplicidadeVeiculo';
 
 export async function GET(request, { params }) {
@@ -95,6 +96,11 @@ export async function PATCH(request, { params }) {
         if (dup) return NextResponse.json({ erro: mensagemDuplicado(dup) }, { status: 409 });
       }
     }
+
+    // Reciclagem em diligência = "EM DILIGÊNCIA HIGEIA" — aplica já aqui p/ o
+    // histórico registrar o valor que de fato vai p/ a planilha
+    const higeia = statusHigeiaPara(lista, body, itemAntes);
+    if (higeia) body.STATUS_DILIGENCIA = higeia;
 
     // Registra data/hora da última análise e quem editou (usado nas notificações
     // e no histórico/produtividade)
