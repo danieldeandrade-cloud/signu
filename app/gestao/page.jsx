@@ -6,6 +6,7 @@ import { exportarListaParaExcel, exportarTodasAsListasParaExcel } from "@/lib/ex
 import { ultimaObs } from "@/lib/observacoes";
 import { useEntidades } from "@/lib/useEntidades";
 import { contarUnidades, resumoLote } from "@/lib/lotesDpj";
+import { rowsParados, DIAS_PARADO } from "@/lib/parados";
 import { montarFilaDoacoes, blocoDoacao, BLOCO, BLOCO_META } from "@/lib/filaDoacoes";
 
 // Exportação HTML formatada para o relatório RENAJUD (abre no Excel com colunas e cores)
@@ -240,6 +241,8 @@ function GestaoConteudo() {
     return salvo && salvo.aba === aba ? salvo : { aba };
   });
   const restaurarRef = useRef(estadoInicial.pag ? estadoInicial : null);
+  // ?parados=1 (vindo do painel de Início): abre já filtrado nos parados +21d
+  const paradosUrlRef = useRef(searchParams.get("parados") === "1");
   const [abaAtiva, setAbaAtiva]     = useState(estadoInicial.aba);
   const [dados, setDados]           = useState([]);
   const [contagens, setContagens]   = useState({});
@@ -252,6 +255,7 @@ function GestaoConteudo() {
   const [filtroFlags,       setFiltroFlags]       = useState(new Set());
   const [filtroSemFib,      setFiltroSemFib]      = useState(false);
   const [filtroSemCeb,      setFiltroSemCeb]      = useState(false);
+  const [filtroParados,     setFiltroParados]     = useState(false); // parados há +21 dias (lib/parados.js)
   const [filtroSemAvaliacao, setFiltroSemAvaliacao] = useState(false);
   const [filtroSemOficioBaixa, setFiltroSemOficioBaixa] = useState(false);
   const [filtroSemOficioDetranSefaz, setFiltroSemOficioDetranSefaz] = useState(false);
@@ -355,7 +359,7 @@ function GestaoConteudo() {
 
   const totalFiltrosAtivos =
     filtroStatus.size + filtroTipo.size + filtroResp.size + filtroFlags.size +
-    (filtroSemFib ? 1 : 0) + (filtroSemCeb ? 1 : 0) + (filtroSemAvaliacao ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (filtroSemOficioDetranSefaz ? 1 : 0) + (filtroSemMandado ? 1 : 0) + filtroDestinacao.size + filtroLPC.size + (busca.trim() ? 1 : 0);
+    (filtroSemFib ? 1 : 0) + (filtroSemCeb ? 1 : 0) + (filtroParados ? 1 : 0) + (filtroSemAvaliacao ? 1 : 0) + (filtroSemOficioBaixa ? 1 : 0) + (filtroSemOficioDetranSefaz ? 1 : 0) + (filtroSemMandado ? 1 : 0) + filtroDestinacao.size + filtroLPC.size + (busca.trim() ? 1 : 0);
   const [ordenacao, setOrdenacao]   = useState({ campo:"_rowNumber", dir:"asc" });
   const [pag, setPag]               = useState(1);
   const POR_PAGINA = 50;
@@ -392,6 +396,7 @@ function GestaoConteudo() {
       setFiltroStatus(new Set(r.filtroStatus || []));
       setPag(r.pag || 1);
       if (r.ordenacao) setOrdenacao(r.ordenacao);
+      if (paradosUrlRef.current) { setFiltroParados(true); setPag(1); paradosUrlRef.current = false; }
       return;
     }
     setBusca("");
@@ -401,6 +406,8 @@ function GestaoConteudo() {
     setFiltroFlags(new Set());
     setFiltroSemFib(false);
     setFiltroSemCeb(false);
+    setFiltroParados(paradosUrlRef.current);
+    paradosUrlRef.current = false;
     setFiltroSemAvaliacao(false);
     setFiltroSemOficioBaixa(false);
     setFiltroSemOficioDetranSefaz(false);
@@ -469,6 +476,12 @@ function GestaoConteudo() {
     [abaAtiva, dados, entidadesFila, anotacoesDoacao]
   );
 
+  // Itens parados há +21 dias nesta aba (lib/parados.js — mesma regra do Início)
+  const paradosSet = useMemo(
+    () => rowsParados(dados, abaAtiva, i => getStatus(i, abaAtiva)),
+    [dados, abaAtiva]
+  );
+
   // Filtragem e ordenação
   const filtrados = useMemo(() => {
     let res = filaDoacao ? [...filaDoacao.itens, ...filaDoacao.aptidao] : [...dados];
@@ -496,6 +509,9 @@ function GestaoConteudo() {
     }
     if (filtroSemFib) {
       res = res.filter(i => !hasFlag(i, "FIB"));
+    }
+    if (filtroParados) {
+      res = res.filter(i => paradosSet.has(i._rowNumber));
     }
     if (filtroSemCeb) {
       res = res.filter(i => !hasFlag(i, "CEB_TEP_TIV"));
@@ -538,7 +554,7 @@ function GestaoConteudo() {
       return ordenacao.dir === "asc" ? r : -r;
     });
     return res;
-  }, [dados, filaDoacao, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroSemCeb, filtroSemAvaliacao, filtroSemOficioBaixa, filtroSemOficioDetranSefaz, filtroSemMandado, filtroDestinacao, filtroLPC, ordenacao, abaAtiva]);
+  }, [dados, filaDoacao, busca, filtroStatus, filtroTipo, filtroResp, filtroFlags, filtroSemFib, filtroSemCeb, filtroParados, paradosSet, filtroSemAvaliacao, filtroSemOficioBaixa, filtroSemOficioDetranSefaz, filtroSemMandado, filtroDestinacao, filtroLPC, ordenacao, abaAtiva]);
 
   // Valores de LPC (leilão) presentes nos itens de catálogo — alimenta o filtro
   const lpcOptions = useMemo(
@@ -575,7 +591,7 @@ function GestaoConteudo() {
 
   const limparFiltros = () => {
     setBusca(""); setFiltroStatus(new Set()); setFiltroTipo(new Set());
-    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setFiltroSemCeb(false); setFiltroSemAvaliacao(false); setFiltroSemOficioBaixa(false); setFiltroSemOficioDetranSefaz(false); setFiltroSemMandado(false); setFiltroDestinacao(new Set()); setFiltroLPC(new Set()); setPag(1);
+    setFiltroResp(new Set()); setFiltroFlags(new Set()); setFiltroSemFib(false); setFiltroSemCeb(false); setFiltroParados(false); setFiltroSemAvaliacao(false); setFiltroSemOficioBaixa(false); setFiltroSemOficioDetranSefaz(false); setFiltroSemMandado(false); setFiltroDestinacao(new Set()); setFiltroLPC(new Set()); setPag(1);
   };
 
   // Flags disponíveis na lista ativa (só exibe pill se houver ao menos 1 item com a flag)
@@ -805,6 +821,12 @@ function GestaoConteudo() {
                   placeholder="Buscar por PA, NIV, responsável, tipo…"
                   style={{ width:"100%", padding:"7px 10px 7px 30px", background:"#f3f4f6", border:"1.5px solid #b0b8c4", borderRadius:8, color:"#0f172a", fontSize:12, outline:"none", boxSizing:"border-box" }}/>
               </div>
+              {/* Parados há +21 dias — sempre à vista (mesma regra do painel de Início) */}
+              <button onClick={()=>{ setFiltroParados(v=>!v); setPag(1); }}
+                title={`Itens ativos sem nenhuma atualização há ${DIAS_PARADO} dias ou mais`}
+                style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", background: filtroParados ? "rgba(220,38,38,0.1)" : "#f3f4f6", border:`1px solid ${filtroParados ? "rgba(220,38,38,0.45)" : "#e5e7eb"}`, borderRadius:8, color: filtroParados ? "#dc2626" : "#374151", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                {filtroParados && "✓ "}⏳ Parados +{DIAS_PARADO}d <span style={{ fontSize:10, opacity:.7 }}>({paradosSet.size})</span>
+              </button>
               {/* Botão expandir */}
               <button onClick={()=>setFiltrosAbertos(o=>!o)}
                 style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", background: filtrosAbertos || totalFiltrosAtivos>0 ? "rgba(37,99,235,0.1)" : "#f3f4f6", border:`1px solid ${filtrosAbertos || totalFiltrosAtivos>0 ? "rgba(37,99,235,0.4)" : "#e5e7eb"}`, borderRadius:8, color: filtrosAbertos || totalFiltrosAtivos>0 ? "#2563eb" : "#374151", fontSize:12, fontWeight:600, cursor:"pointer" }}>
@@ -1018,6 +1040,9 @@ function GestaoConteudo() {
                 );})}
                 {filtroSemFib && (
                   <span onClick={()=>{setFiltroSemFib(false);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(248,113,113,0.1)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:20, fontSize:11, color:"#f87171", cursor:"pointer" }}>Sem FIB ✕</span>
+                )}
+                {filtroParados && (
+                  <span onClick={()=>{setFiltroParados(false);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.3)", borderRadius:20, fontSize:11, color:"#dc2626", cursor:"pointer" }}>Parados +{DIAS_PARADO}d ✕</span>
                 )}
                 {filtroSemCeb && (
                   <span onClick={()=>{setFiltroSemCeb(false);setPag(1);}} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", background:"rgba(96,165,250,0.1)", border:"1px solid rgba(96,165,250,0.3)", borderRadius:20, fontSize:11, color:"#3b82f6", cursor:"pointer" }}>Sem CEB/TEP/TIV ✕</span>

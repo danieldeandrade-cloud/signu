@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { agruparUnidades } from "@/lib/lotesDpj";
+import { DIAS_PARADO, ehEncerrado as ehEncerradoLib, podeFicarParado, diasSemMexida } from "@/lib/parados";
 
 // ─── CONFIG DAS LISTAS ────────────────────────────────────────────────────────
 const LISTAS_CONFIG = [
@@ -45,30 +46,11 @@ function resolverNomeServidor(email, nomeGoogle) {
 // status encerrado fica fora dos indicadores operacionais; "parado" = ativo
 // sem nenhuma mexida (ULTIMA_ANALISE → DATA_ATUALIZACAO → DATA_CADASTRO) há
 // DIAS_PARADO dias ou mais.
-const STATUS_ENCERRADO = ["RETIRADO","BAIXADO","CONCLUÍDO","CONCLUIDO","CANCELADO","ARQUIVADO","DOAÇÃO REALIZADA","VENDIDO E RETIRADO"];
-const DIAS_PARADO = 21;
-const ehEncerrado = (st) => STATUS_ENCERRADO.includes(String(st || "").toUpperCase().trim());
-// DPJ-GC99 em "PRAZO 6 MESES" não conta como parado: o NULEJ só assume o item
-// depois do marco de 6 meses da entrada (mesma regra do e-mail).
-const podeFicarParado = (listaKey, st) =>
-  !(listaKey === "DPJ_GC99" && String(st || "").toUpperCase().trim() === "PRAZO 6 MESES");
+// Regra de encerrado/parado: lib/parados.js (a mesma da Gestão e da Minha Fila)
+const ehEncerrado = ehEncerradoLib;
 const LISTAS_BENS = ["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA","DPJ_GC99","DOACOES"]; // Caixa SEI é processo, não bem
 const PREFIXO = { CEGOC:"CEG", PCDF_1HIGEIA:"PCDF1", PCDF_2HIGEIA:"PCDF2", DPJ_GC99:"DPJ", DOACOES:"DOA", CAIXA_SEI:"SEI" };
 
-function parseDataFlex(v) {
-  if (!v) return 0;
-  const s = String(v).trim();
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
-  m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  if (m) return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
-  const d = new Date(s);
-  return isNaN(d) ? 0 : d.getTime();
-}
-function diasSemMexida(item) {
-  const t = parseDataFlex(item.ULTIMA_ANALISE) || parseDataFlex(item.DATA_ATUALIZACAO) || parseDataFlex(item.DATA_CADASTRO);
-  return t ? Math.floor((Date.now() - t) / 86400000) : null;
-}
 // Tipos fora da lista do gráfico (ELETRÔNICO, MÓVEIS, vazio…) entram em OUTROS
 function normTipo(t) {
   const x = String(t || "").toUpperCase().trim();
@@ -399,11 +381,27 @@ export default function InicioPage() {
   const abrirItem = (l, r) => router.push(`/detalhes?lista=${l.rota}&row=${r._rowNumber}`);
   const idItem = (l, r) => r.ID || r.ID_LEGADO || `${PREFIXO[l.key]}-${String(r._rowNumber).padStart(4, "0")}`;
 
+  // Para onde levar: gestor → aba da Gestão; servidor (sem acesso à Gestão) →
+  // Minha Fila. `parados` já abre filtrado nos parados há +21 dias.
+  const abrirLista = (key, parados = false) => {
+    if (isGestor && !filtroServidor) router.push(`/gestao?aba=${key}${parados ? "&parados=1" : ""}`);
+    else router.push(`/fila?lista=${key}${parados ? "&parados=1" : ""}${filtroServidor ? `&servidor=${encodeURIComponent(filtroServidor)}` : ""}`);
+  };
+  const abrirParados = () => {
+    if (isGestor && !filtroServidor) {
+      // visão geral: abre a lista com mais parados
+      const top = [...ind.bens].sort((a, b) => b.parados.length - a.parados.length)[0];
+      if (top) abrirLista(top.key, true);
+    } else {
+      router.push(`/fila?parados=1${filtroServidor ? `&servidor=${encodeURIComponent(filtroServidor)}` : ""}`);
+    }
+  };
+
   const kpis = [
     { label:"Bens em andamento", value:ind.ativos.toLocaleString("pt-BR"), icon:"📦", color:"#2563eb",
       sub:`de ${ind.total.toLocaleString("pt-BR")} cadastrados · ${ind.encerrados.toLocaleString("pt-BR")} encerrados` },
     { label:`Parados há +${DIAS_PARADO} dias`, value:ind.parados.toLocaleString("pt-BR"), icon:"⏳", color:"#dc2626",
-      sub:"sem atualização (fora DPJ em prazo de 6 meses)" },
+      sub:"sem atualização · clique para ver a lista", onClick: abrirParados },
     filtroServidor
       ? { label:"Novos para você", value:ind.novos.toLocaleString("pt-BR"), icon:"🆕", color:"#16a34a", sub:"atribuídos e ainda não abertos" }
       : { label:"Sem responsável", value:ind.semResponsavel.toLocaleString("pt-BR"), icon:"👤", color:"#d97706", sub:"itens ativos sem ninguém atribuído" },
@@ -479,8 +477,9 @@ export default function InicioPage() {
 
           {/* KPI CARDS */}
           <div className="signu-grid-5" style={{ marginBottom:24 }}>
-            {kpis.map(({ label,value,icon,color,sub }) => (
-              <div key={label} style={{ background:"#fff",border:`1px solid ${color}22`,borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"18px 20px",position:"relative",overflow:"hidden" }}>
+            {kpis.map(({ label,value,icon,color,sub,onClick }) => (
+              <div key={label} onClick={onClick} title={onClick ? "Abrir a lista filtrada" : undefined}
+                style={{ background:"#fff",border:`1px solid ${color}22`,borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"18px 20px",position:"relative",overflow:"hidden",cursor:onClick?"pointer":"default" }}>
                 <div style={{ position:"absolute",top:0,right:0,width:60,height:60,borderRadius:"0 12px 0 60px",background:`${color}08` }}/>
                 <div style={{ fontSize:22,marginBottom:8 }}>{icon}</div>
                 <div style={{ fontSize:28,fontWeight:800,color:"#0f172a",lineHeight:1,marginBottom:4 }}>
@@ -500,7 +499,7 @@ export default function InicioPage() {
                 {ind.porLista.map((lista) => {
                   const pctEncerrado = lista.total ? Math.round((lista.encerrados / lista.total) * 100) : 0;
                   return (
-                    <div key={lista.key} onClick={() => router.push(`/gestao?aba=${lista.key}`)} onMouseEnter={()=>setHoveredCard(lista.key)} onMouseLeave={()=>setHoveredCard(null)} style={{ background:"#fff",border:`1px solid ${hoveredCard===lista.key?lista.color+"55":lista.color+"18"}`,borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"16px 18px",cursor:"pointer",transition:"all 0.18s ease",transform:hoveredCard===lista.key?"translateY(-2px)":"none" }}>
+                    <div key={lista.key} onClick={() => abrirLista(lista.key)} onMouseEnter={()=>setHoveredCard(lista.key)} onMouseLeave={()=>setHoveredCard(null)} style={{ background:"#fff",border:`1px solid ${hoveredCard===lista.key?lista.color+"55":lista.color+"18"}`,borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",padding:"16px 18px",cursor:"pointer",transition:"all 0.18s ease",transform:hoveredCard===lista.key?"translateY(-2px)":"none" }}>
                       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10 }}>
                         <div style={{ display:"flex",alignItems:"center",gap:8 }}>
                           <span style={{ fontSize:18 }}>{lista.icon}</span>
@@ -529,7 +528,10 @@ export default function InicioPage() {
                           </div>
                           <div style={{ display:"flex",justifyContent:"space-between",fontSize:10,color:"#6b7280" }}>
                             <span>{lista.encerrados.toLocaleString("pt-BR")} encerrados ({pctEncerrado}%)</span>
-                            <span style={{ color: lista.parados.length ? "#dc2626" : "#6b7280", fontWeight: lista.parados.length ? 700 : 400 }}>
+                            <span
+                              onClick={lista.parados.length ? (e => { e.stopPropagation(); abrirLista(lista.key, true); }) : undefined}
+                              title={lista.parados.length ? "Ver só os parados desta lista" : undefined}
+                              style={{ color: lista.parados.length ? "#dc2626" : "#6b7280", fontWeight: lista.parados.length ? 700 : 400, textDecoration: lista.parados.length ? "underline" : "none", cursor: lista.parados.length ? "pointer" : "default" }}>
                               ⏳ {lista.parados.length} parados +{DIAS_PARADO}d
                             </span>
                           </div>
