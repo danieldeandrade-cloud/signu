@@ -25,6 +25,23 @@ const SERVIDORES = [
   "Cláudia Santos","Loara Passo","Letícia Mota","Marcelo Oliveira",
 ];
 
+// Distribuição automática — mesma regra do Cadastro e da Importação SEI:
+//  - CEGOC / PCDF 1ª / PCDF 2ª: Amanda, Letícia e Cláudia ficam FORA do rateio
+//    (ex.: depois da baixa do RENAJUD, o item volta p/ Carla, Carlos, Loara ou
+//    Marcelo); item em RENAJUD vai só p/ Amanda e Letícia;
+//  - DPJ-GC99: sempre a Cláudia.
+const RENAJUD_SERVIDORES = ["Amanda Junqueira", "Letícia Mota"];
+const FORA_RATEIO_VEICULOS = ["Amanda Junqueira", "Letícia Mota", "Cláudia Santos"];
+function poolDistribuicao(listaKey, status) {
+  if (["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA"].includes(listaKey)) {
+    if (String(status || "").toUpperCase().trim() === "RENAJUD")
+      return { pool: RENAJUD_SERVIDORES, motivo: "Item em RENAJUD: só Amanda e Letícia" };
+    return { pool: SERVIDORES.filter(s => !FORA_RATEIO_VEICULOS.includes(s)), motivo: "Amanda, Cláudia e Letícia ficam fora do rateio nesta lista" };
+  }
+  if (listaKey === "DPJ_GC99") return { pool: ["Cláudia Santos"], motivo: "DPJ-GC99 é sempre da Cláudia" };
+  return { pool: SERVIDORES, motivo: "" };
+}
+
 const TODAS_LISTAS_ROTA = [
   { rota:"cegoc" }, { rota:"pcdf1" }, { rota:"pcdf2" },
   { rota:"dpj" },   { rota:"doacoes_diligencia" }, { rota:"sei" },
@@ -1040,28 +1057,51 @@ function DetalhesContent() {
   const [autoResp,    setAutoResp]    = useState(null);   // { servidor, contagens }
   const [autoLoading, setAutoLoading] = useState(false);
 
-  const calcularDistribuicao = async () => {
+  // Mesmo algoritmo do Cadastro: menor carga entre os permitidos (empate →
+  // sorteio), sem repetir quem recebeu o último item desta lista.
+  const calcularDistribuicao = async (status = editData?.STATUS_DILIGENCIA) => {
     setAutoLoading(true);
     setAutoResp(null);
+    const { pool, motivo } = poolDistribuicao(listaKey, status);
     try {
       const contagens = Object.fromEntries(SERVIDORES.map(s => [s, 0]));
+      let ultimoResponsavel = "";
       await Promise.allSettled(
         TODAS_LISTAS_ROTA.map(async ({ rota }) => {
           try {
             const res  = await fetch(`/api/bens/${rota}`);
             const json = await res.json();
-            (json.dados || []).forEach(item => {
+            const dados = json.dados || [];
+            dados.forEach(item => {
               const resp = item.RESPONSAVEL || item.Responsavel || "";
               if (contagens[resp] !== undefined) contagens[resp]++;
             });
+            if (rota === lista && dados.length) ultimoResponsavel = dados[dados.length - 1].RESPONSAVEL || "";
           } catch {}
         })
       );
-      const servidor = SERVIDORES.reduce((a, b) => contagens[a] <= contagens[b] ? a : b);
-      setAutoResp({ servidor, contagens });
+      const ordenados = [...pool].sort((a, b) => (contagens[a] ?? 0) - (contagens[b] ?? 0));
+      let empatados = ordenados.filter(s => (contagens[s] ?? 0) === (contagens[ordenados[0]] ?? 0));
+      if (ultimoResponsavel && pool.length > 1 && empatados.includes(ultimoResponsavel)) {
+        const semUltimo = empatados.filter(s => s !== ultimoResponsavel);
+        if (semUltimo.length) empatados = semUltimo;
+        else {
+          const restantes = ordenados.filter(s => s !== ultimoResponsavel);
+          const prox = Math.min(...restantes.map(s => contagens[s] ?? 0));
+          empatados = restantes.filter(s => (contagens[s] ?? 0) === prox);
+        }
+      }
+      const servidor = empatados[Math.floor(Math.random() * empatados.length)];
+      setAutoResp({ servidor, contagens, pool, motivo });
     } catch {}
     setAutoLoading(false);
   };
+
+  // Trocou o status com a distribuição automática escolhida (ex.: saiu de
+  // RENAJUD): recalcula, porque o grupo de servidores muda
+  useEffect(() => {
+    if (editMode && editData?.RESPONSAVEL === "__AUTO__") calcularDistribuicao(editData?.STATUS_DILIGENCIA);
+  }, [editData?.STATUS_DILIGENCIA]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Avança o fluxo de HIGEIA (1ª ou 2ª — campoStatus = "STATUS_1HIGEIA" | "STATUS_2HIGEIA")
   // para o próximo status.
@@ -1664,12 +1704,12 @@ function DetalhesContent() {
                                   <span style={{ fontSize:16 }}>⚡</span>
                                   <div>
                                     <div style={{ fontSize:12,fontWeight:700,color:"#2563eb" }}>🎯 {autoResp.servidor}</div>
-                                    <div style={{ fontSize:10,color:"#4b5563",marginTop:1 }}>Servidor com menos processos recebidos</div>
+                                    <div style={{ fontSize:10,color:"#4b5563",marginTop:1 }}>Servidor com menos processos recebidos{autoResp.motivo ? ` · ${autoResp.motivo}` : ""}</div>
                                   </div>
                                 </div>
                                 <div style={{ padding:"10px 14px" }}>
                                   <div style={{ display:"flex",flexWrap:"wrap",gap:5 }}>
-                                    {SERVIDORES.map(s => {
+                                    {(autoResp.pool || SERVIDORES).map(s => {
                                       const n = autoResp.contagens[s] ?? 0;
                                       const atual = s === autoResp.servidor;
                                       return (
