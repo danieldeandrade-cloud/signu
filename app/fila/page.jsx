@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { parseNotas, ultimaObs } from "@/lib/observacoes";
 import { contarUnidades } from "@/lib/lotesDpj";
-import { rowsParados, DIAS_PARADO } from "@/lib/parados";
+import { rowsParados, DIAS_PARADO, ehEncerrado } from "@/lib/parados";
 
 // Lista de servidores (exibida no seletor manual de fallback)
 const SERVIDORES = [
@@ -708,6 +708,9 @@ export default function SIGNUMinhaFila() {
         if (!res.ok) throw new Error(json.erro || `HTTP ${res.status}`);
         return (json.dados || [])
           .filter(r => !(cfg.key === "DOACOES" && DOACAO_ENCERRADA.includes(String(r.STATUS_LOCAL_PA || "").trim().toUpperCase())))
+          // DPJ-GC99 retirada/encerrada não é trabalho: fica no sistema só p/
+          // os relatórios estatísticos de fim de ano — fora da fila (e do "Novo")
+          .filter(r => !(cfg.key === "DPJ_GC99" && ehEncerrado(r.STATUS_DILIGENCIA)))
           .map(r => ({
           ...r,
           id: r.ID_LEGADO || `${cfg.prefixo}-${String(r._rowNumber).padStart(4,"0")}`,
