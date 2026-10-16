@@ -23,6 +23,7 @@ import { getAllRows, addRow, updateRow } from '@/lib/googleSheets';
 import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico } from '@/lib/historico';
+import { prazo6Meses, prazoVencido } from '@/lib/prazoDpj';
 import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO, faltaResponsavel } from '@/lib/duplicidadeVeiculo';
 
 const GESTORES = [
@@ -68,6 +69,15 @@ export async function PATCH(request, { params }) {
       // da importação SEI.
       if (['pcdf1', 'pcdf2'].includes(staging.LISTA_DESTINO) && !campos.DESTINACAO) {
         campos.DESTINACAO = 'RECICLAGEM';
+      }
+      // DPJ-GC99: mesma regra do cadastro manual — o item nasce em "PRAZO 6
+      // MESES" (ou já EM DILIGÊNCIA se os 6 meses da entrada passaram) e com o
+      // vencimento calculado. Sem isso entrava sem situação (lote 4807, 09/10).
+      if (staging.LISTA_DESTINO === 'dpj') {
+        if (campos.DATA_ENTRADA && !campos.PRAZO_6MESES) campos.PRAZO_6MESES = prazo6Meses(campos.DATA_ENTRADA);
+        if (!String(campos.STATUS_DILIGENCIA || '').trim()) {
+          campos.STATUS_DILIGENCIA = campos.DATA_ENTRADA && prazoVencido(campos.DATA_ENTRADA) ? 'EM DILIGÊNCIA' : 'PRAZO 6 MESES';
+        }
       }
       if (faltaResponsavel(staging.LISTA_DESTINO, campos)) {
         return NextResponse.json({ erro: 'Defina o responsável antes de promover — sem ele o item não aparece na Minha Fila de ninguém.' }, { status: 400 });
