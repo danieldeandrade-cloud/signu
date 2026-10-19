@@ -53,7 +53,9 @@ const estaAtivo = (status) => {
 const contaComoParado = (b) =>
   b.dias !== null && b.dias >= DIAS_SEM_ANALISE &&
   !STATUS_ENCERRADO.includes(String(b.status || '').toUpperCase().trim()) &&
-  !(b.lista === 'DPJ-GC99' && String(b.status || '').toUpperCase().trim() === 'PRAZO 6 MESES');
+  !(b.lista === 'DPJ-GC99' && String(b.status || '').toUpperCase().trim() === 'PRAZO 6 MESES') &&
+  // standby: ofício de baixa enviado ao DETRAN, aguardando resposta (lib/parados.js)
+  String(b.status || '').toUpperCase().trim() !== 'AGUARDANDO BAIXA DEFINITIVA DETRAN';
 
 // Colunas de status "operacionais" mostradas na matriz por lista / panorama
 const STATUS_PRINCIPAIS = ['EM DILIGÊNCIA', 'EM DILIGÊNCIA HIGEIA', 'PRAZO 6 MESES', 'LPC', 'CATÁLOGO', 'RENAJUD'];

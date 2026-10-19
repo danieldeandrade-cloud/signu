@@ -43,6 +43,7 @@ const STATUS_META = {
   "PRAZO 6 MESES":      { color:"#fbbf24" },
   "BAIXADO":            { color:"#6b7280" },
   "VENDIDO":            { color:"#0d9488" },
+  "AGUARDANDO BAIXA DEFINITIVA DETRAN": { color:"#7c3aed" },
   "VENDIDO E RETIRADO": { color:"#6b7280" },
   "EM ANÁLISE":         { color:"#60a5fa" },
   "AGUARDANDO ENTIDADE":{ color:"#fbbf24" },

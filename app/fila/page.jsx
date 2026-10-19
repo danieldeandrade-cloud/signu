@@ -141,6 +141,7 @@ const STATUS_META = {
   "BAIXADO":         { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
   "RETIRADO":        { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
   "VENDIDO":         { color: "#0d9488", bg: "rgba(13,148,136,0.12)"  },
+  "AGUARDANDO BAIXA DEFINITIVA DETRAN": { color: "#7c3aed", bg: "rgba(124,58,237,0.10)" },
   "VENDIDO E RETIRADO": { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
   // Ações SEI
   "DILIGÊNCIA":      { color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
@@ -683,10 +684,15 @@ export default function SIGNUMinhaFila() {
     }
   }, [session]);
 
-  const statusOptions = ["EM DILIGÊNCIA", "EM DILIGÊNCIA HIGEIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "RENAJUD", "LPC", "CATÁLOGO", "BAIXADO", "RETIRADO", "VENDIDO", "VENDIDO E RETIRADO"];
-  // VENDIDO / VENDIDO E RETIRADO só existem na CEGOC (bens de circulação leiloados)
+  const statusOptions = ["EM DILIGÊNCIA", "EM DILIGÊNCIA HIGEIA", "AGUARDANDO", "ATRASADO", "PRAZO 6 MESES", "RENAJUD", "LPC", "CATÁLOGO", "BAIXADO", "RETIRADO", "VENDIDO", "VENDIDO E RETIRADO", "AGUARDANDO BAIXA DEFINITIVA DETRAN"];
+  // VENDIDO / VENDIDO E RETIRADO só existem na CEGOC (bens de circulação leiloados);
+  // AGUARDANDO BAIXA DEFINITIVA DETRAN só na PCDF 1ª/2ª (standby — lib/parados.js)
   const STATUS_SO_CEGOC = ["VENDIDO", "VENDIDO E RETIRADO"];
-  const statusOptionsDoItem = (item) => item?.listaOrigem === "CEGOC" ? statusOptions : statusOptions.filter(s => !STATUS_SO_CEGOC.includes(s));
+  const STATUS_SO_PCDF  = ["AGUARDANDO BAIXA DEFINITIVA DETRAN"];
+  const statusOptionsDoItem = (item) => {
+    const pcdf = item?.listaOrigem === "PCDF_1HIGEIA" || item?.listaOrigem === "PCDF_2HIGEIA";
+    return statusOptions.filter(s => (item?.listaOrigem === "CEGOC" || !STATUS_SO_CEGOC.includes(s)) && (pcdf || !STATUS_SO_PCDF.includes(s)));
+  };
   const listaOptions  = ["CEGOC", "PCDF_1HIGEIA", "PCDF_2HIGEIA", "DPJ_GC99", "CAIXA_SEI", "DOACOES"];
 
   // Carrega itens de todas as listas atribuídos ao usuário.

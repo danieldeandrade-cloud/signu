@@ -67,7 +67,9 @@ const inputStDPJ = { width:"100%",boxSizing:"border-box",padding:"7px 9px",backg
 const STATUS_OPTIONS  = ["AGUARDANDO","EM DILIGÊNCIA","ATRASADO","PRAZO 6 MESES","BAIXADO","EM DILIGÊNCIA HIGEIA","LPC","CATÁLOGO","RENAJUD"];
 // PCDF 1ª/2ª: RETIRADO = bem saiu do controle ativo do NULEJ (restituído, etc)
 // — só essas duas listas, não faz sentido em CEGOC. Ver handleStatusDiligencia.
-const STATUS_OPTIONS_PCDF = [...STATUS_OPTIONS, "RETIRADO"];
+// AGUARDANDO BAIXA DEFINITIVA DETRAN: ofício de baixa enviado, aguardando o
+// DETRAN — standby (não arquiva, mas sai do controle de prazo; lib/parados.js)
+const STATUS_OPTIONS_PCDF = [...STATUS_OPTIONS, "RETIRADO", "AGUARDANDO BAIXA DEFINITIVA DETRAN"];
 // DPJ: campos que são do destino do item mas costumam valer pro lote todo —
 // ao mudar um deles, o Detalhes pergunta a quais outros itens do lote aplicar.
 const CAMPOS_LOTE_DPJ = ["STATUS_DILIGENCIA", "LPC", "DATA_SAIDA", "MOTIVO_SAIDA"];
@@ -101,6 +103,7 @@ const STATUS_META = {
   "DOAÇÃO EM ANDAMENTO": { color: "#34d399", bg: "rgba(52,211,153,0.12)"  },
   "VENDIDO":             { color: "#0d9488", bg: "rgba(13,148,136,0.12)"  },
   "VENDIDO E RETIRADO":  { color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+  "AGUARDANDO BAIXA DEFINITIVA DETRAN": { color: "#7c3aed", bg: "rgba(124,58,237,0.10)" },
 };
 
 const TIPO_ICON = { CARRO:"🚗", MOTO:"🏍️", CAMINHONETE:"🛻", CAMINHÃO:"🚛", REBOQUE:"🚜", OUTROS:"📦" };
