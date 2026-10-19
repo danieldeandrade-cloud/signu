@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { parseNotas, ultimaObs, substituirNota } from "@/lib/observacoes";
 import TimelineObservacoes from "@/components/TimelineObservacoes";
 import { contarUnidades } from "@/lib/lotesDpj";
+import { hojeBrasilia } from "@/lib/prazoDpj";
 import { rowsParados, DIAS_PARADO, ehEncerrado } from "@/lib/parados";
 
 // Lista de servidores (exibida no seletor manual de fallback)
@@ -594,6 +595,30 @@ export default function SIGNUMinhaFila() {
   };
 
   const updDrawer = (field, val) => setDrawerEditData(prev => ({ ...prev, [field]: val }));
+
+  // Flags na PCDF 1ª/2ª: ligar CEB/TEP/TIV ou Ofício de Baixa avança a etapa
+  // HIGEIA, igual ao Detalhes —
+  //   CEB/TEP/TIV: "EM PROCESSAMENTO"/vazia → "TEP REGISTRADO" (+ DATA_TEP);
+  //   Ofício de Baixa: "TEP REGISTRADO"/"ENVIAR OFÍCIO DETRAN" → "AGUARDAR
+  //   RESPOSTA DETRAN" (+ DATA_OFICIO_DETRAN).
+  // Desligar só desliga a flag. Nas demais listas é só a flag.
+  const handleFlagDrawer = (field, novo) => {
+    setDrawerEditData(prev => {
+      const next = { ...prev, [field]: novo };
+      const pcdf = selectedItem?.listaOrigem === "PCDF_1HIGEIA" || selectedItem?.listaOrigem === "PCDF_2HIGEIA";
+      if (!pcdf || novo !== "TRUE") return next;
+      const campoEtapa = selectedItem.listaOrigem === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA";
+      if (field === "CEB_TEP_TIV" && (!prev[campoEtapa] || prev[campoEtapa] === "EM PROCESSAMENTO")) {
+        next[campoEtapa] = "TEP REGISTRADO";
+        if (!prev.DATA_TEP) next.DATA_TEP = hojeBrasilia();
+      }
+      if (field === "OFICIO_BAIXA" && ["TEP REGISTRADO", "ENVIAR OFÍCIO DETRAN"].includes(prev[campoEtapa])) {
+        next[campoEtapa] = "AGUARDAR RESPOSTA DETRAN";
+        if (!prev.DATA_OFICIO_DETRAN) next.DATA_OFICIO_DETRAN = hojeBrasilia();
+      }
+      return next;
+    });
+  };
 
   // RETIRADO (PCDF 1ª/2ª): bem sai do controle ativo do NULEJ (restituído,
   // etc) — exige motivo antes de aplicar, então só abre o modal aqui; quem
@@ -1381,6 +1406,7 @@ export default function SIGNUMinhaFila() {
                       {[
                         ["PA SEI", selectedItem.PROCESSO_SEI, true],
                         ["Status",             selectedItem.STATUS_DILIGENCIA],
+                        (selectedItem.listaOrigem === "PCDF_1HIGEIA" || selectedItem.listaOrigem === "PCDF_2HIGEIA") && ["Etapa HIGEIA", selectedItem[selectedItem.listaOrigem === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA"] || "EM PROCESSAMENTO"],
                         ["Tipo de Bem",        selectedItem.TIPO_BEM],
                         selectedItem.listaOrigem !== "DOACOES" && ["Destinação", selectedItem.DESTINACAO],
                         selectedItem.listaOrigem === "DOACOES" && ["Entidade", selectedItem.ENTIDADE_NOME],
@@ -1473,7 +1499,7 @@ export default function SIGNUMinhaFila() {
                   const on = drawerEditData[field]==="TRUE"||drawerEditData[field]===true;
                   return (
                     <div key={field} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 12px", background:"#f9fafb", border:`1px solid ${on?cor+"44":"#e5e7eb"}`, borderRadius:8, cursor:"pointer" }}
-                      onClick={()=>updDrawer(field, on?"FALSE":"TRUE")}>
+                      onClick={()=>handleFlagDrawer(field, on?"FALSE":"TRUE")}>
                       <span style={{ fontSize:13, color:on?cor:"#374151", fontWeight:on?600:400 }}>{on?"✓ ":""}{label}</span>
                       <div style={{ width:36, height:20, borderRadius:10, background:on?cor:"#d1d5db", position:"relative", transition:"background .2s" }}>
                         <div style={{ position:"absolute", top:2, left:on?18:2, width:16, height:16, borderRadius:"50%", background:"#fff", transition:"left .2s" }}/>
@@ -1515,6 +1541,11 @@ export default function SIGNUMinhaFila() {
                       {tog("FIB Expedida",       "FIB",           "#22c55e")}
                       {selectedItem.listaOrigem !== "CEGOC" && tog("CEB/TEP/TIV Emitido","CEB_TEP_TIV",   "#60a5fa")}
                       {selectedItem.listaOrigem !== "CEGOC" && tog("Ofício de Baixa DETRAN","OFICIO_BAIXA","#f472b6")}
+                      {(selectedItem.listaOrigem === "PCDF_1HIGEIA" || selectedItem.listaOrigem === "PCDF_2HIGEIA") && (
+                        <div style={{ fontSize:11, color:"#6b7280", padding:"2px 4px" }}>
+                          Etapa HIGEIA: <b style={{ color:"#0f172a" }}>{drawerEditData[selectedItem.listaOrigem === "PCDF_1HIGEIA" ? "STATUS_1HIGEIA" : "STATUS_2HIGEIA"] || "EM PROCESSAMENTO"}</b> <span>(avança sozinha ao ligar CEB/TEP/TIV e Ofício de Baixa)</span>
+                        </div>
+                      )}
                       {tog("Restrição Roubo/Furto","RESTRICAO_ROUBO","#fbbf24")}
                     </div>
                     )}

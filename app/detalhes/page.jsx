@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { useEntidades } from "@/lib/useEntidades";
 import { parseNotas, tsToMs, substituirNota } from "@/lib/observacoes";
 import { resumoLote } from "@/lib/lotesDpj";
+import { hojeBrasilia } from "@/lib/prazoDpj";
 import { agoraServidor, carimboBR } from "@/lib/horaServidor";
 import TimelineObservacoes from "@/components/TimelineObservacoes";
 
@@ -349,7 +350,7 @@ function StepperHigeia({ status, baixado, onAvancar }) {
       {/* Botões de avanço conforme etapa atual */}
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
         {s2 === "EM PROCESSAMENTO" && (
-          <button onClick={()=>onAvancar("TEP REGISTRADO", { DATA_TEP: new Date().toISOString().split("T")[0], CEB_TEP_TIV: "TRUE" })}
+          <button onClick={()=>onAvancar("TEP REGISTRADO", { DATA_TEP: hojeBrasilia(), CEB_TEP_TIV: "TRUE" })}
             style={{ padding:"8px 16px", borderRadius:8, background:"rgba(37,99,235,0.1)", border:"1.5px solid #93c5fd", color:"#2563eb", fontSize:12, fontWeight:700, cursor:"pointer" }}>
             📄 Registrar CEB/TEP/TIV
           </button>
@@ -360,13 +361,13 @@ function StepperHigeia({ status, baixado, onAvancar }) {
           </div>
         )}
         {s2 === "AGUARDAR RESPOSTA DETRAN" && (
-          <button onClick={()=>onAvancar("GERAR TAP", { DATA_RESPOSTA_DETRAN: new Date().toISOString().split("T")[0] })}
+          <button onClick={()=>onAvancar("GERAR TAP", { DATA_RESPOSTA_DETRAN: hojeBrasilia() })}
             style={{ padding:"8px 16px", borderRadius:8, background:"rgba(167,139,250,0.12)", border:"1px solid rgba(167,139,250,0.4)", color:"#a78bfa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
             📩 Resposta recebida → Gerar TAP
           </button>
         )}
         {s2 === "GERAR TAP" && (
-          <button onClick={()=>onAvancar("FINALIZADO", { DATA_TAP: new Date().toISOString().split("T")[0] })}
+          <button onClick={()=>onAvancar("FINALIZADO", { DATA_TAP: hojeBrasilia() })}
             style={{ padding:"8px 16px", borderRadius:8, background:"rgba(34,197,94,0.12)", border:"1px solid rgba(34,197,94,0.5)", color:"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
             ✅ TAP gerado → Finalizar
           </button>
@@ -998,7 +999,7 @@ function DetalhesContent() {
       const next = { ...prev, CEB_TEP_TIV: v };
       if (v && (!prev[campoStatus] || prev[campoStatus] === "EM PROCESSAMENTO")) {
         next[campoStatus] = "TEP REGISTRADO";
-        if (!prev.DATA_TEP) next.DATA_TEP = new Date().toISOString().split("T")[0];
+        if (!prev.DATA_TEP) next.DATA_TEP = hojeBrasilia();
       }
       return next;
     });
@@ -1011,7 +1012,7 @@ function DetalhesContent() {
       const next = { ...prev, [campoStatus]: v };
       if (v && v !== "EM PROCESSAMENTO") {
         next.CEB_TEP_TIV = "TRUE";
-        if (!prev.DATA_TEP) next.DATA_TEP = new Date().toISOString().split("T")[0];
+        if (!prev.DATA_TEP) next.DATA_TEP = hojeBrasilia();
       }
       return next;
     });
@@ -1024,7 +1025,7 @@ function DetalhesContent() {
       const next = { ...prev, OFICIO_BAIXA: v };
       if (v && ["TEP REGISTRADO", "ENVIAR OFÍCIO DETRAN"].includes(prev[campoStatus])) {
         next[campoStatus] = "AGUARDAR RESPOSTA DETRAN";
-        if (!prev.DATA_OFICIO_DETRAN) next.DATA_OFICIO_DETRAN = new Date().toISOString().split("T")[0];
+        if (!prev.DATA_OFICIO_DETRAN) next.DATA_OFICIO_DETRAN = hojeBrasilia();
       }
       return next;
     });
