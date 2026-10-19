@@ -7,7 +7,7 @@ import { parseNotas, ultimaObs, substituirNota } from "@/lib/observacoes";
 import TimelineObservacoes from "@/components/TimelineObservacoes";
 import { contarUnidades } from "@/lib/lotesDpj";
 import { hojeBrasilia } from "@/lib/prazoDpj";
-import { rowsParados, DIAS_PARADO, ehEncerrado } from "@/lib/parados";
+import { rowsParados, DIAS_PARADO, ehEncerrado, ehNovoItem } from "@/lib/parados";
 
 // Lista de servidores (exibida no seletor manual de fallback)
 const SERVIDORES = [
@@ -886,8 +886,8 @@ export default function SIGNUMinhaFila() {
   // de qualquer outra ordenação escolhida — é o problema que estamos
   // resolvendo (servidor não percebe o que chegou novo na fila dele).
   const sorted = [...filtered].sort((a, b) => {
-    const novoA = a.VISTO_EM ? 0 : 1;
-    const novoB = b.VISTO_EM ? 0 : 1;
+    const novoA = ehNovoItem(a.listaOrigem, a) ? 1 : 0;
+    const novoB = ehNovoItem(b.listaOrigem, b) ? 1 : 0;
     if (novoA !== novoB) return novoB - novoA;
 
     const mul = sortDir === "asc" ? 1 : -1;
@@ -908,7 +908,7 @@ export default function SIGNUMinhaFila() {
   const LISTAS_COM_LOTE = ["DPJ_GC99", "DOACOES"];
   const mostraLote = sorted.some(i => LISTAS_COM_LOTE.includes(i.listaOrigem));
 
-  const novosCount = filtered.filter(i => !i.VISTO_EM).length;
+  const novosCount = filtered.filter(i => ehNovoItem(i.listaOrigem, i)).length;
 
   const atrasadosCount = fila.filter(i => i.STATUS_DILIGENCIA === "ATRASADO").length;
 
@@ -1312,7 +1312,7 @@ export default function SIGNUMinhaFila() {
                         ? { t:`🔒 ${rInfo.pendentes}p`, c:"#f59e0b" }
                         : { t:"🔒 ✓", c:"#22c55e" });
                     }
-                    const ehNovo = !item.VISTO_EM;
+                    const ehNovo = ehNovoItem(item.listaOrigem, item);
                     const bgBase = ehNovo ? "rgba(34,197,94,0.06)" : (idx%2===0?"transparent":"#fafafa");
                     return (
                       <tr key={item.id} onClick={() => abrirDrawer(item)}

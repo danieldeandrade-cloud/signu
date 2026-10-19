@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { agruparUnidades } from "@/lib/lotesDpj";
-import { DIAS_PARADO, ehEncerrado as ehEncerradoLib, podeFicarParado, diasSemMexida } from "@/lib/parados";
+import { DIAS_PARADO, ehEncerrado as ehEncerradoLib, podeFicarParado, diasSemMexida, ehNovoItem } from "@/lib/parados";
 
 // ─── CONFIG DAS LISTAS ────────────────────────────────────────────────────────
 const LISTAS_CONFIG = [
@@ -347,7 +347,7 @@ export default function InicioPage() {
         pesoBaixado: reciclagem.filter(r => ehEncerrado(status(r))).reduce((a, r) => a + pesoKg(r), 0),
         // Lotes de doação aguardando início ficam sem responsável de propósito
         semResponsavel: ativos.filter(r => !String(r.RESPONSAVEL || "").trim() && !(cfg.key === "DOACOES" && !status(r))).length,
-        novos: ativos.filter(r => r._itens.some(i => !i.VISTO_EM)).length,
+        novos: ativos.filter(r => r._itens.some(i => ehNovoItem(cfg.key, i, i[cfg.statusField]))).length,
       };
     });
     const bens = porLista.filter(l => LISTAS_BENS.includes(l.key));
