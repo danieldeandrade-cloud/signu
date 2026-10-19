@@ -54,6 +54,10 @@ const LISTAS_FILA = [
   { key:"DOACOES",      rota:"doacoes_diligencia", prefixo:"DOA", statusField:"STATUS_LOCAL_PA" },
 ];
 
+// A aba da CEGOC NÃO tem as colunas CEB_TEP_TIV e OFICIO_BAIXA (só PCDF 1ª/2ª):
+// gravar nelas se perdia sem erro, então a CEGOC não oferece esses botões.
+const SO_PCDF_FLAGS = ["CEB_TEP_TIV", "OFICIO_BAIXA"];
+
 // Doações já encerradas não são trabalho pendente — ficam fora da fila
 const DOACAO_ENCERRADA = ["CONCLUÍDO", "CONCLUIDO", "CANCELADO"];
 const STATUS_LOCAL_PA_OPTIONS = ["EM ANÁLISE","AGUARDANDO ENTIDADE","AGUARDANDO APTIDÃO","EM DILIGÊNCIA","SEMA","SGC","GC","ENTIDADE","CONCLUÍDO","CANCELADO"];
@@ -815,8 +819,9 @@ export default function SIGNUMinhaFila() {
       if (flagAtiva(item, "FIB"))                                                                        return false;
     }
     if (filtroParados && !paradosFila.has(`${item.listaOrigem}:${item._rowNumber}`))                 return false;
+    // CEB/TEP/TIV só existe nas PCDF (a aba da CEGOC não tem a coluna)
     if (filtroSemCeb) {
-      if (!["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(item.listaOrigem))                          return false;
+      if (!["PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(item.listaOrigem))                                   return false;
       if (flagAtiva(item, "CEB_TEP_TIV"))                                                                return false;
     }
     if (filtroSemOficioBaixa) {
@@ -1176,7 +1181,7 @@ export default function SIGNUMinhaFila() {
                     </button>
                     <button onClick={() => setFiltroSemCeb(v => !v)}
                       style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemCeb?700:400, cursor:"pointer", border:`1px solid ${filtroSemCeb?"#60a5fa":"#d1d5db"}`, background:filtroSemCeb?"rgba(96,165,250,0.15)":"transparent", color:filtroSemCeb?"#3b82f6":"#374151", display:"flex", alignItems:"center", gap:5 }}>
-                      {filtroSemCeb&&"✓ "}⚠️ Sem CEB/TEP/TIV <span style={{ opacity:.6, fontSize:10 }}>({fila.filter(i=>["CEGOC","PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(i.listaOrigem)&&!flagAtiva(i,"CEB_TEP_TIV")).length})</span>
+                      {filtroSemCeb&&"✓ "}⚠️ Sem CEB/TEP/TIV <span style={{ opacity:.6, fontSize:10 }}>({fila.filter(i=>["PCDF_1HIGEIA","PCDF_2HIGEIA"].includes(i.listaOrigem)&&!flagAtiva(i,"CEB_TEP_TIV")).length})</span>
                     </button>
                     <button onClick={() => setFiltroSemOficioBaixa(v => !v)}
                       style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemOficioBaixa?700:400, cursor:"pointer", border:`1px solid ${filtroSemOficioBaixa?"#f472b6":"#d1d5db"}`, background:filtroSemOficioBaixa?"rgba(244,114,182,0.15)":"transparent", color:filtroSemOficioBaixa?"#f472b6":"#374151", display:"flex", alignItems:"center", gap:5 }}>
@@ -1402,7 +1407,7 @@ export default function SIGNUMinhaFila() {
                           { field:"CEB_TEP_TIV",  label:"CEB/TEP/TIV",      cor:"#60a5fa" },
                           { field:"OFICIO_BAIXA",  label:"Ofício de Baixa",  cor:"#f472b6" },
                           { field:"RESTRICAO_ROUBO",label:"Restrição Roubo", cor:"#fbbf24" },
-                        ].map(({field,label,cor}) => {
+                        ].filter(f => selectedItem.listaOrigem !== "CEGOC" || !SO_PCDF_FLAGS.includes(f.field)).map(({field,label,cor}) => {
                           const on = selectedItem[field]==="TRUE"||selectedItem[field]===true;
                           return (
                             <span key={field} style={{ padding:"3px 10px", borderRadius:16, fontSize:11, fontWeight:700, background:on?`${cor}18`:"#f3f4f6", border:`1px solid ${on?cor:"#d1d5db"}`, color:on?cor:"#6b7280" }}>
@@ -1508,8 +1513,8 @@ export default function SIGNUMinhaFila() {
                     <div style={{ borderTop:"1px solid #e5e7eb", paddingTop:8, display:"flex", flexDirection:"column", gap:8 }}>
                       <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:2 }}>Flags</div>
                       {tog("FIB Expedida",       "FIB",           "#22c55e")}
-                      {tog("CEB/TEP/TIV Emitido","CEB_TEP_TIV",   "#60a5fa")}
-                      {tog("Ofício de Baixa DETRAN","OFICIO_BAIXA","#f472b6")}
+                      {selectedItem.listaOrigem !== "CEGOC" && tog("CEB/TEP/TIV Emitido","CEB_TEP_TIV",   "#60a5fa")}
+                      {selectedItem.listaOrigem !== "CEGOC" && tog("Ofício de Baixa DETRAN","OFICIO_BAIXA","#f472b6")}
                       {tog("Restrição Roubo/Furto","RESTRICAO_ROUBO","#fbbf24")}
                     </div>
                     )}

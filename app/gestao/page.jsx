@@ -951,7 +951,7 @@ function GestaoConteudo() {
                           {filtroSemFib&&"✓ "}⚠️ Sem FIB <span style={{ fontSize:10, opacity:.6 }}>({dados.filter(i=>!hasFlag(i,"FIB")).length})</span>
                         </button>
                       )}
-                      {(abaAtiva==="CEGOC"||abaAtiva==="PCDF_1HIGEIA"||abaAtiva==="PCDF_2HIGEIA") && (
+                      {(abaAtiva==="PCDF_1HIGEIA"||abaAtiva==="PCDF_2HIGEIA") && (
                         <button onClick={()=>{setFiltroSemCeb(v=>!v);setPag(1);}}
                           style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:filtroSemCeb?700:400, cursor:"pointer", transition:"all 0.15s", border:`1px solid ${filtroSemCeb?"#60a5fa":"#d1d5db"}`, background:filtroSemCeb?"rgba(96,165,250,0.15)":"transparent", color:filtroSemCeb?"#3b82f6":"#374151" }}>
                           {filtroSemCeb&&"✓ "}⚠️ Sem CEB/TEP/TIV <span style={{ fontSize:10, opacity:.6 }}>({dados.filter(i=>!hasFlag(i,"CEB_TEP_TIV")).length})</span>
