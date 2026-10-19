@@ -113,7 +113,8 @@ export async function PATCH(request, { params }) {
         return NextResponse.json({ erro: 'Campos obrigatórios: lista, targetRowNumber, campos.' }, { status: 400 });
       }
       const sheetAlvo = resolveSheetName(lista);
-      const atualizado = await updateRow(sheetAlvo, Number(targetRowNumber), { ...campos, MODIFICADO_POR: autor });
+      // TEP chegou: trabalho novo p/ o responsável (ex.: enviar ofício de baixa)
+      const atualizado = await updateRow(sheetAlvo, Number(targetRowNumber), { ...campos, MODIFICADO_POR: autor }, { marcarNovo: true });
 
       const staged = await updateRow(sheetStaging, Number(rowNumber), {
         STATUS_REVISAO: 'PROMOVIDO',

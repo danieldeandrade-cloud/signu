@@ -97,6 +97,10 @@ export async function PATCH(request, { params }) {
       }
     }
 
+    // VISTO_EM não vem da tela (lib/googleSheets.updateRow cuida) — fora do
+    // diff p/ o histórico não registrar o valor velho que a tela reenviava
+    delete body.VISTO_EM;
+
     // Reciclagem em diligência = "EM DILIGÊNCIA HIGEIA" — aplica já aqui p/ o
     // histórico registrar o valor que de fato vai p/ a planilha
     const higeia = statusHigeiaPara(lista, body, itemAntes);

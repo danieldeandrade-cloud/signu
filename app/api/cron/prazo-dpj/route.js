@@ -66,7 +66,7 @@ export async function GET(request) {
         STATUS_DILIGENCIA: 'EM DILIGÊNCIA',
         PRAZO_6MESES: prazo6Meses(r.DATA_ENTRADA),
         MODIFICADO_POR: 'Sistema (prazo 6 meses vencido)',
-      });
+      }, { marcarNovo: true }); // prazo vencido: começa o trabalho do NULEJ → "novo"
       promovidos.push({
         rowNumber: r._rowNumber,
         LOTE: r.LOTE,
