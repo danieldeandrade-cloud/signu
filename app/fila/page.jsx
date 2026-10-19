@@ -795,6 +795,9 @@ export default function SIGNUMinhaFila() {
           // DPJ-GC99 retirada/encerrada não é trabalho: fica no sistema só p/
           // os relatórios estatísticos de fim de ano — fora da fila (e do "Novo")
           .filter(r => !(cfg.key === "DPJ_GC99" && ehEncerrado(r.STATUS_DILIGENCIA)))
+          // Caixa SEI já arquivada: a tabela já a escondia, mas o botão da lista e o
+          // total do cabeçalho a contavam ("6 na Caixa SEI" com a lista vazia)
+          .filter(r => !(cfg.key === "CAIXA_SEI" && ehEncerrado(r.ACAO)))
           .map(r => ({
           ...r,
           id: r.ID_LEGADO || `${cfg.prefixo}-${String(r._rowNumber).padStart(4,"0")}`,
