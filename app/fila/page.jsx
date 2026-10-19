@@ -3,7 +3,8 @@ import Sidebar from "@/components/Sidebar";
 import { useSession } from "next-auth/react";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { parseNotas, ultimaObs } from "@/lib/observacoes";
+import { parseNotas, ultimaObs, substituirNota } from "@/lib/observacoes";
+import TimelineObservacoes from "@/components/TimelineObservacoes";
 import { contarUnidades } from "@/lib/lotesDpj";
 import { rowsParados, DIAS_PARADO, ehEncerrado } from "@/lib/parados";
 
@@ -615,6 +616,54 @@ export default function SIGNUMinhaFila() {
   };
 
   const boolStr = (v) => (v === true || v === "TRUE") ? "TRUE" : "FALSE";
+
+  // Observações no painel lateral: adicionar / retificar / excluir sem sair da
+  // Minha Fila. Mesma lógica do Detalhes (relê o item do servidor antes de
+  // alterar uma nota, p/ não apagar anotação nova de outra pessoa).
+  const mesclarItemDrawer = (item) => {
+    const cfg = LISTAS_FILA.find(l => l.key === selectedItem.listaOrigem);
+    const atualizado = {
+      ...item, id: selectedItem.id, listaOrigem: selectedItem.listaOrigem,
+      PROCESSO_SEI: item.ID_PASEI || item.PA || item.PA_PJE || "",
+      STATUS_DILIGENCIA: item.STATUS_DILIGENCIA || item[cfg?.statusField] || selectedItem.STATUS_DILIGENCIA,
+    };
+    setFila(prev => prev.map(i => i._rowNumber === atualizado._rowNumber && i.listaOrigem === atualizado.listaOrigem ? { ...atualizado } : i));
+    setSelectedItem(atualizado);
+  };
+  const patchObservacoes = async (novoObs) => {
+    const rota = ROTA_MAP[selectedItem.listaOrigem];
+    const res = await fetch(`/api/bens/${rota}/${selectedItem._rowNumber}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ OBSERVACOES: novoObs, _rowNumber: selectedItem._rowNumber, _verificacaoId: selectedItem.ID_PASEI || selectedItem.PA || selectedItem.PA_PJE || "" }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.erro || "Erro ao salvar");
+    mesclarItemDrawer(json.item);
+  };
+  const salvarNotaDrawer = async (novoObs) => {
+    try {
+      await patchObservacoes(novoObs);
+      setDrawerToast({ tipo:"ok", msg:"Anotação salva!" });
+      setTimeout(() => setDrawerToast(null), 3000);
+    } catch (e) { setDrawerToast({ tipo:"erro", msg:e.message }); }
+  };
+  const alterarNotaDrawer = async (nota, novoTrecho) => {
+    try {
+      const rota = ROTA_MAP[selectedItem.listaOrigem];
+      const atual = await fetch(`/api/bens/${rota}/${selectedItem._rowNumber}`).then(r => r.json());
+      const obsAtual = atual?.item?.OBSERVACOES || "";
+      const alvo = parseNotas(obsAtual).find(n => n._raw === nota._raw);
+      const novoObs = alvo ? substituirNota(obsAtual, alvo, novoTrecho) : null;
+      if (novoObs === null) {
+        if (atual?.item) mesclarItemDrawer(atual.item);
+        throw new Error("Essa anotação foi alterada ou removida por outra pessoa. A lista foi atualizada — confira e tente de novo.");
+      }
+      await patchObservacoes(novoObs);
+      setDrawerToast({ tipo:"ok", msg: novoTrecho ? "Anotação retificada!" : "Anotação excluída!" });
+      setTimeout(() => setDrawerToast(null), 3000);
+      return true;
+    } catch (e) { setDrawerToast({ tipo:"erro", msg:e.message }); return false; }
+  };
 
   const salvarDrawer = async () => {
     if (!drawerEditData) return;
@@ -1377,23 +1426,16 @@ export default function SIGNUMinhaFila() {
                     })()}
 
                     {/* Observações — mais recente primeiro */}
-                    {selectedItem.OBSERVACOES && (
-                      <div style={{ marginBottom:20 }}>
-                        <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:8 }}>Observações</div>
-                        <div style={{ background:"#f9fafb", border:"1.5px solid #b0b8c4", borderRadius:8, padding:"6px 12px", maxHeight:200, overflow:"auto" }}>
-                          {parseNotas(selectedItem.OBSERVACOES).map((n, i) => (
-                            <div key={i} style={{ padding:"7px 0", borderBottom: i < parseNotas(selectedItem.OBSERVACOES).length-1 ? "1px solid #eef0f2" : "none" }}>
-                              {(n.ts || n.autor) && (
-                                <div style={{ fontSize:10, color:"#6b7280", marginBottom:2 }}>
-                                  {n.autor && <b style={{ color:"#2563eb" }}>{n.autor}</b>}{n.autor && n.ts ? " · " : ""}{n.ts}
-                                </div>
-                              )}
-                              <div style={{ fontSize:12, color:"#1f2937", lineHeight:1.5, whiteSpace:"pre-wrap" }}>{n.texto}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <div style={{ marginBottom:20 }}>
+                      <div style={{ fontSize:10, color:"#6b7280", textTransform:"uppercase", letterSpacing:".08em", marginBottom:8 }}>Observações</div>
+                      <TimelineObservacoes
+                        key={`${selectedItem.listaOrigem}-${selectedItem._rowNumber}`}
+                        obsStr={selectedItem.OBSERVACOES || ""}
+                        onSalvar={salvarNotaDrawer}
+                        onAlterarNota={alterarNotaDrawer}
+                        aviso="A anotação é gravada na hora. Para mudar outros campos do bem, use “Editar campos”."
+                      />
+                    </div>
 
                     {/* Link para detalhes completos */}
                     <button onClick={() => { const cfg=LISTAS_FILA.find(l=>l.key===selectedItem.listaOrigem); if(cfg) window.location.href=`/detalhes?lista=${cfg.rota}&row=${selectedItem._rowNumber}`; }}
