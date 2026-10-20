@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { agruparUnidades } from '@/lib/lotesDpj';
 import { getAllRows } from '@/lib/googleSheets';
+import { contextoAptidao, avaliarParado, DIAS_PARADO_APTIDAO } from '@/lib/parados';
 import { SERVIDORES_EMAIL, GESTORES_EMAIL, getNomeResponsavel } from '@/lib/servidores';
 
 function criarTransporter() {
@@ -51,7 +52,7 @@ const estaAtivo = (status) => {
 //  - DPJ-GC99 em "PRAZO 6 MESES": o NULEJ só assume o item depois do marco
 //    de 6 meses da entrada (o cron /api/cron/prazo-dpj promove p/ EM DILIGÊNCIA).
 const contaComoParado = (b) =>
-  b.dias !== null && b.dias >= DIAS_SEM_ANALISE &&
+  b.dias !== null && b.dias >= (b.limite || DIAS_SEM_ANALISE) &&
   !STATUS_ENCERRADO.includes(String(b.status || '').toUpperCase().trim()) &&
   !(b.lista === 'DPJ-GC99' && String(b.status || '').toUpperCase().trim() === 'PRAZO 6 MESES') &&
   // standby: ofício de baixa enviado ao DETRAN, aguardando resposta (lib/parados.js)
@@ -351,11 +352,16 @@ export async function GET(request) {
     LISTA_NOMES.forEach(n => { porLista[n] = { total: 0, porStatus: {} }; });
     const filaDoacao = { total: 0, porStatus: {} };
 
+    // Exceção de prazo: DPJ "doação em andamento" × doação "aguardando aptidão" (30 dias)
+    const rowsPorLista = {};
+    for (const l of LISTAS) rowsPorLista[l.nome] = await getAllRows(l.sheetName);
+    const ctxAptidao = contextoAptidao(rowsPorLista['Doações'], rowsPorLista['DPJ-GC99']);
+
     for (const lista of LISTAS) {
       const ehDoacao = lista.nome === 'Doações';
       // DPJ-GC99: conta por LOTE (vários itens avaliados à parte = 1 lote);
       // o lote "mexeu" se qualquer item dele foi atualizado (lib/lotesDpj.js).
-      const unidades = agruparUnidades(await getAllRows(lista.sheetName), lista.nome, lista.statusField,
+      const unidades = agruparUnidades(rowsPorLista[lista.nome], lista.nome, lista.statusField,
         (st) => STATUS_ENCERRADO.includes(String(st || '').toUpperCase().trim()));
       unidades.forEach(({ rep: r, itens: todos, ativos }) => {
         const itens = ativos.length ? ativos : todos; // parado: só itens ainda em andamento
@@ -371,8 +377,12 @@ export async function GET(request) {
           responsavel: getNomeResponsavel(r),
           obs: (r.OBSERVACOES || '').substring(0, 60),
           dias: itens.map(diasSemMexida).filter(d => d !== null).reduce((m, d) => (m === null || d < m ? d : m), null),
+          // aptidão: 30 dias, contados da atualização mais recente entre a DPJ e a doação
+          limite: DIAS_SEM_ANALISE,
           _raw: r,
         };
+        const av = avaliarParado(lista.nome, itens, (x) => String(x[lista.statusField] || ''), ctxAptidao);
+        if (av && av.limite === DIAS_PARADO_APTIDAO) { item.limite = av.limite; item.dias = av.dias; }
         itensAtivos.push(item);
         porLista[lista.nome].total++;
         porLista[lista.nome].porStatus[item.status] = (porLista[lista.nome].porStatus[item.status] || 0) + 1;

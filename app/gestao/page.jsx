@@ -6,7 +6,7 @@ import { exportarListaParaExcel, exportarTodasAsListasParaExcel } from "@/lib/ex
 import { ultimaObs } from "@/lib/observacoes";
 import { useEntidades } from "@/lib/useEntidades";
 import { contarUnidades, resumoLote } from "@/lib/lotesDpj";
-import { rowsParados, DIAS_PARADO } from "@/lib/parados";
+import { rowsParados, DIAS_PARADO, DIAS_PARADO_APTIDAO } from "@/lib/parados";
 import { montarFilaDoacoes, blocoDoacao, BLOCO, BLOCO_META } from "@/lib/filaDoacoes";
 
 // Exportação HTML formatada para o relatório RENAJUD (abre no Excel com colunas e cores)
@@ -477,10 +477,16 @@ function GestaoConteudo() {
     [abaAtiva, dados, entidadesFila, anotacoesDoacao]
   );
 
+  // Exceção de prazo (doação aguardando aptidão = 30 dias) — cruza DPJ × Doações
+  const [ctxParados, setCtxParados] = useState(null);
+  useEffect(() => {
+    fetch("/api/parados/contexto", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(setCtxParados).catch(() => {});
+  }, []);
+
   // Itens parados há +21 dias nesta aba (lib/parados.js — mesma regra do Início)
   const paradosSet = useMemo(
-    () => rowsParados(dados, abaAtiva, i => getStatus(i, abaAtiva)),
-    [dados, abaAtiva]
+    () => rowsParados(dados, abaAtiva, i => getStatus(i, abaAtiva), ctxParados),
+    [dados, abaAtiva, ctxParados]
   );
 
   // Filtragem e ordenação
@@ -824,7 +830,7 @@ function GestaoConteudo() {
               </div>
               {/* Parados há +21 dias — sempre à vista (mesma regra do painel de Início) */}
               <button onClick={()=>{ setFiltroParados(v=>!v); setPag(1); }}
-                title={`Itens ativos sem nenhuma atualização há ${DIAS_PARADO} dias ou mais`}
+                title={`Itens ativos sem nenhuma atualização há ${DIAS_PARADO} dias ou mais (${DIAS_PARADO_APTIDAO} dias p/ doação aguardando aptidão)`}
                 style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", background: filtroParados ? "rgba(220,38,38,0.1)" : "#f3f4f6", border:`1px solid ${filtroParados ? "rgba(220,38,38,0.45)" : "#e5e7eb"}`, borderRadius:8, color: filtroParados ? "#dc2626" : "#374151", fontSize:12, fontWeight:600, cursor:"pointer" }}>
                 {filtroParados && "✓ "}⏳ Parados +{DIAS_PARADO}d <span style={{ fontSize:10, opacity:.7 }}>({paradosSet.size})</span>
               </button>

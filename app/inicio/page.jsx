@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { agruparUnidades } from "@/lib/lotesDpj";
-import { DIAS_PARADO, ehEncerrado as ehEncerradoLib, podeFicarParado, diasSemMexida, ehNovoItem } from "@/lib/parados";
+import { DIAS_PARADO, DIAS_PARADO_APTIDAO, ehEncerrado as ehEncerradoLib, avaliarParado, diasSemMexida, ehNovoItem } from "@/lib/parados";
 
 // ─── CONFIG DAS LISTAS ────────────────────────────────────────────────────────
 const LISTAS_CONFIG = [
@@ -295,6 +295,13 @@ export default function InicioPage() {
     setSessionResolvida(true);
   }, [session]);
 
+  // Exceção de prazo (doação aguardando aptidão = 30 dias): cruza DPJ × Doações
+  // de todos os responsáveis, por isso vem de um endpoint próprio
+  const [ctxParados, setCtxParados] = useState(null);
+  useEffect(() => {
+    fetch("/api/parados/contexto", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(setCtxParados).catch(() => {});
+  }, []);
+
   // 2. Busca as listas sempre que o filtro de servidor muda
   const reqRef = useRef(0);
   useEffect(() => {
@@ -326,11 +333,13 @@ export default function InicioPage() {
       // item dele foi atualizado.
       const unidades = agruparUnidades(rows, cfg.key, cfg.statusField, ehEncerrado).map(({ rep, itens, ativos: itensAtivos }) => {
         // "parado" olha só os itens que ainda estão em andamento no lote
+        // (regra única em lib/parados.js, com a exceção de 30 dias p/ aptidão)
+        const av = avaliarParado(cfg.key, itensAtivos, i => i[cfg.statusField], ctxParados);
         const ds = (itensAtivos.length ? itensAtivos : itens).map(diasSemMexida).filter(d => d !== null);
-        return { ...rep, _itens: itens, _dias: ds.length ? Math.min(...ds) : null };
+        return { ...rep, _itens: itens, _dias: av?.dias ?? (ds.length ? Math.min(...ds) : null), _parado: !!av?.parado };
       });
       const ativos = unidades.filter(r => !ehEncerrado(status(r)));
-      const parados = ativos.filter(r => podeFicarParado(cfg.key, status(r)) && (r._dias ?? 0) >= DIAS_PARADO);
+      const parados = ativos.filter(r => r._parado);
       const porStatus = {};
       ativos.forEach(r => {
         const st = status(r) || (cfg.key === "DOACOES" && !String(r.RESPONSAVEL || "").trim() ? "AGUARDANDO INÍCIO" : "SEM STATUS");
@@ -374,7 +383,7 @@ export default function InicioPage() {
       pesoBaixado: soma(bens, "pesoBaixado"),
       sei: porLista.find(l => l.key === "CAIXA_SEI"),
     };
-  }, [dados]);
+  }, [dados, ctxParados]);
 
   const carregando = dados === null;
   const nomeCurto = filtroServidor ? filtroServidor.split(" ")[0] : "";
@@ -553,7 +562,7 @@ export default function InicioPage() {
                   </div>
                   <button onClick={() => router.push("/fila")} style={{ fontSize:11,color:"#2563eb",background:"none",border:"none",cursor:"pointer",fontWeight:600 }}>Minha Fila →</button>
                 </div>
-                <div style={{ fontSize:10,color:"#6b7280",marginBottom:12 }}>Itens ativos sem atualização há {DIAS_PARADO} dias ou mais</div>
+                <div style={{ fontSize:10,color:"#6b7280",marginBottom:12 }}>Itens ativos sem atualização há {DIAS_PARADO} dias ou mais ({DIAS_PARADO_APTIDAO} p/ doação aguardando aptidão)</div>
                 {carregando ? (
                   <div style={{ textAlign:"center",padding:"20px 0",color:"#6b7280",fontSize:12 }}>carregando…</div>
                 ) : ind.paradosTop.length === 0 ? (

@@ -7,7 +7,7 @@ import { parseNotas, ultimaObs, substituirNota } from "@/lib/observacoes";
 import TimelineObservacoes from "@/components/TimelineObservacoes";
 import { contarUnidades } from "@/lib/lotesDpj";
 import { hojeBrasilia } from "@/lib/prazoDpj";
-import { rowsParados, DIAS_PARADO, ehEncerrado, ehNovoItem } from "@/lib/parados";
+import { rowsParados, DIAS_PARADO, DIAS_PARADO_APTIDAO, ehEncerrado, ehNovoItem } from "@/lib/parados";
 
 // Lista de servidores (exibida no seletor manual de fallback)
 const SERVIDORES = [
@@ -824,11 +824,18 @@ export default function SIGNUMinhaFila() {
   // Valores de LPC (leilão) presentes na fila do servidor — alimenta o filtro
   const lpcOptions = [...new Set(fila.filter(i => String(i.LPC || "").trim()).map(i => i.LPC.trim()))].sort();
 
+  // Exceção de prazo (doação aguardando aptidão = 30 dias): cruza DPJ × Doações de
+  // todos os responsáveis — a fila só traz os itens do próprio servidor
+  const [ctxParados, setCtxParados] = useState(null);
+  useEffect(() => {
+    fetch("/api/parados/contexto", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(setCtxParados).catch(() => {});
+  }, []);
+
   // Itens parados há +21 dias na fila (lib/parados.js — mesma regra do Início),
   // calculado por lista (na DPJ o lote conta junto)
   const paradosFila = new Set(LISTAS_FILA.flatMap(cfg => {
     const itens = fila.filter(i => i.listaOrigem === cfg.key);
-    return [...rowsParados(itens, cfg.key, i => i.STATUS_DILIGENCIA)].map(rn => `${cfg.key}:${rn}`);
+    return [...rowsParados(itens, cfg.key, i => i.STATUS_DILIGENCIA, ctxParados)].map(rn => `${cfg.key}:${rn}`);
   }));
 
   const filtered = fila.filter(item => {
@@ -1090,7 +1097,7 @@ export default function SIGNUMinhaFila() {
               </div>
               {/* Parados há +21 dias — sempre à vista (mesma regra do painel de Início) */}
               <button onClick={() => setFiltroParados(v => !v)}
-                title={`Itens ativos sem nenhuma atualização há ${DIAS_PARADO} dias ou mais`}
+                title={`Itens ativos sem nenhuma atualização há ${DIAS_PARADO} dias ou mais (${DIAS_PARADO_APTIDAO} dias p/ doação aguardando aptidão)`}
                 style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", background: filtroParados ? "rgba(220,38,38,0.1)" : "#f3f4f6", border:`1px solid ${filtroParados ? "rgba(220,38,38,0.45)" : "#d1d5db"}`, borderRadius:8, color: filtroParados ? "#dc2626" : "#374151", fontSize:12, fontWeight:600, cursor:"pointer" }}>
                 {filtroParados && "✓ "}⏳ Parados +{DIAS_PARADO}d <span style={{ fontSize:10, opacity:.7 }}>({paradosFila.size})</span>
               </button>
