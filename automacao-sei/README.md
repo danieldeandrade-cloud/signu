@@ -61,6 +61,11 @@ script que lê esse texto, não só o nome do marcador:
 - `CADASTRAR SIGNU CEGOC`: escreva **"circulação"** ou **"reciclagem"**. Decide
   `DESTINACAO` + `STATUS_DILIGENCIA` (circulação → LPC; reciclagem → EM DILIGÊNCIA)
   — regra fixa no script, não é a IA que decide.
+  Veículo **com INFOSEG** que **nunca foi emplacado**: acrescente
+  **"sem primeiro emplacamento"** — `reciclagem, sem primeiro emplacamento` ou
+  `circulação, sem primeiro emplacamento` (esta fica em LPC). O script deixa
+  `PLACA` vazia (esperado) e **preserva o NIV** do INFOSEG. Sem INFOSEG a regra
+  não vale: o caso segue como NIV não aflorado e a revisão mostra um alerta.
 - `CADASTRAR SIGNU SEI`: escreva o **nome do responsável** (processo já
   cadastrado em outra lista, ou resposta/barramento de um ofício nosso). O
   script casa o nome com a lista de servidores e preenche `RESPONSAVEL` (em

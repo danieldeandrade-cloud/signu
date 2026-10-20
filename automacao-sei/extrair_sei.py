@@ -891,7 +891,7 @@ SYS = (
 )
 
 
-def extrair_com_ia(api_key, model, schema, proc):
+def extrair_com_ia(api_key, model, schema, proc, sem_emplacamento=False):
     if proc.get("tem_infoseg_doc"):
         regra_infoseg = (
             "- ESTE PROCESSO TEM um documento chamado 'Relatório INFOSEG' na árvore. "
@@ -899,6 +899,13 @@ def extrair_com_ia(api_key, model, schema, proc):
             "DOCUMENTO — use esses, mesmo que outro documento divirja. Em '_alertas', "
             "registre eventual divergência."
         )
+        if sem_emplacamento:
+            regra_infoseg += (
+                " ESTE VEÍCULO NUNCA FOI EMPLACADO (sem primeiro emplacamento): o INFOSEG "
+                "não traz placa e isso é ESPERADO — deixe PLACA = \"\". NÃO confunda com "
+                "NIV não aflorado: o NIV está íntegro no INFOSEG, extraia-o normalmente "
+                "(nunca use 'N/A')."
+            )
     else:
         regra_infoseg = (
             "- ESTE PROCESSO NÃO TEM um documento chamado 'Relatório INFOSEG' na árvore "
@@ -991,7 +998,10 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador="", num
         print("    [!] pouco texto e nenhum PDF — seletor de frame errado ou processo vazio.")
 
     try:
-        ia = extrair_com_ia(api_key, model, schema, proc)
+        # CEGOC/PCDF: o servidor avisa no marcador que o veículo nunca foi emplacado
+        sem_emplacamento = (lista in ("cegoc", "pcdf1", "pcdf2")
+                            and "EMPLACAMENTO" in _norm(texto_marcador))
+        ia = extrair_com_ia(api_key, model, schema, proc, sem_emplacamento)
     except Exception as e:
         print(f"    [x] IA falhou: {e}")
         ia = {"campos": {}, "_confianca": 0, "_alertas": [f"erro IA: {e}"], "_campos_incertos": []}
@@ -1079,6 +1089,28 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador="", num
         else:
             alertas.append(f"marcador sem CIRCULAÇÃO/RECICLAGEM/RENAJUD no texto ({texto_marcador!r}) "
                             f"— destinação/status ficaram com o palpite da IA, confira.")
+
+    # CEGOC: veículo COM Relatório INFOSEG (NIV íntegro) que nunca foi emplacado —
+    # o servidor escreve no marcador "reciclagem, sem primeiro emplacamento" ou
+    # "circulação, sem primeiro emplacamento" (a palavra RECICL/CIRCUL segue
+    # decidindo destinação/status no bloco acima; circulação → LPC). Mesma ideia
+    # da PCDF: PLACA vazia é esperado (não é falha de leitura) e o NIV do INFOSEG
+    # é preservado — sem isso a IA pode ler "sem placa" como NIV ilegível e
+    # zerar o NIV à toa. SEM INFOSEG a regra não vale: segue como NIV não aflorado.
+    if lista == "cegoc" and "EMPLACAMENTO" in _norm(texto_marcador):
+        if infoseg:
+            campos["PLACA"] = ""
+            niv = _norm(campos.get("NIV", "")).replace(" ", "")
+            if niv in ("", "N/A", "NA"):
+                alertas.append("marcador indica sem primeiro emplacamento e o processo TEM INFOSEG, mas "
+                                "não consegui extrair o NIV — confira o Relatório INFOSEG antes de cadastrar "
+                                "(o NIV deveria estar íntegro).")
+            alertas.append(f"marcador indica sem primeiro emplacamento ({texto_marcador!r}) — veículo "
+                            f"nunca foi emplacado, PLACA vazia é esperado (não é falha de leitura).")
+        else:
+            alertas.append(f"marcador indica sem primeiro emplacamento ({texto_marcador!r}) mas NÃO há "
+                            f"Relatório INFOSEG no processo — a regra de 'sem primeiro emplacamento' só vale "
+                            f"com INFOSEG; segue como NIV não aflorado, confira.")
 
     # Caixa SEI: o texto do marcador traz o nome do responsável a quem vincular
     # (processo já cadastrado / resposta de ofício — não é distribuição automática).
