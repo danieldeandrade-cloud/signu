@@ -144,9 +144,9 @@ const CAMPOS = {
     { id:"TIPO_BEM",          label:"Tipo de Bem *",       type:"select",   required:true,  options:TIPOS_BEM },
     { id:"NIV",               label:"NIV / Chassi",        type:"text",     placeholder:"17 caracteres",maxLength:18 },
     { id:"PLACA",             label:"PLACA", hint:"sem ponto, traço ou espaço · pode indicar UF: ABC1234/DF", type:"text", placeholder:"Ex: ABC1234 ou ABC1234/DF" },
-    { id:"STATUS_LOCAL_PA",   label:"Status Local PA",     type:"select",   options:STATUS_LOCAL, hint:"deixe vazio (e sem responsável) p/ o lote entrar na fila como aguardando início" },
-    // Opcional: lote sem status e sem responsável fica "aguardando início" e
-    // a entidade é recalculada pela fila; preencher qualquer um dos dois trava a entidade.
+    { id:"STATUS_LOCAL_PA",   label:"Status Local PA",     type:"select",   options:STATUS_LOCAL, hint:"deixe vazio p/ o lote entrar na fila como aguardando início (entidade prevista pela data da decisão)" },
+    // Opcional (a Cláudia costuma ser a responsável). Lote SEM STATUS fica
+    // "aguardando início" e a entidade é recalculada pela fila; só o status trava a entidade.
     { id:"RESPONSAVEL",       label:"Responsável",         type:"select",   options:SERVIDORES, autoDistribute:true },
     { id:"OBSERVACOES",       label:"Observações",         type:"textarea", placeholder:"Detalhes da doação..." },
   ],

@@ -342,7 +342,7 @@ export default function InicioPage() {
       const parados = ativos.filter(r => r._parado);
       const porStatus = {};
       ativos.forEach(r => {
-        const st = status(r) || (cfg.key === "DOACOES" && !String(r.RESPONSAVEL || "").trim() ? "AGUARDANDO INÍCIO" : "SEM STATUS");
+        const st = status(r) || (cfg.key === "DOACOES" ? "AGUARDANDO INÍCIO" : "SEM STATUS");
         porStatus[st] = (porStatus[st] || 0) + 1;
       });
       const reciclagem = rows.filter(r => r.DESTINACAO === "RECICLAGEM" || cfg.key === "PCDF_1HIGEIA" || cfg.key === "PCDF_2HIGEIA");
