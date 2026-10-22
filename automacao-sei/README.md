@@ -66,6 +66,17 @@ script que lê esse texto, não só o nome do marcador:
   `circulação, sem primeiro emplacamento` (esta fica em LPC). O script deixa
   `PLACA` vazia (esperado) e **preserva o NIV** do INFOSEG. Sem INFOSEG a regra
   não vale: o caso segue como NIV não aflorado e a revisão mostra um alerta.
+- `CADASTRAR SIGNU DPJ`: escreva **`N` + nº do lote** (N = lote **novo**):
+  - `N4810` → lote 4810, **1 linha**. Se o processo tem vários bens, eles entram
+    como **um texto único na descrição**, com a avaliação do conjunto.
+  - `N4810v` → lote 4810 com **vários itens, cada um com avaliação própria**:
+    **1 linha por item** (descrição, tipo e avaliação de cada um; a revisão mostra
+    um cartão por item). Só separa se CADA item tiver avaliação individual no
+    processo; senão cai no caso acima, com alerta.
+  - O nº do lote vem do marcador (não da IA). Só `N` (sem número) → LOTE em branco,
+    com alerta. Texto fora do padrão → o script lê como antes e alerta.
+  - Lote já existente **com o mesmo PA** → só avisa (os itens entram nele); com
+    **PA diferente** → bloqueado.
 - `CADASTRAR SIGNU SEI`: escreva o **nome do responsável** (processo já
   cadastrado em outra lista, ou resposta/barramento de um ofício nosso). O
   script casa o nome com a lista de servidores e preenche `RESPONSAVEL` (em

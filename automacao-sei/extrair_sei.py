@@ -884,6 +884,104 @@ def montar_schema_texto(schema):
     return "\n".join(linhas)
 
 
+# ─── DPJ-GC99: marcador "N4810" / "N4810v" ───────────────────────────────────
+# Convenção do NULEJ (2026-10-22): N = lote NOVO, seguido do nº do lote;
+# "v" no fim = VÁRIOS itens, cada um com avaliação própria no processo.
+#   N4810  → 1 linha; se houver vários bens, entram como UM texto na descrição,
+#            com a avaliação do conjunto;
+#   N4810v → 1 linha por item (descrição, tipo e avaliação de cada um) — mas só
+#            se CADA item tiver avaliação própria; senão cai no caso acima.
+RE_MARCADOR_DPJ = re.compile(r"(?<![A-Z0-9])N\s*[-.]?\s*(\d{1,7})?\s*(V)?(?![A-Z0-9])")
+
+
+def interpretar_marcador_dpj(texto_marcador):
+    """→ (achou, lote, varios). `achou` False = texto fora do padrão (ex.: texto livre)."""
+    m = RE_MARCADOR_DPJ.search(_norm(texto_marcador))
+    if not m:
+        return False, "", False
+    return True, (m.group(1) or ""), bool(m.group(2))
+
+
+def _brl(v):
+    """'R$ 2.694,00' / '2694,5' / 2694.5 → '2.694,00' (formato do SIGNU); '' se não for valor."""
+    s_ = str(v or "").strip()
+    if not s_:
+        return ""
+    s_ = re.sub(r"[^\d,.]", "", s_)
+    if not s_:
+        return ""
+    if "," in s_:
+        s_ = s_.replace(".", "").replace(",", ".")
+    elif s_.count(".") == 1 and len(s_.split(".")[1]) <= 2:
+        pass  # 2694.50
+    else:
+        s_ = s_.replace(".", "")
+    try:
+        n = float(s_)
+    except ValueError:
+        return ""
+    if n <= 0:
+        return ""
+    return f"{n:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def schema_dpj(varios):
+    s_ = dict(SCHEMAS["dpj"])
+    s_["AVALIACAO_GLOBAL"] = CAMPO("Valor da avaliação do bem/conjunto em R$ (ex.: '2.694,00'), se citado no "
+                                    "processo; '' se não houver")
+    if varios:
+        s_["ITENS"] = CAMPO('LISTA (array JSON) dos bens do lote, SÓ se CADA bem tiver avaliação própria no '
+                            'processo: [{"TIPO_BEM": "...", "DESCRICAO": "...", "AVALIACAO": "1.000,00", '
+                            '"NIV": "", "PLACA": ""}]. Se só houver avaliação do conjunto, use [].')
+    return s_
+
+
+def aplicar_marcador_dpj(campos, texto_marcador, alertas):
+    """Aplica a convenção do marcador DPJ sobre o que a IA devolveu. Mexe em `campos`."""
+    achou, lote, varios = interpretar_marcador_dpj(texto_marcador)
+    if not achou:
+        if texto_marcador:
+            alertas.append(f"marcador DPJ fora do padrão N<lote> / N<lote>v ({texto_marcador!r}) — lote, "
+                            f"itens e avaliação ficaram como a IA leu, confira.")
+    elif lote:
+        campos["LOTE"] = lote          # determinístico: o servidor manda, não a IA
+    else:
+        campos["LOTE"] = ""
+        alertas.append("marcador 'N' sem o número do lote — preencha o LOTE na revisão.")
+
+    itens = campos.pop("ITENS", None)
+    itens = itens if isinstance(itens, list) else []
+    itens = [i for i in itens if isinstance(i, dict) and str(i.get("DESCRICAO", "")).strip()]
+    glob = _brl(campos.pop("AVALIACAO_GLOBAL", ""))
+
+    if varios and len(itens) >= 2 and all(_brl(i.get("AVALIACAO")) for i in itens):
+        out = []
+        for i in itens:
+            v = _brl(i.get("AVALIACAO"))
+            out.append({"TIPO_BEM": i.get("TIPO_BEM") if i.get("TIPO_BEM") in TIPOS_BEM_DPJ else "OUTROS",
+                        "DESCRICAO": str(i["DESCRICAO"]).strip(), "QUANTIDADE": "1",
+                        "AVALIACAO_UNITARIA": v, "AVALIACAO_TOTAL": v,
+                        "NIV": str(i.get("NIV", "") or "").strip(), "PLACA": str(i.get("PLACA", "") or "").strip()})
+        campos["ITENS"] = out
+        for k in ("DESCRICAO", "AVALIACAO_UNITARIA", "AVALIACAO_TOTAL", "TIPO_BEM", "NIV", "PLACA", "QUANTIDADE"):
+            campos.pop(k, None)        # os dados ficam nos itens, não no cabeçalho
+        alertas.append(f"{len(out)} itens com avaliação individual — confira cada um na revisão "
+                        f"(a leitura por IA pode errar a separação ou os valores).")
+        return
+
+    # Caso "um só": vários bens viram UM texto na descrição, com a avaliação do conjunto
+    if varios:
+        alertas.append("marcador com 'v' (vários itens), mas não achei avaliação individual de cada item — "
+                        "cadastrado como linha única, com descrição consolidada e avaliação do conjunto. "
+                        "Se cada item tem avaliação própria, separe na revisão.")
+    if itens and (varios or len(itens) > 1) and not str(campos.get("DESCRICAO", "")).strip():
+        campos["DESCRICAO"] = "; ".join(str(i["DESCRICAO"]).strip().rstrip(";.") for i in itens)
+    if glob:
+        campos["AVALIACAO_UNITARIA"] = glob
+        campos["AVALIACAO_TOTAL"] = glob
+    campos.pop("ITENS", None)
+
+
 SYS = (
     "Você é um assistente do NULEJ/TJDFT que lê o conteúdo de um processo do SEI "
     "sobre um veículo apreendido e preenche a ficha de cadastro do sistema SIGNU. "
@@ -891,7 +989,7 @@ SYS = (
 )
 
 
-def extrair_com_ia(api_key, model, schema, proc, sem_emplacamento=False):
+def extrair_com_ia(api_key, model, schema, proc, sem_emplacamento=False, regra_dpj=""):
     if proc.get("tem_infoseg_doc"):
         regra_infoseg = (
             "- ESTE PROCESSO TEM um documento chamado 'Relatório INFOSEG' na árvore. "
@@ -925,6 +1023,7 @@ Alguns documentos vêm como PDF anexado (inclusive escaneados) — leia-os tamb�
 
 FONTE DOS DADOS DO VEÍCULO (regra do NULEJ):
 {regra_infoseg}
+{regra_dpj}
 
 CAMPOS:
 {montar_schema_texto(schema)}
@@ -988,6 +1087,21 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador="", num
     por marcador) — mais confiável que o regex sobre o texto do documento, que
     pode confundir formato SEI com CNJ dependendo da lista (foi o caso da DPJ)."""
     schema = SCHEMAS[lista]
+    regra_dpj = ""
+    if lista == "dpj":
+        _, _, dpj_varios = interpretar_marcador_dpj(texto_marcador)
+        schema = schema_dpj(dpj_varios)
+        regra_dpj = (
+            "REGRA DE ITENS (lote da DPJ-GC99): "
+            + ("o servidor marcou VÁRIOS ITENS — preencha ITENS com UM objeto por bem, mas SOMENTE se cada bem "
+               "tiver avaliação própria no processo; se só existir a avaliação do conjunto, deixe ITENS = [] e "
+               "use AVALIACAO_GLOBAL. "
+               if dpj_varios else
+               "se o processo tiver vários bens, escreva UMA descrição única listando todos, separados por '; ' "
+               "(ex.: '01 (UM) frigobar ...; 01 (UM) micro-ondas ...'), e informe o valor do conjunto em "
+               "AVALIACAO_GLOBAL. ")
+            + "Avaliação sempre no formato brasileiro (ex.: '2.694,00')."
+        )
     proc = extrair_processo(page, cfg_sei, debug=args.debug)
     npdf = len(proc.get("pdfs", []))
     print(f"    processo: {proc['numero'] or '??'} | lista: {lista} | "
@@ -1001,7 +1115,7 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador="", num
         # CEGOC/PCDF: o servidor avisa no marcador que o veículo nunca foi emplacado
         sem_emplacamento = (lista in ("cegoc", "pcdf1", "pcdf2")
                             and "EMPLACAMENTO" in _norm(texto_marcador))
-        ia = extrair_com_ia(api_key, model, schema, proc, sem_emplacamento)
+        ia = extrair_com_ia(api_key, model, schema, proc, sem_emplacamento, regra_dpj)
     except Exception as e:
         print(f"    [x] IA falhou: {e}")
         ia = {"campos": {}, "_confianca": 0, "_alertas": [f"erro IA: {e}"], "_campos_incertos": []}
@@ -1089,6 +1203,10 @@ def processar(page, cfg_sei, api_key, model, lista, args, texto_marcador="", num
         else:
             alertas.append(f"marcador sem CIRCULAÇÃO/RECICLAGEM/RENAJUD no texto ({texto_marcador!r}) "
                             f"— destinação/status ficaram com o palpite da IA, confira.")
+
+    # DPJ-GC99: marcador N<lote> / N<lote>v (lote determinístico, itens, avaliação)
+    if lista == "dpj":
+        aplicar_marcador_dpj(campos, texto_marcador, alertas)
 
     # CEGOC: veículo COM Relatório INFOSEG (NIV íntegro) que nunca foi emplacado —
     # o servidor escreve no marcador "reciclagem, sem primeiro emplacamento" ou

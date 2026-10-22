@@ -201,12 +201,18 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
     // com o mesmo PA são normais); o servidor também bloqueia a promoção (409).
     if (item.LISTA_DESTINO === "dpj") {
       const achados = [];
+      let jaExiste = 0;
       try {
         const json = await fetch("/api/bens/dpj").then(r => r.json());
         const outro = loteEmOutroPa(json.dados || [], campos);
         if (outro) achados.push({ rota: "dpj", item: outro });
+        // lote que já existe com o MESMO PA: só avisa (os itens entram nele, não é bloqueio)
+        const chave = v => String(v || "").replace(/\D/g, "");
+        jaExiste = (json.dados || []).filter(r =>
+          String(r.LOTE || "").trim().toUpperCase() === String(campos.LOTE || "").trim().toUpperCase() &&
+          chave(r.PA || r.PA_PJE) === chave(campos.PA)).length;
       } catch { /* ignora erro de rede */ }
-      setDuplicata({ encontrados: achados, tipo: "lote", lote: campos.LOTE });
+      setDuplicata({ encontrados: achados, tipo: "lote", lote: campos.LOTE, jaExiste: campos.LOTE ? jaExiste : 0 });
       return achados;
     }
     // Confere ID_PASEI/PA/PJE separadamente (não um combinado só) — a DPJ tem
@@ -420,9 +426,33 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
         </div>
       )}
 
+      {/* DPJ-GC99 marcador N<lote>v: um cartão por item (cada item tem avaliação própria) */}
+      {Array.isArray(campos.ITENS) && campos.ITENS.length > 0 && (
+        <div style={{ marginBottom: 14, border: "1px solid #fed7aa", background: "#fff7ed", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#9a3412", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+            Itens do lote {campos.LOTE ? `#${campos.LOTE}` : ""} — {campos.ITENS.length} (uma linha por item ao promover)
+          </div>
+          {campos.ITENS.map((it, idx) => {
+            const setItem = (k, v) => setCampos(prev => ({
+              ...prev,
+              ITENS: prev.ITENS.map((x, i) => i !== idx ? x : { ...x, [k]: v, ...(k === "AVALIACAO_UNITARIA" ? { AVALIACAO_TOTAL: v } : {}) }),
+            }));
+            return (
+              <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr auto", gap: 8, alignItems: "end", marginBottom: 8 }}>
+                <Campo label="Tipo" value={it.TIPO_BEM} onChange={v => setItem("TIPO_BEM", v)} />
+                <Campo label="Descrição" value={it.DESCRICAO} onChange={v => setItem("DESCRICAO", v)} />
+                <Campo label="Avaliação (R$)" value={it.AVALIACAO_UNITARIA} onChange={v => setItem("AVALIACAO_UNITARIA", v)} mono />
+                <button onClick={() => setCampos(prev => ({ ...prev, ITENS: prev.ITENS.filter((_, i) => i !== idx) }))}
+                  title="Remover este item" style={{ padding: "7px 10px", borderRadius: 7, border: "1px solid #fecaca", background: "#fff", color: "#dc2626", cursor: "pointer", fontSize: 12 }}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
         {Object.keys(campos)
-          .filter(k => k !== "RESPONSAVEL" && !(ehRetornoTep && ["EH_RETORNO_TEP", "NIV", "PLACA", "RENAVAM", "TEP_SEI", "TEP_VALOR"].includes(k)))
+          .filter(k => k !== "RESPONSAVEL" && k !== "ITENS" && !(ehRetornoTep && ["EH_RETORNO_TEP", "NIV", "PLACA", "RENAVAM", "TEP_SEI", "TEP_VALOR"].includes(k)))
           .map(k => (
           <Campo key={k} label={k} value={campos[k]} onChange={v => upd(k, v)} mono={/NIV|PLACA|RENAVAM|ID_PASEI|^PA$|^PJE$/.test(k)} />
         ))}
@@ -476,7 +506,11 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
       {duplicata && duplicata !== "buscando" && (
         <div style={{ marginBottom: 12, fontSize: 11 }}>
           {duplicata.encontrados.length === 0 ? (
-            <span style={{ color: "#22c55e" }}>✓ Sem duplicidade encontrada.</span>
+            <span style={{ color: duplicata.jaExiste ? "#b45309" : "#22c55e" }}>
+              {duplicata.jaExiste
+                ? `ℹ️ O lote ${String(duplicata.lote).trim()} já existe com este PA (${duplicata.jaExiste} item(ns)) — os itens serão adicionados a ele.`
+                : "✓ Sem duplicidade encontrada."}
+            </span>
           ) : (
             <div style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 8, padding: "8px 12px" }}>
               <div style={{ color: "#dc2626", fontWeight: 700, marginBottom: 4 }}>

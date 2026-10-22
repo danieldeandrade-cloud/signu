@@ -92,6 +92,31 @@ export async function PATCH(request, { params }) {
         const dup = await acharDuplicadoVeiculo(campos);
         if (dup) return NextResponse.json({ erro: mensagemDuplicado(dup) }, { status: 409 });
       }
+      // DPJ-GC99 com vários itens avaliados à parte (marcador N<lote>v): cabeçalho do
+      // lote (LOTE/PA/PJE/datas/responsável/situação) replicado em UMA LINHA POR ITEM
+      if (staging.LISTA_DESTINO === 'dpj' && Array.isArray(campos.ITENS) && campos.ITENS.length > 0) {
+        const { ITENS, ...cabecalho } = campos;
+        const itens = ITENS.filter((i) => String(i?.DESCRICAO || '').trim());
+        if (itens.length === 0) {
+          return NextResponse.json({ erro: 'Nenhum item com descrição para promover.' }, { status: 400 });
+        }
+        const criados = [];
+        for (const it of itens) {
+          const linha = await addRow(sheetDestino, { ...cabecalho, ...it, MODIFICADO_POR: autor });
+          criados.push(linha);
+          await registrarHistorico({
+            lista: staging.LISTA_DESTINO, rowNumber: linha._rowNumber, autor,
+            itemId: linha.PA || linha.PA_PJE || '', acao: 'PROMOVIDO',
+            camposAlterados: { origem: { de: 'importacao_sei', para: staging.LISTA_DESTINO } },
+          });
+        }
+        const stagedVarios = await updateRow(sheetStaging, Number(rowNumber), {
+          STATUS_REVISAO: 'PROMOVIDO',
+          PROMOVIDO_EM: new Date().toISOString(),
+          LISTA_ROW_PROMOVIDA: criados.map((c) => c._rowNumber).join(','),
+        });
+        return NextResponse.json({ item: stagedVarios, promovido: criados[0], promovidos: criados.length });
+      }
       const novoItem = await addRow(sheetDestino, { ...campos, MODIFICADO_POR: autor });
 
       const staged = await updateRow(sheetStaging, Number(rowNumber), {
