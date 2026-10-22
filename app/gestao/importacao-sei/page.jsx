@@ -2,6 +2,7 @@
 import Sidebar from "@/components/Sidebar";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { loteEmOutroPa } from "@/lib/lotesDpj";
 
 // Lista de destino (rota da API) -> label/cor. Mesmas rotas de app/cadastro/page.jsx.
 const LISTA_META = {
@@ -196,6 +197,18 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
 
   const verificarDuplicidade = async () => {
     setDuplicata("buscando");
+    // DPJ-GC99: o ÚNICO alerta é o mesmo LOTE em PA diferente (itens do mesmo lote
+    // com o mesmo PA são normais); o servidor também bloqueia a promoção (409).
+    if (item.LISTA_DESTINO === "dpj") {
+      const achados = [];
+      try {
+        const json = await fetch("/api/bens/dpj").then(r => r.json());
+        const outro = loteEmOutroPa(json.dados || [], campos);
+        if (outro) achados.push({ rota: "dpj", item: outro });
+      } catch { /* ignora erro de rede */ }
+      setDuplicata({ encontrados: achados, tipo: "lote", lote: campos.LOTE });
+      return achados;
+    }
     // Confere ID_PASEI/PA/PJE separadamente (não um combinado só) — a DPJ tem
     // PA (processo SEI) e PJE (processo judicial) como identificadores
     // distintos, e um pode bater com outro registro sem o outro bater.
@@ -466,7 +479,11 @@ function CardImportacao({ item, onPromovido, onDescartado, showToast }) {
             <span style={{ color: "#22c55e" }}>✓ Sem duplicidade encontrada.</span>
           ) : (
             <div style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 8, padding: "8px 12px" }}>
-              <div style={{ color: "#dc2626", fontWeight: 700, marginBottom: 4 }}>⚠️ Já cadastrado em {duplicata.encontrados.length} lugar(es):</div>
+              <div style={{ color: "#dc2626", fontWeight: 700, marginBottom: 4 }}>
+                {duplicata.tipo === "lote"
+                  ? `⚠️ O lote ${String(duplicata.lote || "").trim()} já existe com outro PA — o mesmo lote só pode ter itens do mesmo PA:`
+                  : `⚠️ Já cadastrado em ${duplicata.encontrados.length} lugar(es):`}
+              </div>
               {duplicata.encontrados.map((d, i) => (
                 <div key={i} style={{ color: "#7f1d1d" }}>{d.rota}: {d.item.ID_PASEI || d.item.PA || d.item.PJE || d.item.PA_PJE} · {d.item.TIPO_BEM || ""}</div>
               ))}

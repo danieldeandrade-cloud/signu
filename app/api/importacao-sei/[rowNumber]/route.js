@@ -24,6 +24,7 @@ import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico } from '@/lib/historico';
 import { prazo6Meses, prazoVencido } from '@/lib/prazoDpj';
+import { acharLoteEmOutroPa, mensagemLoteOutroPa } from '@/lib/duplicidadeLote';
 import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO, faltaResponsavel } from '@/lib/duplicidadeVeiculo';
 
 const GESTORES = [
@@ -74,6 +75,9 @@ export async function PATCH(request, { params }) {
       // MESES" (ou já EM DILIGÊNCIA se os 6 meses da entrada passaram) e com o
       // vencimento calculado. Sem isso entrava sem situação (lote 4807, 09/10).
       if (staging.LISTA_DESTINO === 'dpj') {
+        // o mesmo lote só pode ter itens do mesmo PA
+        const outro = await acharLoteEmOutroPa(campos);
+        if (outro) return NextResponse.json({ erro: mensagemLoteOutroPa(campos, outro) }, { status: 409 });
         if (campos.DATA_ENTRADA && !campos.PRAZO_6MESES) campos.PRAZO_6MESES = prazo6Meses(campos.DATA_ENTRADA);
         if (!String(campos.STATUS_DILIGENCIA || '').trim()) {
           campos.STATUS_DILIGENCIA = campos.DATA_ENTRADA && prazoVencido(campos.DATA_ENTRADA) ? 'EM DILIGÊNCIA' : 'PRAZO 6 MESES';

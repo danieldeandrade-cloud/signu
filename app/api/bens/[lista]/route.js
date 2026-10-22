@@ -11,6 +11,7 @@ import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico } from '@/lib/historico';
 import { reorganizarFilaDoacoes } from '@/lib/reorganizarFilaDoacoes';
+import { acharLoteEmOutroPa, mensagemLoteOutroPa } from '@/lib/duplicidadeLote';
 import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO, faltaResponsavel } from '@/lib/duplicidadeVeiculo';
 
 export async function GET(request, { params }) {
@@ -49,6 +50,12 @@ export async function POST(request, { params }) {
 
     if (faltaResponsavel(lista, body)) {
       return NextResponse.json({ erro: 'Defina o responsável antes de salvar — sem ele o item não aparece na Minha Fila de ninguém.' }, { status: 400 });
+    }
+
+    // DPJ-GC99: o mesmo lote só pode ter itens do MESMO PA (lib/duplicidadeLote.js)
+    if (lista === 'dpj') {
+      const outro = await acharLoteEmOutroPa(body);
+      if (outro) return NextResponse.json({ erro: mensagemLoteOutroPa(body, outro) }, { status: 409 });
     }
 
     // Mesmo veículo em duas listas de veículos não pode (ver lib/duplicidadeVeiculo.js)

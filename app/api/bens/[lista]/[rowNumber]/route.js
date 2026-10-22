@@ -11,6 +11,7 @@ import { resolveSheetName } from '@/lib/listas';
 import { getNomePorEmail } from '@/lib/servidores';
 import { registrarHistorico, diffCampos } from '@/lib/historico';
 import { reorganizarFilaDoacoes } from '@/lib/reorganizarFilaDoacoes';
+import { acharLoteEmOutroPa, mensagemLoteOutroPa } from '@/lib/duplicidadeLote';
 import { statusHigeiaPara } from '@/lib/statusReciclagem';
 import { acharDuplicadoVeiculo, mensagemDuplicado, LISTAS_VEICULO } from '@/lib/duplicidadeVeiculo';
 
@@ -94,6 +95,20 @@ export async function PATCH(request, { params }) {
           { ignorar: [{ lista, rowNumber: Number(rowNumber) }] }
         );
         if (dup) return NextResponse.json({ erro: mensagemDuplicado(dup) }, { status: 409 });
+      }
+    }
+
+    // DPJ-GC99: trocar o LOTE ou o PA não pode deixar o mesmo lote em PAs diferentes
+    // (só confere se um dos dois mudou — itens antigos continuam editáveis)
+    if (lista === 'dpj') {
+      const novoLote = 'LOTE' in body ? body.LOTE : itemAntes.LOTE;
+      const novoPa = ('PA' in body ? body.PA : undefined) ?? ('PA_PJE' in body ? body.PA_PJE : undefined) ?? (itemAntes.PA || itemAntes.PA_PJE);
+      const mudou = String(novoLote || '').trim() !== String(itemAntes.LOTE || '').trim() ||
+        String(novoPa || '').replace(/\D/g, '') !== String(itemAntes.PA || itemAntes.PA_PJE || '').replace(/\D/g, '');
+      if (mudou) {
+        const dados = { LOTE: novoLote, PA: novoPa };
+        const outro = await acharLoteEmOutroPa(dados, { ignorarRow: rowNumber });
+        if (outro) return NextResponse.json({ erro: mensagemLoteOutroPa(dados, outro) }, { status: 409 });
       }
     }
 

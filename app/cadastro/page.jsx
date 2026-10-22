@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useEntidades, ENTIDADES_FALLBACK } from "@/lib/useEntidades";
 import { montarFilaDoacoes } from "@/lib/filaDoacoes";
 import { prazo6Meses } from "@/lib/prazoDpj";
+import { loteEmOutroPa } from "@/lib/lotesDpj";
 
 // Listas onde buscar duplicatas (todas)
 const TODAS_LISTAS_ROTA = [
@@ -472,6 +473,23 @@ export default function CadastroPage() {
   const [buscandoDup, setBuscandoDup] = useState(false);
   const debounceRef = useRef(null);
 
+  // DPJ-GC99: o ÚNICO alerta de duplicidade é o mesmo LOTE em PA diferente (itens
+  // do mesmo lote com o mesmo PA são normais). O servidor também bloqueia (409).
+  const verificarLoteDpj = (lote, pa) => {
+    clearTimeout(debounceRef.current);
+    setDuplicata(null);
+    if (!String(lote || "").trim() || !String(pa || "").replace(/\D/g, "")) return;
+    debounceRef.current = setTimeout(async () => {
+      setBuscandoDup(true);
+      try {
+        const json = await fetch("/api/bens/dpj").then(r => r.json());
+        const outro = loteEmOutroPa(json.dados || [], { LOTE: lote, PA: pa });
+        if (outro) setDuplicata({ campo: "LOTE", valor: String(lote).trim(), encontrados: [{ lista: "DPJ-GC99", color: "#fb923c", item: outro }] });
+      } catch { /* ignora erros de rede */ }
+      setBuscandoDup(false);
+    }, 600);
+  };
+
   const buscarDuplicata = (campo, valor) => {
     clearTimeout(debounceRef.current);
     setDuplicata(null);
@@ -558,7 +576,9 @@ export default function CadastroPage() {
     setFormData(next);
     setErros(erros.filter(e => e !== id));
     // Dispara verificação de duplicata nos campos críticos
-    if (id === "NIV" || id === "ID_PASEI" || id === "PA" || id === "PJE") {
+    if (listaKey === "DPJ_GC99") {
+      if (id === "LOTE" || id === "PA") verificarLoteDpj(next.LOTE, next.PA);
+    } else if (id === "NIV" || id === "ID_PASEI" || id === "PA" || id === "PJE") {
       const campo = (id === "PA" || id === "PJE") ? "ID_PASEI" : id;
       buscarDuplicata(campo, val);
     }
@@ -677,7 +697,7 @@ export default function CadastroPage() {
   const atualizarItemLote = (idx, next, campoAlterado) => {
     setItensLote(prev => prev.map((it, i) => i === idx ? next : it));
     setErrosItens(prev => prev.filter(i => i !== idx));
-    if (campoAlterado === "NIV") buscarDuplicata("NIV", next.NIV);
+    // (itens do lote são só da DPJ — lá não há alerta por NIV; ver verificarLoteDpj)
   };
   const adicionarItemLote = () => setItensLote(prev => [...prev, itemLoteVazio()]);
   const removerItemLote = (idx) => setItensLote(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
@@ -928,7 +948,9 @@ export default function CadastroPage() {
                           <div style={{ padding:"10px 14px", background:"rgba(248,113,113,0.1)", display:"flex", alignItems:"center", gap:8 }}>
                             <span style={{ fontSize:16 }}>⚠️</span>
                             <span style={{ fontSize:12, fontWeight:700, color:"#f87171" }}>
-                              {duplicata.campo === "NIV" ? "NIV" : "Processo"} já cadastrado em {duplicata.encontrados.length} lista(s)
+                              {duplicata.campo === "LOTE"
+                                ? `Lote ${duplicata.valor} já existe com outro PA`
+                                : `${duplicata.campo === "NIV" ? "NIV" : "Processo"} já cadastrado em ${duplicata.encontrados.length} lista(s)`}
                             </span>
                           </div>
                           <div style={{ padding:"8px 14px 12px", background:"rgba(248,113,113,0.05)" }}>
@@ -950,7 +972,9 @@ export default function CadastroPage() {
                               </div>
                             ))}
                             <div style={{ fontSize:11, color:"rgba(248,113,113,0.7)", marginTop:10, fontStyle:"italic" }}>
-                              Verifique se é realmente um novo item antes de salvar.
+                              {duplicata.campo === "LOTE"
+                                ? "O mesmo lote só pode ter itens do mesmo PA — confira o número do lote ou do PA."
+                                : "Verifique se é realmente um novo item antes de salvar."}
                             </div>
                           </div>
                         </div>
